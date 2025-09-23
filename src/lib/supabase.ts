@@ -1,94 +1,75 @@
+// src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/integrations/supabase/types'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rtrwrjzatvdyclntelca.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4'
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Database types
-export interface Profile {
-  id: string
-  username: string
-  full_name: string
-  bio?: string
-  avatar_url?: string
-  location?: {
-    latitude: number
-    longitude: number
-    city?: string
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
   }
-  created_at: string
-  updated_at: string
-  vibe_score: number
-  is_online: boolean
-  last_active: string
+})
+
+// Helper functions for common operations
+export const uploadFile = async (bucket: string, path: string, file: File) => {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false
+    })
+  
+  if (error) throw error
+  return data
 }
 
-export interface VibeEcho {
-  id: string
-  user_id: string
-  content: string
-  media_url?: string
-  media_type: 'text' | 'video' | 'audio' | 'image'
-  mood: string
-  activity?: string
-  location?: {
-    latitude: number
-    longitude: number
-    city?: string
-  }
-  duration?: number // for video/audio
-  created_at: string
-  expires_at?: string
-  likes_count: number
-  responses_count: number
-  is_active: boolean
+export const getPublicUrl = (bucket: string, path: string) => {
+  const { data } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(path)
+  
+  return data.publicUrl
 }
 
-export interface VibeMatch {
-  id: string
-  user1_id: string
-  user2_id: string
-  compatibility_score: number
-  matched_at: string
-  chat_started: boolean
-  is_active: boolean
+// Real-time helpers
+export const subscribeToVibeEchoes = (callback: (payload: any) => void) => {
+  return supabase
+    .channel('vibe_echoes_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'vibe_echoes' }, 
+      callback
+    )
+    .subscribe()
 }
 
-export interface Chat {
-  id: string
-  match_id: string
-  user1_id: string
-  user2_id: string
-  created_at: string
-  last_message_at: string
-  is_active: boolean
+export const subscribeToMessages = (chatId: string, callback: (payload: any) => void) => {
+  return supabase
+    .channel(`messages_${chatId}`)
+    .on('postgres_changes', 
+      { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, 
+      callback
+    )
+    .subscribe()
 }
 
-export interface Message {
-  id: string
-  chat_id: string
-  sender_id: string
-  content: string
-  message_type: 'text' | 'image' | 'audio' | 'video'
-  media_url?: string
-  created_at: string
-  read_at?: string
-}
-
-export interface Community {
-  id: string
-  name: string
-  description: string
-  creator_id: string
-  category: string
-  location_based: boolean
-  location?: {
-    latitude: number
-    longitude: number
-    radius: number // in km
-  }
-  member_count: number
-  created_at: string
-  is_active: boolean
+export const subscribeToMatches = (userId: string, callback: (payload: any) => void) => {
+  return supabase
+    .channel(`matches_${userId}`)
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'vibe_matches', filter: `user1_id=eq.${userId}` }, 
+      callback
+    )
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'vibe_matches', filter: `user2_id=eq.${userId}` }, 
+      callback
+    )
+    .subscribe()
 }
