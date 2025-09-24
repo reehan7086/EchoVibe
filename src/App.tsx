@@ -391,7 +391,9 @@ useEffect(() => {
   }, [user]);
 
   const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+    await supabase.auth.signInWithOAuth({ provider: 'google',   options: {
+      redirectTo: 'https://sparkvibe.app'
+    } });
   };
 
   const handleLogout = async () => {
