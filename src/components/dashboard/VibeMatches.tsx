@@ -499,7 +499,7 @@ export const VibeMatches = () => {
     if (user) {
       loadMatches();
     }
-  }, [user, filters]);
+  }, [user, filters, loadMatches]);
 
   const loadMatches = async () => {
     try {

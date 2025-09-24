@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Route, Routes, Link } from 'react-router-dom';
-import { Heart, MessageCircle, Share2, Send, Image, Video, Smile, TrendingUp, Users, Settings, Home, Search, Bell, Menu, X, ChevronDown, Bookmark, Hash, MoreHorizontal, User as UserIcon, LogOut, HelpCircle, Shield } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Image, Video, Smile, TrendingUp, Users, Settings, Home, Search, Bell, Menu, X, Hash, MoreHorizontal, User as UserIcon, LogOut, HelpCircle, Shield } from 'lucide-react';
 import { supabase } from '../supabase/client';
 import { Database } from '../supabase/types';
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';

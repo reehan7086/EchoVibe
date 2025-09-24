@@ -271,7 +271,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { X, Upload, Image, Video, Music, FileImage } from 'lucide-react'
+import { Upload, Image, Video, Music } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { mediaService } from '@/services/mediaService'
 import { useToast } from '@/hooks/use-toast'
@@ -382,7 +382,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       setUploadProgress(0)
       setPreview(null)
     }
-  }, [userId, onUpload, onError, disabled, toast])
+  }, [userId, onUpload, onError, disabled, toast, preview])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -395,13 +395,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const getIcon = () => {
     switch (accept) {
       case 'image':
-        return <Image className="h-8 w-8" />
+        return <Image className="h-8 w-8" />;
       case 'video':
-        return <Video className="h-8 w-8" />
+        return <Video className="h-8 w-8" />;
       case 'audio':
-        return <Music className="h-8 w-8" />
+        return <Music className="h-8 w-8" />;
       default:
-        return <Upload className="h-8 w-8" />
+        return <Upload className="h-8 w-8" />;
     }
   }
 

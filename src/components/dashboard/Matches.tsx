@@ -32,7 +32,7 @@ export const Matches = () => {
     if (user) {
       fetchMatches();
     }
-  }, [user]);
+  }, [user, fetchMatches]);
 
   const fetchMatches = async () => {
     if (!user) return;

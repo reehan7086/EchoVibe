@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Plus, Calendar } from 'lucide-react';
+import { Users, Plus } from 'lucide-react';
 
 interface Community {
   id: string;

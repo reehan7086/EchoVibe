@@ -56,7 +56,7 @@ export const Messages: React.FC = () => {
     if (user) {
       fetchChats();
     }
-  }, [user]);
+  }, [user, fetchChats]);
 
   const fetchChats = async () => {
     if (!user) return;

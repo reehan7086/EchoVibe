@@ -9,8 +9,8 @@ import { LocationPicker } from '@/components/ui/LocationPicker';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { geolocationService, type Location } from '@/services/geolocationService';
-import { User, Edit3, Save, X, MapPin, Calendar, Zap, Camera, Upload } from 'lucide-react';
+import { type Location } from '@/services/geolocationService';
+import { User, Edit3, Save, X, MapPin, Calendar, Zap, Camera } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 // Updated ProfileData interface to match Supabase types
@@ -84,7 +84,7 @@ export const Profile = () => {
     if (user) {
       fetchProfile();
     }
-  }, [user]);
+  }, [user, fetchProfile]);
 
   const fetchProfile = async () => {
     if (!user) return;
