@@ -1,6 +1,5 @@
 // src/components/dashboard/VibeMatches.jsx
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useAuth } from '../auth/AuthProvider';
@@ -639,7 +638,7 @@ export const VibeMatches = () => {
 
       let chatId;
       if (existingChat) {
-        chatId = existingChat.id;
+        _chatId = existingChat.id;
       } else {
         const { data: newChat, error } = await supabase
           .from('chats')
@@ -652,7 +651,7 @@ export const VibeMatches = () => {
           .single();
 
         if (error) throw error;
-        chatId = newChat.id;
+        _chatId = newChat.id;
       }
 
       showToast("Opening chat...", `Starting conversation with ${match.profile.full_name}`);

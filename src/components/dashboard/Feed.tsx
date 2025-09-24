@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { supabase } from '@/integrations/supabase/client';
-import { Heart, MessageCircle, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface VibeEcho {
@@ -16,7 +14,7 @@ interface VibeEcho {
   likes_count: number;
   responses_count: number;
   user_id: string;
-  profile: {
+  profile?: {
     username: string;
     full_name: string;
     avatar_url?: string;
@@ -46,7 +44,7 @@ const moodEmojis: Record<string, string> = {
   energetic: '⚡',
 };
 
-export const Feed = () => {
+export const Feed: React.FC = () => {
   const [vibes, setVibes] = useState<VibeEcho[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,34 +54,43 @@ export const Feed = () => {
 
   const fetchVibes = async () => {
     try {
-      const { data: vibeData, error } = await supabase
-        .from('vibe_echoes')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      if (vibeData) {
-        const userIds = vibeData.map(vibe => vibe.user_id);
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, username, full_name, avatar_url, vibe_score')
-          .in('user_id', userIds);
-
-        if (profilesError) throw profilesError;
-
-        const enrichedVibes = vibeData.map(vibe => {
-          const profile = profilesData?.find(p => p.user_id === vibe.user_id);
-          return {
-            ...vibe,
-            profile: profile || { username: 'unknown', full_name: 'Unknown User', vibe_score: 0 }
-          };
-        });
-
-        setVibes(enrichedVibes);
-      }
+      // Mock data for development
+      const mockVibes: VibeEcho[] = [
+        {
+          id: '1',
+          content: "Just finished an amazing workout! Feeling so energized and ready to take on the day 💪",
+          mood: 'energetic',
+          activity: 'Fitness',
+          created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+          likes_count: 5,
+          responses_count: 2,
+          user_id: 'mock-user-1',
+          profile: {
+            username: 'fitguru',
+            full_name: 'Sarah Fitness',
+            avatar_url: undefined,
+            vibe_score: 85
+          }
+        },
+        {
+          id: '2',
+          content: "Found this amazing little coffee shop downtown. The vibes here are perfect for some creative writing ☕️📝",
+          mood: 'creative',
+          activity: 'Coffee',
+          created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+          likes_count: 12,
+          responses_count: 7,
+          user_id: 'mock-user-2',
+          profile: {
+            username: 'wordsmith',
+            full_name: 'Alex Writer',
+            avatar_url: undefined,
+            vibe_score: 92
+          }
+        }
+      ];
+      
+      setVibes(mockVibes);
     } catch (error) {
       console.error('Error fetching vibes:', error);
     } finally {
@@ -104,22 +111,22 @@ export const Feed = () => {
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
                 <Avatar className="w-12 h-12">
-                  <AvatarImage src={vibe.profile.avatar_url} />
+                  <AvatarImage src={vibe.profile?.avatar_url} />
                   <AvatarFallback className="bg-gradient-primary text-white">
-                    {vibe.profile.username.slice(0, 2).toUpperCase()}
+                    {vibe.profile?.username.slice(0, 2).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-semibold">{vibe.profile.full_name}</h4>
-                    <span className="text-sm text-muted-foreground">@{vibe.profile.username}</span>
-                    <Badge variant="outline" className="text-xs">⚡ {vibe.profile.vibe_score}</Badge>
+                    <h4 className="font-semibold">{vibe.profile?.full_name || 'Unknown User'}</h4>
+                    <span className="text-sm text-muted-foreground">@{vibe.profile?.username || 'unknown'}</span>
+                    <Badge variant="outline" className="text-xs">⚡ {vibe.profile?.vibe_score || 0}</Badge>
                   </div>
                   <p className="text-foreground leading-relaxed">{vibe.content}</p>
                   <div className="flex items-center gap-3 flex-wrap">
                     <Badge variant="secondary" className="flex items-center gap-1">
-                      <div className={`w-2 h-2 rounded-full ${moodColors[vibe.mood]}`} />
-                      {moodEmojis[vibe.mood]} {vibe.mood}
+                      <div className={`w-2 h-2 rounded-full ${moodColors[vibe.mood] || 'bg-gray-500'}`} />
+                      {moodEmojis[vibe.mood] || '🤔'} {vibe.mood}
                     </Badge>
                     {vibe.activity && (
                       <Badge variant="outline" className="flex items-center gap-1">

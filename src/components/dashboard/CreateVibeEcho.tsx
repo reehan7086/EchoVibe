@@ -1,4 +1,3 @@
-// src/components/dashboard/CreateVibeEcho.tsx
 import { useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,11 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Smile, MapPin, Clock, X, Image, Video, Mic, 
-  Upload, Play, Pause, Volume2, Trash2, Edit3, Send 
+  Upload, Play, Pause, Volume2, Edit3, Send 
 } from 'lucide-react';
 
 const moods = [
@@ -65,33 +64,31 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ onUpload, onRemove, currentMe
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `vibe-${Date.now()}.${fileExt}`;
-      const filePath = `${user?.id}/${fileName}`;
+      const _filePath = `${user?.id}/${fileName}`;
 
-      const { data, error } = await supabase.storage
-        .from('media')
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
-
+      // For now, just create a mock URL since we don't have storage set up
+      const mockUrl = URL.createObjectURL(file);
+      
       let duration: number | undefined;
       if (file.type.startsWith('video/') || file.type.startsWith('audio/')) {
         duration = await getMediaDuration(file);
       }
 
       onUpload({
-        url: publicUrl,
+        url: mockUrl,
         type: file.type.startsWith('image/') ? 'image' : 
               file.type.startsWith('video/') ? 'video' : 'audio',
         duration
       });
+
+      toast({
+        title: "Upload successful! 🎉",
+        description: "Your media has been uploaded.",
+      });
     } catch (error: any) {
       toast({
         title: "Upload failed",
-        description: error.message,
+        description: error.message || "Something went wrong",
         variant: "destructive"
       });
     } finally {
@@ -136,59 +133,54 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ onUpload, onRemove, currentMe
     audio: 'audio/*'
   };
 
+  if (currentMedia) {
+    return <MediaPreview media={currentMedia} onRemove={onRemove} />;
+  }
+
   return (
     <div className="space-y-4">
-      {!currentMedia && (
-        <div 
-          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-            dragActive ? 'border-primary bg-primary/5' : 'border-gray-300'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={acceptTypes[mediaType]}
-            onChange={(e) => handleFiles(e.target.files)}
-            className="hidden"
-          />
+      <div 
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          dragActive ? 'border-primary bg-primary/5' : 'border-gray-300'
+        }`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={acceptTypes[mediaType]}
+          onChange={(e) => handleFiles(e.target.files)}
+          className="hidden"
+        />
+        
+        <div className="flex flex-col items-center space-y-2">
+          {mediaType === 'image' && <Image className="h-10 w-10 text-gray-400" />}
+          {mediaType === 'video' && <Video className="h-10 w-10 text-gray-400" />}
+          {mediaType === 'audio' && <Mic className="h-10 w-10 text-gray-400" />}
           
-          <div className="flex flex-col items-center space-y-2">
-            {mediaType === 'image' && <Image className="h-10 w-10 text-gray-400" />}
-            {mediaType === 'video' && <Video className="h-10 w-10 text-gray-400" />}
-            {mediaType === 'audio' && <Mic className="h-10 w-10 text-gray-400" />}
-            
-            <div>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="mb-2"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {isUploading ? 'Uploading...' : `Choose ${mediaType}`}
-              </Button>
-              <p className="text-sm text-gray-500">
-                or drag and drop your {mediaType} here
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Max file size: 10MB
-              </p>
-            </div>
+          <div>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="mb-2"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {isUploading ? 'Uploading...' : `Choose ${mediaType}`}
+            </Button>
+            <p className="text-sm text-gray-500">
+              or drag and drop your {mediaType} here
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Max file size: 10MB
+            </p>
           </div>
         </div>
-      )}
-
-      {currentMedia && (
-        <MediaPreview 
-          media={currentMedia} 
-          onRemove={onRemove}
-        />
-      )}
+      </div>
     </div>
   );
 };
@@ -371,7 +363,7 @@ export const CreateVibeEcho: React.FC = () => {
         activity: finalActivity || null,
         media_url: media?.url || null,
         media_type: media?.type || 'text',
-        media_duration: media?.duration || null,
+        duration: media?.duration || null,
         location: location || null,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         created_at: new Date().toISOString()

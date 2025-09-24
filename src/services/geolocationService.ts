@@ -156,6 +156,8 @@ class GeolocationService {
     return this.isWatching;
   }
 
+
+  
   // Helper methods
   private toRad(value: number): number {
     return (value * Math.PI) / 180;
@@ -176,5 +178,9 @@ class GeolocationService {
 }
 
 // Export singleton instance
+export const updateUserLocation = async (userId: string, location: Location) => {
+  // Implementation for updating user location in database
+  console.log('Updating user location:', userId, location);
+};
 export const geolocationService = new GeolocationService();
 export default geolocationService;

@@ -10,7 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Plus, Calendar } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 
 interface Community {
   id: string;
