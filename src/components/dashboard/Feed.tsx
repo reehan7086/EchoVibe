@@ -1,4 +1,3 @@
-// src/components/dashboard/Feed.tsx - Updated with debugging
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +19,7 @@ interface VibeEcho {
   created_at: string;
   likes_count: number;
   responses_count: number;
-  user_id?: string; // Make optional since it might not be returned
+  user_id?: string;
   profiles?: {
     username: string;
     full_name: string;
@@ -71,7 +70,7 @@ const DebugPanel: React.FC<{
   }}>
     <strong>🔧 EchoVibe Debug:</strong><br/>
     Env URL: {import.meta.env.VITE_SUPABASE_URL ? '✅' : '❌'}<br/>
-    Env Key: {import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? '✅' : '❌'}<br/>
+    Env Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅' : '❌'}<br/>
     Connection: {connectionStatus === null ? '⏳' : connectionStatus ? '✅' : '❌'}<br/>
     Vibes Loaded: {vibeCount}<br/>
     {error && <span style={{color: 'red'}}>Error: {error}</span>}
@@ -106,7 +105,6 @@ export const Feed: React.FC = () => {
         try {
           console.log('📡 Attempting Supabase client fetch...');
           const rawData = await fetchVibeEchoesProd();
-          // Type guard to ensure we have proper VibeEcho objects
           data = rawData.map(item => ({
             id: item.id,
             content: item.content,
@@ -212,7 +210,7 @@ export const Feed: React.FC = () => {
       
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Vibe Feed</h2>
-        <Badge variant="secondary">{vibes.length} vibes</Badge>
+        <Badge {...{ variant: "secondary" } as any}>{vibes.length} vibes</Badge>
       </div>
       
       {error && (
@@ -247,20 +245,20 @@ export const Feed: React.FC = () => {
                     <h4 className="font-semibold">{vibe.profiles?.full_name || 'Unknown User'}</h4>
                     <span className="text-sm text-muted-foreground">@{vibe.profiles?.username || 'unknown'}</span>
                     {vibe.profiles?.vibe_score && (
-                      <Badge variant="outline" className="text-xs">⚡ {vibe.profiles.vibe_score}</Badge>
+                      <Badge {...{ variant: "outline", className: "text-xs" } as any}>⚡ {vibe.profiles.vibe_score}</Badge>
                     )}
                   </div>
                   
                   <p className="text-foreground leading-relaxed">{vibe.content}</p>
                   
                   <div className="flex items-center gap-3 flex-wrap">
-                    <Badge variant="secondary" className="flex items-center gap-1">
+                    <Badge {...{ variant: "secondary", className: "flex items-center gap-1" } as any}>
                       <div className={`w-2 h-2 rounded-full ${moodColors[vibe.mood] || 'bg-gray-500'}`} />
                       {moodEmojis[vibe.mood] || '🤔'} {vibe.mood}
                     </Badge>
                     
                     {vibe.activity && (
-                      <Badge variant="outline" className="flex items-center gap-1">
+                      <Badge {...{ variant: "outline", className: "flex items-center gap-1" } as any}>
                         <Clock className="h-3 w-3" />
                         {vibe.activity}
                       </Badge>

@@ -1,13 +1,25 @@
-// src/lib/supabase.ts
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/integrations/supabase/types'
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rtrwrjzatvdyclntelca.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4'
+// Use environment variables only (remove hardcoded fallbacks for security)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Validate environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be defined');
+}
+
+// Log environment status (only in development)
+if (import.meta.env.DEV) {
+  console.log('🔧 Supabase Configuration:');
+  console.log('URL:', supabaseUrl ? '✅' : '❌');
+  console.log('Key:', supabaseAnonKey ? '✅' : '❌');
+}
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: localStorage,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
   },
@@ -16,7 +28,19 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       eventsPerSecond: 10
     }
   }
-})
+});
+
+// Test connection function
+export const testConnection = async () => {
+  try {
+    const { error } = await supabase.from('profiles').select('count').limit(1).single();
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error: any) {
+    console.error('Supabase connection error:', error);
+    return { success: false, error: error.message || 'Unknown error' };
+  }
+};
 
 // Helper functions for common operations
 export const uploadFile = async (bucket: string, path: string, file: File) => {
@@ -25,19 +49,19 @@ export const uploadFile = async (bucket: string, path: string, file: File) => {
     .upload(path, file, {
       cacheControl: '3600',
       upsert: false
-    })
+    });
   
-  if (error) throw error
-  return data
-}
+  if (error) throw error;
+  return data;
+};
 
 export const getPublicUrl = (bucket: string, path: string) => {
   const { data } = supabase.storage
     .from(bucket)
-    .getPublicUrl(path)
+    .getPublicUrl(path);
   
-  return data.publicUrl
-}
+  return data.publicUrl;
+};
 
 // Real-time helpers
 export const subscribeToVibeEchoes = (callback: (payload: any) => void) => {
@@ -47,8 +71,8 @@ export const subscribeToVibeEchoes = (callback: (payload: any) => void) => {
       { event: '*', schema: 'public', table: 'vibe_echoes' }, 
       callback
     )
-    .subscribe()
-}
+    .subscribe();
+};
 
 export const subscribeToMessages = (chatId: string, callback: (payload: any) => void) => {
   return supabase
@@ -57,8 +81,8 @@ export const subscribeToMessages = (chatId: string, callback: (payload: any) => 
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, 
       callback
     )
-    .subscribe()
-}
+    .subscribe();
+};
 
 export const subscribeToMatches = (userId: string, callback: (payload: any) => void) => {
   return supabase
@@ -71,5 +95,5 @@ export const subscribeToMatches = (userId: string, callback: (payload: any) => v
       { event: '*', schema: 'public', table: 'vibe_matches', filter: `user2_id=eq.${userId}` }, 
       callback
     )
-    .subscribe()
-}
+    .subscribe();
+};

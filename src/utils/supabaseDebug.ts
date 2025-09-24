@@ -7,13 +7,13 @@ export const checkDeploymentEnv = () => {
   console.log('=== DigitalOcean Environment Check ===');
   console.log('NODE_ENV:', import.meta.env.NODE_ENV);
   console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
-  console.log('VITE_SUPABASE_PUBLISHABLE_KEY exists:', !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+  console.log('VITE_SUPABASE_ANON_KEY exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
   
   // Log first few characters to verify it's loading
-  if (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-    console.log('Key prefix:', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY.substring(0, 10));
+  if (import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    console.log('Key prefix:', import.meta.env.VITE_SUPABASE_ANON_KEY.substring(0, 10));
   } else {
-    console.error('❌ VITE_SUPABASE_PUBLISHABLE_KEY is missing!');
+    console.error('❌ VITE_SUPABASE_ANON_KEY is missing!');
   }
   
   if (!import.meta.env.VITE_SUPABASE_URL) {
@@ -24,7 +24,7 @@ export const checkDeploymentEnv = () => {
 // 2. Fallback Supabase Client with Error Handling
 export const createSupabaseClient = () => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rtrwrjzatvdyclntelca.supabase.co';
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4';
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4';
   
   console.log('Creating Supabase client with:');
   console.log('URL:', supabaseUrl);
@@ -140,7 +140,7 @@ export const fetchVibeEchoesProd = async (): Promise<any[]> => {
 // 5. Direct API Call with Proper Error Handling (Alternative Method)
 export const fetchVibeEchoesDirectAPI = async (): Promise<any[]> => {
   const url = import.meta.env.VITE_SUPABASE_URL || 'https://rtrwrjzatvdyclntelca.supabase.co';
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4';
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4';
   
   // First try simple query without join
   const apiUrl = `${url}/rest/v1/vibe_echoes?select=id,content,mood,activity,created_at,likes_count,responses_count,media_url,media_type,user_id&is_active=eq.true&order=created_at.desc&limit=20`;

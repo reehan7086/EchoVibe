@@ -1,3 +1,6 @@
+-- Complete Fixed SQL Schema for EchoVibe
+-- This enables direct joins between vibe_echoes and profiles
+
 -- Create profiles table
 CREATE TABLE public.profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,10 +17,11 @@ CREATE TABLE public.profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Create vibe_echoes table
+-- Create vibe_echoes table with FIXED relationships
 CREATE TABLE public.vibe_echoes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE, -- NEW: Direct link to profiles
   content TEXT NOT NULL,
   media_url TEXT,
   media_type TEXT CHECK (media_type IN ('text', 'video', 'audio', 'image')) DEFAULT 'text',
@@ -81,6 +85,36 @@ CREATE TABLE public.communities (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+-- Create vibe_likes table (missing from original)
+CREATE TABLE public.vibe_likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vibe_echo_id UUID NOT NULL REFERENCES public.vibe_echoes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(vibe_echo_id, user_id)
+);
+
+-- Create community_members table (missing from original)
+CREATE TABLE public.community_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_id UUID NOT NULL REFERENCES public.communities(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT DEFAULT 'member' CHECK (role IN ('admin', 'moderator', 'member')),
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(community_id, user_id)
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_vibe_echoes_user_id ON public.vibe_echoes(user_id);
+CREATE INDEX IF NOT EXISTS idx_vibe_echoes_profile_id ON public.vibe_echoes(profile_id);
+CREATE INDEX IF NOT EXISTS idx_vibe_echoes_created_at ON public.vibe_echoes(created_at);
+CREATE INDEX IF NOT EXISTS idx_vibe_echoes_is_active ON public.vibe_echoes(is_active);
+CREATE INDEX IF NOT EXISTS idx_vibe_matches_user1_id ON public.vibe_matches(user1_id);
+CREATE INDEX IF NOT EXISTS idx_vibe_matches_user2_id ON public.vibe_matches(user2_id);
+CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON public.messages(chat_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages(created_at);
+
 -- Enable RLS on all tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vibe_echoes ENABLE ROW LEVEL SECURITY;
@@ -88,6 +122,8 @@ ALTER TABLE public.vibe_matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.communities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vibe_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_members ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for profiles
 CREATE POLICY "Public profiles are viewable by everyone"
@@ -168,6 +204,32 @@ CREATE POLICY "Creators can update their communities"
   ON public.communities FOR UPDATE
   USING (auth.uid() = creator_id);
 
+-- RLS Policies for vibe_likes
+CREATE POLICY "Users can view all vibe likes"
+  ON public.vibe_likes FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can like vibe echoes"
+  ON public.vibe_likes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can remove their own likes"
+  ON public.vibe_likes FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for community_members
+CREATE POLICY "Community members are viewable by everyone"
+  ON public.community_members FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can join communities"
+  ON public.community_members FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can leave communities"
+  ON public.community_members FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- Create function to handle new user registration
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -180,7 +242,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Trigger for new user registration
 CREATE TRIGGER on_auth_user_created
@@ -194,9 +256,167 @@ BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public;
 
 -- Triggers for updated_at
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- NEW: Function to automatically populate profile_id in vibe_echoes
+CREATE OR REPLACE FUNCTION public.populate_vibe_echo_profile_id()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Find the profile_id for the user_id
+  SELECT id INTO NEW.profile_id 
+  FROM public.profiles 
+  WHERE user_id = NEW.user_id;
+  
+  -- If no profile found, this will be null (which is fine)
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- NEW: Trigger to automatically set profile_id when creating vibe echoes
+CREATE TRIGGER populate_profile_id_on_vibe_echo
+  BEFORE INSERT ON public.vibe_echoes
+  FOR EACH ROW EXECUTE FUNCTION public.populate_vibe_echo_profile_id();
+
+-- NEW: Function to update likes count when vibe_likes changes
+CREATE OR REPLACE FUNCTION public.update_vibe_echo_likes_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.vibe_echoes 
+    SET likes_count = likes_count + 1 
+    WHERE id = NEW.vibe_echo_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.vibe_echoes 
+    SET likes_count = GREATEST(likes_count - 1, 0) 
+    WHERE id = OLD.vibe_echo_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- NEW: Triggers for likes count
+CREATE TRIGGER update_likes_count_on_insert
+  AFTER INSERT ON public.vibe_likes
+  FOR EACH ROW EXECUTE FUNCTION public.update_vibe_echo_likes_count();
+
+CREATE TRIGGER update_likes_count_on_delete
+  AFTER DELETE ON public.vibe_likes
+  FOR EACH ROW EXECUTE FUNCTION public.update_vibe_echo_likes_count();
+
+-- NEW: Function to update community member count
+CREATE OR REPLACE FUNCTION public.update_community_member_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.communities 
+    SET member_count = member_count + 1 
+    WHERE id = NEW.community_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.communities 
+    SET member_count = GREATEST(member_count - 1, 0) 
+    WHERE id = OLD.community_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- NEW: Triggers for community member count
+CREATE TRIGGER update_member_count_on_join
+  AFTER INSERT ON public.community_members
+  FOR EACH ROW EXECUTE FUNCTION public.update_community_member_count();
+
+CREATE TRIGGER update_member_count_on_leave
+  AFTER DELETE ON public.community_members
+  FOR EACH ROW EXECUTE FUNCTION public.update_community_member_count();
+
+-- NEW: Create a view for easy querying of vibe echoes with profiles
+CREATE OR REPLACE VIEW public.vibe_echoes_with_profiles AS
+SELECT 
+  ve.*,
+  p.username,
+  p.full_name,
+  p.avatar_url,
+  p.bio,
+  p.vibe_score,
+  p.is_online
+FROM public.vibe_echoes ve
+LEFT JOIN public.profiles p ON ve.profile_id = p.id
+WHERE ve.is_active = true;
+
+-- Grant access to the view
+GRANT SELECT ON public.vibe_echoes_with_profiles TO authenticated;
+GRANT SELECT ON public.vibe_echoes_with_profiles TO anon;
+
+-- NEW: Function for efficient vibe echo queries with profiles
+CREATE OR REPLACE FUNCTION public.get_vibe_echoes_with_profiles(
+  limit_count INTEGER DEFAULT 20,
+  offset_count INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+  id UUID,
+  user_id UUID,
+  profile_id UUID,
+  content TEXT,
+  media_url TEXT,
+  media_type TEXT,
+  mood TEXT,
+  activity TEXT,
+  location JSONB,
+  duration INTEGER,
+  expires_at TIMESTAMPTZ,
+  likes_count INTEGER,
+  responses_count INTEGER,
+  is_active BOOLEAN,
+  created_at TIMESTAMPTZ,
+  username TEXT,
+  full_name TEXT,
+  avatar_url TEXT,
+  bio TEXT,
+  vibe_score INTEGER,
+  is_online BOOLEAN
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    ve.id,
+    ve.user_id,
+    ve.profile_id,
+    ve.content,
+    ve.media_url,
+    ve.media_type,
+    ve.mood,
+    ve.activity,
+    ve.location,
+    ve.duration,
+    ve.expires_at,
+    ve.likes_count,
+    ve.responses_count,
+    ve.is_active,
+    ve.created_at,
+    p.username,
+    p.full_name,
+    p.avatar_url,
+    p.bio,
+    p.vibe_score,
+    p.is_online
+  FROM public.vibe_echoes ve
+  LEFT JOIN public.profiles p ON ve.profile_id = p.id
+  WHERE ve.is_active = true
+  ORDER BY ve.created_at DESC
+  LIMIT limit_count
+  OFFSET offset_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Grant execute permission on the function
+GRANT EXECUTE ON FUNCTION public.get_vibe_echoes_with_profiles TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_vibe_echoes_with_profiles TO anon;
