@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
-// Use environment variables only (remove hardcoded fallbacks for security)
+// Use environment variables only
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
