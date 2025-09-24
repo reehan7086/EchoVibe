@@ -10,7 +10,7 @@ const Auth = () => {
       
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">EchoVibe</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">SparkVibe</h1>
           <p className="text-white/80">Find your vibe tribe nearby</p>
         </div>
         

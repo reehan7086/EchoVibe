@@ -8,7 +8,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="space-y-4">
             <h3 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              EchoVibe
+              SparkVibe
             </h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
               AI-powered social discovery that connects you with nearby people who share your vibe.
@@ -54,7 +54,7 @@ const Footer = () => {
 
         <div className="mt-12 pt-8 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2024 EchoVibe. All rights reserved. Built with ❤️ for authentic connections.
+            © 2024 SparkVibe. All rights reserved. Built with ❤️ for authentic connections.
           </p>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

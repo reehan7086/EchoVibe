@@ -49,7 +49,7 @@ const Features = () => {
             ✨ Features That Connect
           </Badge>
           <h2 className="text-4xl lg:text-6xl font-bold mb-6">
-            Why <span className="bg-gradient-primary bg-clip-text text-transparent">EchoVibe</span> Works
+            Why <span className="bg-gradient-primary bg-clip-text text-transparent">SparkVibe</span> Works
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Combining cutting-edge AI, location technology, and human psychology to create 

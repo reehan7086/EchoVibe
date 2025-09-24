@@ -312,21 +312,21 @@ const App: React.FC = () => {
   }, []);
 
   // Fetch posts
-  useEffect(() => {
-    const fetchPosts = async () => {
-      const { data, error } = await supabase
-        .from('vibe_echoes')
-        .select('*, profiles(username, full_name, avatar_url)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      if (error) {
-        console.error('Error fetching posts:', error);
-        return;
-      }
-      setPosts(data || []);
-    };
-    fetchPosts();
-  }, []);
+useEffect(() => {
+  const fetchPosts = async () => {
+    const { data, error } = await supabase
+      .from('vibe_echoes')
+      .select('*, profiles(username, full_name, avatar_url)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching posts:', error);
+      return;
+    }
+    setPosts(data || []);
+  };
+  fetchPosts();
+}, []);
 
   // Fetch suggested friends
   useEffect(() => {
@@ -658,7 +658,7 @@ const App: React.FC = () => {
                   {showMobileMenu ? <X size={24} /> : <Menu size={24} />}
                 </button>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent cursor-pointer">
-                  EchoVibe
+                  SparkVibe
                 </h1>
                 <div className="hidden md:flex items-center bg-slate-700 rounded-lg px-3 py-2 w-64">
                   <Search size={18} className="text-gray-400 mr-2" />

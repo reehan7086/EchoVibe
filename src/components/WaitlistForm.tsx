@@ -18,7 +18,7 @@ const WaitlistForm = () => {
     setIsSubmitted(true);
     toast({
       title: "You're on the list! 🎉",
-      description: "We'll notify you when EchoVibe launches in your area.",
+      description: "We'll notify you when SparkVibe launches in your area.",
     });
   };
 
@@ -77,7 +77,7 @@ const WaitlistForm = () => {
                   <div className="text-4xl mb-4">🎉</div>
                   <h3 className="text-2xl font-semibold text-primary">Welcome to the future!</h3>
                   <p className="text-muted-foreground">
-                    You'll be among the first to know when EchoVibe launches in your area.
+                    You'll be among the first to know when SparkVibe launches in your area.
                     We're targeting early 2025 for our beta release.
                   </p>
                   <div className="flex items-center justify-center gap-4 mt-6">

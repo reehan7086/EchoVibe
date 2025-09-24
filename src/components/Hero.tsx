@@ -64,7 +64,7 @@ const Hero = () => {
             <div className="relative group">
               <img 
                 src={heroImage} 
-                alt="People connecting through EchoVibe app with vibrant energy waves" 
+                alt="People connecting through SparkVibe app with vibrant energy waves" 
                 className="w-full h-auto rounded-2xl shadow-card group-hover:shadow-glow transition-all duration-500"
               />
               <div className="absolute inset-0 bg-gradient-primary opacity-20 rounded-2xl group-hover:opacity-30 transition-opacity duration-500"></div>

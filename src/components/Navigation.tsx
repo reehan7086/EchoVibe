@@ -9,7 +9,7 @@ const Navigation = () => {
           {/* Logo */}
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              EchoVibe
+              SparkVibe
             </h1>
             <Badge variant="secondary" className="text-xs px-2 py-1">
               Beta

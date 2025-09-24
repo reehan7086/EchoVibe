@@ -1,5 +1,5 @@
--- EchoVibe Database Schema
--- This file contains the complete database schema for EchoVibe
+-- SparkVibe Database Schema
+-- This file contains the complete database schema for SparkVibe
 -- Execute these commands in your Supabase SQL editor
 
 -- Enable required extensions

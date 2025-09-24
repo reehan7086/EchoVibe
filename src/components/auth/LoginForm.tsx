@@ -52,7 +52,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode, isSignUp }) 
     <Card className="w-full max-w-md mx-auto bg-white/10 backdrop-blur-md border-white/20">
       <CardHeader>
         <CardTitle className="text-2xl text-center text-white">
-          {isSignUp ? 'Join EchoVibe' : 'Welcome Back'}
+          {isSignUp ? 'Join SparkVibe' : 'Welcome Back'}
         </CardTitle>
         <CardDescription className="text-center text-white/70">
           {isSignUp 
