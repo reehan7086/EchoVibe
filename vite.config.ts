@@ -4,14 +4,22 @@ import path from "path";
 
 export default defineConfig({
   server: {
-    host: "::",
-    port: 8080,
+    host: "0.0.0.0",
+    port: parseInt(process.env.PORT || "8080"),
+  },
+  preview: {
+    host: "0.0.0.0", 
+    port: parseInt(process.env.PORT || "8080"),
   },
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
   },
   optimizeDeps: {
     exclude: ['lucide-react']
