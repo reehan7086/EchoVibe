@@ -2067,8 +2067,8 @@ const submitComment = async () => {
 if (!user) {
   return (
     <Routes>
+      <Route path="/login" element={<LandingPage />} />
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="*" element={<LandingPage />} />
     </Routes>
