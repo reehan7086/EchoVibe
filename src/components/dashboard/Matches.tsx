@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Heart, MessageCircle, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';

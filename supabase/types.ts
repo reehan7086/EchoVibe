@@ -1,4 +1,4 @@
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '@/supabase/types';
 
 export interface VibeEcho {
   id: string;

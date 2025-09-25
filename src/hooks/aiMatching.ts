@@ -1,5 +1,5 @@
 // src/services/aiMatching.ts
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/supabase/client';
 
 interface UserProfile {
   id: string;

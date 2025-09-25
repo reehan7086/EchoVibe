@@ -1,6 +1,6 @@
 // src/utils/supabaseDebug.ts
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '@/supabase/types';
 
 // 1. Runtime Environment Variable Check for DigitalOcean
 export const checkDeploymentEnv = () => {

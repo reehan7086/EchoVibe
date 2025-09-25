@@ -3,10 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '../supabase/client';
 import { 
-  Sparkles, 
   Heart, 
   Users, 
   MapPin, 
@@ -30,33 +28,50 @@ const LandingPage = () => {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signUp, signIn } = useAuth();
-  const { toast } = useToast();
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     
     setLoading(true);
+    setMessage(null);
+    
     try {
       if (isSignUp) {
-        await signUp(email, password, name);
-        toast({
-          title: "🎉 Welcome to SparkVibe!",
-          description: "Your account has been created successfully!",
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name,
+            }
+          }
+        });
+        
+        if (error) throw error;
+        
+        setMessage({
+          type: 'success',
+          text: 'Welcome to SparkVibe! Check your email to verify your account.'
         });
       } else {
-        await signIn(email, password);
-        toast({
-          title: "✨ Welcome back!",
-          description: "You're now connected to your vibe tribe!",
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        
+        setMessage({
+          type: 'success',
+          text: 'Welcome back! You\'re now connected to your vibe tribe!'
         });
       }
     } catch (error: any) {
-      toast({
-        title: "Oops!",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
+      setMessage({
+        type: 'error',
+        text: error.message || 'Something went wrong. Please try again.'
       });
     } finally {
       setLoading(false);
@@ -66,16 +81,18 @@ const LandingPage = () => {
   const handleGoogleAuth = async () => {
     setLoading(true);
     try {
-      // Implement Google OAuth here
-      toast({
-        title: "🚀 Coming Soon!",
-        description: "Google login will be available in the next update!",
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
       });
+      
+      if (error) throw error;
     } catch (error: any) {
-      toast({
-        title: "Connection failed",
-        description: error.message || "Please try again.",
-        variant: "destructive",
+      setMessage({
+        type: 'error',
+        text: error.message || 'Google login failed. Please try again.'
       });
     } finally {
       setLoading(false);
@@ -216,6 +233,16 @@ const LandingPage = () => {
                     }
                   </p>
                 </div>
+
+                {message && (
+                  <div className={`mb-4 p-3 rounded-lg text-sm ${
+                    message.type === 'success' 
+                      ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                      : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                  }`}>
+                    {message.text}
+                  </div>
+                )}
 
                 <form onSubmit={handleEmailAuth} className="space-y-6">
                   {isSignUp && (
@@ -435,6 +462,27 @@ const LandingPage = () => {
           </div>
         </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+          .animate-float {
+            animation: float 6s ease-in-out infinite;
+          }
+          .animate-float.delay-1000 {
+            animation-delay: -2s;
+          }
+          .animate-float.delay-2000 {
+            animation-delay: -4s;
+          }
+          .animate-float.delay-3000 {
+            animation-delay: -6s;
+          }
+        `
+      }} />
     </div>
   );
 };

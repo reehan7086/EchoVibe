@@ -1,6 +1,6 @@
 // src/services/matchingService.ts
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/integrations/supabase/types'
+import type { Database } from '@/supabase/types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type VibeMatch = Database['public']['Tables']['vibe_matches']['Row']
