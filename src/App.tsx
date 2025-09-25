@@ -1,15 +1,15 @@
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Route, Routes, Link } from 'react-router-dom';
-import { Users, Search, Bell, Menu, LogOut } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut } from 'lucide-react';
 import { supabase } from '../supabase/client';
 import type { Database } from '../supabase/types';
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import LandingPage from './components/LandingPage';
-import AuthService from './services/AuthService'; // Assuming this exists or adapt from first code
+import AuthService from './services/AuthService';
 
-type VibeEcho = Database['public']['Tables']['vibe_echoes']['Row'] & { 
+type VibeEcho = Database['public']['Tables']['vibe_echoes']['Row'] & {
   profiles: Pick<Database['public']['Tables']['profiles']['Row'], 'username' | 'full_name' | 'avatar_url'>;
 };
 
@@ -28,6 +28,9 @@ const MainFeed: React.FC<{
   handlePost: () => void;
   setNewPost: (content: string) => void;
   newPost: string;
+  characterCount: number;
+  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  handleTextChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleLike: (postId: string) => void;
   handleComment: (postId: string) => void;
   handleShare: (postId: string) => void;
@@ -39,11 +42,15 @@ const MainFeed: React.FC<{
   newComment: string;
   setNewComment: (content: string) => void;
   submitComment: () => void;
+  user: SupabaseUser | null;
 }> = ({
   posts,
   handlePost,
   setNewPost,
   newPost,
+  characterCount,
+  textareaRef,
+  handleTextChange,
   handleLike,
   handleComment,
   handleShare,
@@ -54,9 +61,185 @@ const MainFeed: React.FC<{
   selectedPost,
   newComment,
   setNewComment,
-  submitComment
+  submitComment,
+  user,
 }) => (
-  // ...existing code...
+  <motion.main
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="lg:col-span-6 space-y-6"
+  >
+    <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
+      <div className="flex gap-3">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-lg flex-shrink-0">
+          {user?.user_metadata?.full_name?.[0]?.toUpperCase() || 'U'}
+        </div>
+        <div className="flex-1">
+          <textarea
+            ref={textareaRef}
+            value={newPost}
+            onChange={handleTextChange}
+            placeholder="What's on your mind?"
+            className="w-full bg-transparent resize-none outline-none text-lg placeholder-white/50 min-h-[80px]"
+            maxLength={280}
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
+        <div className="flex gap-4">
+          <button className="p-2 rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all">
+            <ImageIcon size={18} />
+          </button>
+          <button className="p-2 rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all">
+            <Video size={18} />
+          </button>
+          <button className="p-2 rounded-full bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-all">
+            <Smile size={18} />
+          </button>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-white/60">{characterCount}/280</span>
+          <button
+            onClick={handlePost}
+            disabled={!newPost.trim() || characterCount > 280}
+            className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-purple-500/25 transition-all"
+          >
+            Post
+          </button>
+        </div>
+      </div>
+    </div>
+    <div className="space-y-4">
+      {posts.map((post) => (
+        <motion.article
+          key={post.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-lg">
+                {post.profiles?.avatar_url ? (
+                  <img src={post.profiles.avatar_url} alt={post.profiles.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  post.profiles?.full_name?.[0] || 'U'
+                )}
+              </div>
+              <div>
+                <h3 className="font-semibold">{post.profiles?.full_name || 'Unknown User'}</h3>
+                <p className="text-sm text-white/60">@{post.profiles?.username || 'unknown'} • {new Date(post.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (post.user_id === user?.id) handleDeletePost(post.id);
+              }}
+              className="p-2 rounded-full hover:bg-white/10 transition-all"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          </div>
+          <p className="mb-3 text-base leading-relaxed">{post.content}</p>
+          {post.media_url && post.media_type === 'image' && (
+            <img src={post.media_url} alt="Post media" className="mb-4 h-64 w-full object-cover rounded-lg" />
+          )}
+          {post.media_url && post.media_type === 'video' && (
+            <video controls className="mb-4 h-64 w-full object-cover rounded-lg">
+              <source src={post.media_url} type="video/mp4" />
+            </video>
+          )}
+          <div className="inline-block px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-sm mb-4">
+            Mood: {post.mood}
+          </div>
+          <div className="text-sm text-white/60 mb-3">
+            {post.likes_count} likes • {post.responses_count} responses
+          </div>
+          <div className="flex items-center justify-around pt-3 border-t border-white/10">
+            <button
+              onClick={() => handleLike(post.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+                post.likes_count > 0 
+                  ? 'text-red-400 bg-red-500/10 hover:bg-red-500/20' 
+                  : 'text-white/60 hover:text-red-400 hover:bg-red-500/10'
+              }`}
+            >
+              <Heart size={18} fill={post.likes_count > 0 ? 'currentColor' : 'none'} />
+              <span className="text-sm">Like</span>
+            </button>
+            <button
+              onClick={() => handleComment(post.id)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-white/60 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
+            >
+              <MessageCircle size={18} />
+              <span className="text-sm">Comment</span>
+            </button>
+            <button
+              onClick={() => handleShare(post.id)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-white/60 hover:text-green-400 hover:bg-green-500/10 transition-all"
+            >
+              <Share2 size={18} />
+              <span className="text-sm">Share</span>
+            </button>
+          </div>
+        </motion.article>
+      ))}
+    </div>
+    <AnimatePresence>
+      {showCommentModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        >
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.9 }}
+            className="bg-slate-800 rounded-xl p-6 w-full max-w-md"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-lg">Add Response</h3>
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="p-2 hover:bg-slate-700 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Write your response..."
+              className="w-full bg-slate-700 rounded-lg p-3 text-gray-100 placeholder-gray-400 border border-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+              rows={4}
+            />
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={submitComment}
+                disabled={!newComment.trim()}
+                className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg font-semibold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+              >
+                Post Response
+              </button>
+            </div>
+            {selectedPost && comments[selectedPost]?.length > 0 && (
+              <div className="mt-4 max-h-48 overflow-y-auto space-y-2">
+                {comments[selectedPost].map((comment) => (
+                  <div key={comment.id} className="p-3 bg-slate-700/50 rounded-lg">
+                    <p className="text-sm font-semibold">{comment.profiles?.full_name || 'Unknown User'}</p>
+                    <p className="text-sm">{comment.content}</p>
+                    <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </motion.main>
 );
 
 const Discover: React.FC<{ communities: Community[] }> = ({ communities }) => (
@@ -239,12 +422,10 @@ const SettingsPage: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Add default handlers for MainFeed
-  const handleShare = () => {};
-  const handleDeletePost = () => {};
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [posts, setPosts] = useState<VibeEcho[]>([]);
   const [newPost, setNewPost] = useState<string>('');
+  const [newPostMood] = useState<string>('happy');
   const [showCommentModal, setShowCommentModal] = useState<boolean>(false);
   const [selectedPost, setSelectedPost] = useState<string | null>(null);
   const [newComment, setNewComment] = useState<string>('');
@@ -254,15 +435,16 @@ const App: React.FC = () => {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [followStatus] = useState<{ [key: string]: boolean }>({});
   const [characterCount, setCharacterCount] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [loading, setLoading] = useState(true);
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        const session = await supabase.auth.getSession();
-        setUser(session.data.session?.user ?? null);
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw new Error('Session fetch failed');
+        setUser(session?.user ?? null);
         const currentUser = await AuthService.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
@@ -275,7 +457,7 @@ const App: React.FC = () => {
     };
     initializeApp();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session: Session | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
@@ -341,25 +523,31 @@ const App: React.FC = () => {
         return;
       }
       if (!chats) return;
-      await supabase
+      const { data, error } = await supabase
         .from('messages')
         .select('*, profiles(username, full_name)')
         .in('chat_id', chats.map((chat: Chat) => chat.id))
         .neq('sender_id', user.id)
         .is('read_at', null);
-      // notifications logic removed
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        return;
+      }
+      // Placeholder for notification count logic
     };
     fetchNotifications();
   }, [user]);
 
-  // ...existing code...
-
   const handleLogout = async () => {
-    await AuthService.logout();
-    await supabase.auth.signOut();
-    setUser(null);
-    setPosts([]);
-    setActiveTab('feed');
+    try {
+      await AuthService.logout();
+      await supabase.auth.signOut();
+      setUser(null);
+      setPosts([]);
+      setActiveTab('feed');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -368,34 +556,38 @@ const App: React.FC = () => {
     setCharacterCount(text.length);
     const textarea = e.target;
     textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
+    textarea.style.height = `${textarea.scrollHeight}px`;
   };
 
   const handlePost = async () => {
-    if (!newPost.trim() || characterCount > 280) return;
-    if (!user) {
-      alert('Please log in to post.');
+    if (!newPost.trim() || characterCount > 280 || !user) {
+      if (!user) alert('Please log in to post.');
       return;
     }
-    const post: Database['public']['Tables']['vibe_echoes']['Insert'] = {
-      user_id: user.id,
-      content: newPost.trim(),
-      mood: 'happy',
-      media_type: 'text',
-      likes_count: 0,
-      responses_count: 0,
-      is_active: true,
-    };
-    const { data, error } = await supabase.from('vibe_echoes').insert([post]).select('*, profiles(username, full_name, avatar_url)').single();
-    if (error) {
+    try {
+      const post: Database['public']['Tables']['vibe_echoes']['Insert'] = {
+        user_id: user.id,
+        content: newPost.trim(),
+        mood: newPostMood,
+        media_type: 'text',
+        likes_count: 0,
+        responses_count: 0,
+        is_active: true,
+      };
+      const { data, error } = await supabase
+        .from('vibe_echoes')
+        .insert([post])
+        .select('*, profiles(username, full_name, avatar_url)')
+        .single();
+      if (error) throw new Error(`Error posting: ${error.message}`);
+      setPosts([data as VibeEcho, ...posts]);
+      setNewPost('');
+      setCharacterCount(0);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    } catch (error) {
       console.error('Error posting:', error);
-      return;
-    }
-    setPosts([data as VibeEcho, ...posts]);
-    setNewPost('');
-    setCharacterCount(0);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
     }
   };
 
@@ -406,16 +598,17 @@ const App: React.FC = () => {
     }
     const post = posts.find((p) => p.id === postId);
     if (!post) return;
-    const newLikes = post.likes_count + 1;
-    const { error } = await supabase
-      .from('vibe_echoes')
-      .update({ likes_count: newLikes })
-      .eq('id', postId);
-    if (error) {
+    try {
+      const newLikes = post.likes_count + 1;
+      const { error } = await supabase
+        .from('vibe_echoes')
+        .update({ likes_count: newLikes })
+        .eq('id', postId);
+      if (error) throw new Error(`Error updating like: ${error.message}`);
+      setPosts(posts.map((p) => (p.id === postId ? { ...p, likes_count: newLikes } : p)));
+    } catch (error) {
       console.error('Error updating like:', error);
-      return;
     }
-    setPosts(posts.map((p) => (p.id === postId ? { ...p, likes_count: newLikes } : p)));
   };
 
   const handleComment = async (postId: string) => {
@@ -425,36 +618,76 @@ const App: React.FC = () => {
     }
     setSelectedPost(postId);
     setShowCommentModal(true);
-    // Fetch comments logic as in original
-    const { data: chats, error: chatsError } = await supabase
-      .from('chats')
-      .select('id')
-      .eq('user1_id', user.id)
-      .or(`user2_id.eq.${user.id}`);
-    if (chatsError || !chats) return;
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*, profiles(username, full_name)')
-      .in('chat_id', chats.map((chat: Chat) => chat.id));
-    if (error) return;
-    setComments((prev) => ({ ...prev, [postId]: data || [] }));
+    try {
+      const { data: chats, error: chatsError } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('user1_id', user.id)
+        .or(`user2_id.eq.${user.id}`);
+      if (chatsError) throw new Error(`Error fetching chats: ${chatsError.message}`);
+      if (!chats) return;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*, profiles(username, full_name)')
+        .in('chat_id', chats.map((chat: Chat) => chat.id));
+      if (error) throw new Error(`Error fetching comments: ${error.message}`);
+      setComments((prev) => ({ ...prev, [postId]: data || [] }));
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
   };
 
   const submitComment = async () => {
     if (!newComment.trim() || !selectedPost || !user) return;
-    // Comment submission logic as in original
-    // ... (omitted for brevity, use the full logic from the second code)
-    setNewComment('');
-    setShowCommentModal(false);
+    try {
+      const comment: Database['public']['Tables']['messages']['Insert'] = {
+        chat_id: selectedPost,
+        sender_id: user.id,
+        content: newComment.trim(),
+        created_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from('messages').insert([comment]);
+      if (error) throw new Error(`Error posting comment: ${error.message}`);
+      const { data: newCommentData } = await supabase
+        .from('messages')
+        .select('*, profiles(username, full_name)')
+        .eq('id', comment.id)
+        .single();
+      setComments((prev) => ({
+        ...prev,
+        [selectedPost]: [...(prev[selectedPost] || []), newCommentData as Message],
+      }));
+      setNewComment('');
+      setShowCommentModal(false);
+    } catch (error) {
+      console.error('Error posting comment:', error);
+    }
   };
 
-  // ...existing code...
+  const handleShare = async (postId: string) => {
+    // Placeholder for share logic
+    console.log(`Sharing post ${postId}`);
+  };
 
-  // ...existing code...
+  const handleDeletePost = async (postId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('vibe_echoes')
+        .update({ is_active: false })
+        .eq('id', postId)
+        .eq('user_id', user.id);
+      if (error) throw new Error(`Error deleting post: ${error.message}`);
+      setPosts(posts.filter((p) => p.id !== postId));
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
+  };
 
-  // ...existing code...
-
-  // ...existing code...
+  const handleFollow = async (userId: string) => {
+    // Placeholder for follow logic
+    console.log(`Following user ${userId}`);
+  };
 
   if (loading) {
     return (
@@ -490,7 +723,28 @@ const App: React.FC = () => {
         <main className="pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <aside className="hidden lg:block lg:col-span-3">
-              {/* Sidebar from second code */}
+              <nav className="space-y-2">
+                {[
+                  { id: 'feed', label: 'Feed', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', path: '/' },
+                  { id: 'discover', label: 'Discover', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', path: '/discover' },
+                  { id: 'friends', label: 'Friends', icon: 'M15 17h5l-5 5v-5zM9 17H4l5 5v-5zM18 7V2l-5 5h5zM6 7V2l5 5H6z', path: '/friends' },
+                  { id: 'profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', path: '/profile' },
+                ].map((item) => (
+                  <Link
+                    key={item.id}
+                    to={item.path}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
+                      activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                    </svg>
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
             </aside>
             <Routes>
               <Route
@@ -501,6 +755,9 @@ const App: React.FC = () => {
                     handlePost={handlePost}
                     setNewPost={setNewPost}
                     newPost={newPost}
+                    characterCount={characterCount}
+                    textareaRef={textareaRef}
+                    handleTextChange={handleTextChange}
                     handleLike={handleLike}
                     handleComment={handleComment}
                     handleShare={handleShare}
@@ -512,16 +769,46 @@ const App: React.FC = () => {
                     newComment={newComment}
                     setNewComment={setNewComment}
                     submitComment={submitComment}
+                    user={user}
                   />
                 }
               />
               <Route path="/discover" element={<Discover communities={communities} />} />
-              <Route path="/friends" element={<Friends suggestedFriends={suggestedFriends} handleFollow={() => {}} followStatus={followStatus} />} />
+              <Route path="/friends" element={<Friends suggestedFriends={suggestedFriends} handleFollow={handleFollow} followStatus={followStatus} />} />
               <Route path="/profile" element={<ProfilePage user={user} onLogout={handleLogout} />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>
             <aside className="hidden lg:block lg:col-span-3">
-              {/* Right sidebar from second code */}
+              <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
+                <h3 className="font-semibold text-lg mb-4">Who to Follow</h3>
+                <div className="space-y-4">
+                  {suggestedFriends.map((friend) => (
+                    <div key={friend.id} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-sm">
+                          {friend.avatar_url ? (
+                            <img src={friend.avatar_url} alt={friend.full_name} className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            friend.full_name[0]
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm hover:text-indigo-400 cursor-pointer">{friend.full_name}</h4>
+                          <span className="text-xs text-gray-400">@{friend.username}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleFollow(friend.user_id)}
+                        className={`px-3 py-1 text-sm rounded-lg transition-all ${
+                          followStatus[friend.user_id] ? 'bg-slate-700 text-gray-400 hover:bg-slate-600' : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                        }`}
+                      >
+                        {followStatus[friend.user_id] ? 'Following' : 'Follow'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </aside>
           </div>
         </main>
