@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Route, Routes, Link, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut, Send, UserPlus, UserCheck, Camera, Upload, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../supabase/client';
+import { supabase } from './lib/supabase';
 import type { Database } from '../supabase/types';
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';

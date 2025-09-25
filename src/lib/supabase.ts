@@ -1,20 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/supabase/types';
+import type { Database } from '../supabase/types';
 
-// Use environment variables only
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Environment variables with proper fallbacks
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rtrwrjzatvdyclntelca.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4';
 
 // Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase environment variables');
   throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be defined');
 }
 
 // Log environment status (only in development)
 if (import.meta.env.DEV) {
   console.log('🔧 Supabase Configuration:');
-  console.log('URL:', supabaseUrl ? '✅' : '❌');
-  console.log('Key:', supabaseAnonKey ? '✅' : '❌');
+  console.log('Environment:', import.meta.env.MODE);
+  console.log('URL:', supabaseUrl);
+  console.log('Key prefix:', supabaseAnonKey.substring(0, 20) + '...');
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -33,11 +35,12 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 // Test connection function
 export const testConnection = async () => {
   try {
-    const { error } = await supabase.from('profiles').select('count').limit(1).single();
+    const { data, error } = await supabase.from('profiles').select('count').limit(1);
     if (error) throw error;
+    console.log('✅ Supabase connection successful');
     return { success: true, error: null };
   } catch (error: any) {
-    console.error('Supabase connection error:', error);
+    console.error('❌ Supabase connection error:', error);
     return { success: false, error: error.message || 'Unknown error' };
   }
 };
@@ -97,3 +100,8 @@ export const subscribeToMatches = (userId: string, callback: (payload: any) => v
     )
     .subscribe();
 };
+
+// Initialize connection test in development
+if (import.meta.env.DEV) {
+  testConnection();
+}
