@@ -236,7 +236,7 @@ export const Feed: React.FC = () => {
                 <Avatar className="w-12 h-12">
                   <AvatarImage src={vibe.profiles?.avatar_url} />
                   <AvatarFallback className="bg-gradient-primary text-white">
-                    {vibe.profiles?.username?.slice(0, 2).toUpperCase() || 'U'}
+                    {vibe.profiles?.username?.slice(0, 2).toUpperCase() || vibe.profiles?.full_name?.slice(0, 2).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 

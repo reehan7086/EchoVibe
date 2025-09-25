@@ -4,6 +4,7 @@ import { Heart, MessageCircle, Share2, Image, Video, Smile, TrendingUp, Users, S
 import { supabase } from '../supabase/client';
 import { Database } from '../supabase/types';
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
+import LandingPage from './components/LandingPage';
 
 type VibeEcho = Database['public']['Tables']['vibe_echoes']['Row'] & {
   profiles: Pick<Database['public']['Tables']['profiles']['Row'], 'username' | 'full_name' | 'avatar_url'>;
@@ -114,15 +115,15 @@ const MainFeed: React.FC<{
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600"
               >
-                {post.profiles.avatar_url ? (
-                  <img src={post.profiles.avatar_url} alt={post.profiles.full_name} className="w-full h-full rounded-full object-cover" />
+                {post.profiles?.avatar_url ? (
+                  <img src={post.profiles.avatar_url} alt={post.profiles.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  post.profiles.full_name[0]
+                  post.profiles?.full_name?.[0] || 'U'
                 )}
               </div>
               <div>
-                <h3 className="font-semibold hover:text-indigo-400 cursor-pointer">{post.profiles.full_name}</h3>
-                <span className="text-sm text-gray-400">@{post.profiles.username} • {new Date(post.created_at).toLocaleString()}</span>
+                <h3 className="font-semibold hover:text-indigo-400 cursor-pointer">{post.profiles?.full_name || 'Unknown User'}</h3>
+                <span className="text-sm text-gray-400">@{post.profiles?.username || 'unknown'} • {new Date(post.created_at).toLocaleString()}</span>
               </div>
             </div>
             <button
@@ -207,7 +208,7 @@ const MainFeed: React.FC<{
             <div className="mt-4 max-h-48 overflow-y-auto">
               {comments[selectedPost].map((comment) => (
                 <div key={comment.id} className="p-3 bg-slate-700/50 rounded-lg mb-2">
-                  <p className="text-sm font-semibold">{comment.profiles.full_name}</p>
+                  <p className="text-sm font-semibold">{comment.profiles?.full_name || 'Unknown User'}</p>
                   <p className="text-sm">{comment.content}</p>
                   <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
                 </div>
@@ -646,327 +647,322 @@ useEffect(() => {
     setShowNotifications(false);
   };
 
+  // CONDITIONAL RENDERING: Show landing page if not authenticated, show main app if authenticated
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-900 text-gray-100">
-        <header className="sticky top-0 z-50 bg-slate-800/95 backdrop-blur-md border-b border-slate-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setShowMobileMenu(!showMobileMenu)}
-                  className="lg:hidden p-2 rounded-lg hover:bg-slate-700 transition-colors"
-                >
-                  {showMobileMenu ? <X size={24} /> : <Menu size={24} />}
-                </button>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent cursor-pointer">
-                  SparkVibe
-                </h1>
-                <div className="hidden md:flex items-center bg-slate-700 rounded-lg px-3 py-2 w-64">
-                  <Search size={18} className="text-gray-400 mr-2" />
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-transparent outline-none text-sm flex-1 placeholder-gray-400"
-                  />
+      {!user ? (
+        // Show landing page if not logged in
+        <LandingPage />
+      ) : (
+        // Show your existing app if logged in
+        <div className="min-h-screen bg-slate-900 text-gray-100">
+          <header className="sticky top-0 z-50 bg-slate-800/95 backdrop-blur-md border-b border-slate-700">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-16">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setShowMobileMenu(!showMobileMenu)}
+                    className="lg:hidden p-2 rounded-lg hover:bg-slate-700 transition-colors"
+                  >
+                    {showMobileMenu ? <X size={24} /> : <Menu size={24} />}
+                  </button>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent cursor-pointer">
+                    SparkVibe
+                  </h1>
+                  <div className="hidden md:flex items-center bg-slate-700 rounded-lg px-3 py-2 w-64">
+                    <Search size={18} className="text-gray-400 mr-2" />
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="bg-transparent outline-none text-sm flex-1 placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+                <nav className="hidden lg:flex items-center space-x-8">
+                  <Link to="/" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'feed' ? 'text-indigo-400' : ''}`}>
+                    <Home size={18} />
+                    <span>Home</span>
+                  </Link>
+                  <Link to="/discover" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'discover' ? 'text-indigo-400' : ''}`}>
+                    <Hash size={18} />
+                    <span>Discover</span>
+                  </Link>
+                  <Link to="/friends" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'friends' ? 'text-indigo-400' : ''}`}>
+                    <Users size={18} />
+                    <span>Friends</span>
+                  </Link>
+                  <Link to="/settings" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'settings' ? 'text-indigo-400' : ''}`}>
+                    <Settings size={18} />
+                    <span>Settings</span>
+                  </Link>
+                </nav>
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowNotifications(!showNotifications)}
+                      className="relative p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                    >
+                      <Bell size={20} />
+                      {notifications > 0 && (
+                        <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {notifications}
+                        </span>
+                      )}
+                    </button>
+                    {showNotifications && (
+                      <div className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden">
+                        <div className="p-4 border-b border-slate-700 flex justify-between items-center">
+                          <h3 className="font-semibold">Notifications</h3>
+                          <button
+                            onClick={clearNotifications}
+                            className="text-sm text-indigo-400 hover:underline"
+                          >
+                            Mark all as read
+                          </button>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                          {notifications > 0 && (
+                            <div className="p-4 text-sm text-gray-400">
+                              You have {notifications} unread messages.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowUserDropdown(!showUserDropdown)}
+                      className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+                    >
+                      {user ? user.user_metadata?.full_name?.[0] || 'U' : 'U'}
+                    </button>
+                    {showUserDropdown && (
+                      <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden">
+                        <div className="p-4 border-b border-slate-700">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                              {user ? user.user_metadata?.full_name?.[0] || 'U' : 'U'}
+                            </div>
+                            <div>
+                              <p className="font-semibold">{user ? user.user_metadata?.full_name || 'User' : 'Guest'}</p>
+                              <p className="text-sm text-gray-400">{user ? '@' + user.user_metadata?.preferred_username : '@guest'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-2">
+                          <Link to="/profile" className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
+                            <UserIcon size={18} />
+                            <span>Profile</span>
+                          </Link>
+                          <Link to="/settings" className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
+                            <Settings size={18} />
+                            <span>Settings</span>
+                          </Link>
+                          <button className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
+                            <Shield size={18} />
+                            <span>Privacy</span>
+                          </button>
+                          <button className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
+                            <HelpCircle size={18} />
+                            <span>Help</span>
+                          </button>
+                          <div className="border-t border-slate-700 mt-2 pt-2">
+                            <button
+                              onClick={handleLogout}
+                              className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors text-red-400"
+                            >
+                              <LogOut size={18} />
+                              <span>Logout</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-              <nav className="hidden lg:flex items-center space-x-8">
-                <Link to="/" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'feed' ? 'text-indigo-400' : ''}`}>
+            </div>
+          </header>
+          {showMobileMenu && (
+            <div className="lg:hidden fixed inset-x-0 top-16 bg-slate-800/95 backdrop-blur-md z-40 border-b border-slate-700">
+              <nav className="flex flex-col p-4 space-y-2">
+                <Link to="/" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
                   <Home size={18} />
                   <span>Home</span>
                 </Link>
-                <Link to="/discover" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'discover' ? 'text-indigo-400' : ''}`}>
+                <Link to="/discover" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
                   <Hash size={18} />
                   <span>Discover</span>
                 </Link>
-                <Link to="/friends" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'friends' ? 'text-indigo-400' : ''}`}>
+                <Link to="/friends" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
                   <Users size={18} />
                   <span>Friends</span>
                 </Link>
-                <Link to="/settings" className={`hover:text-indigo-400 transition-colors flex items-center space-x-1 ${activeTab === 'settings' ? 'text-indigo-400' : ''}`}>
+                <Link to="/settings" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
                   <Settings size={18} />
                   <span>Settings</span>
                 </Link>
               </nav>
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative p-2 hover:bg-slate-700 rounded-lg transition-colors"
-                  >
-                    <Bell size={20} />
-                    {notifications > 0 && (
-                      <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {notifications}
-                      </span>
-                    )}
-                  </button>
-                  {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden">
-                      <div className="p-4 border-b border-slate-700 flex justify-between items-center">
-                        <h3 className="font-semibold">Notifications</h3>
-                        <button
-                          onClick={clearNotifications}
-                          className="text-sm text-indigo-400 hover:underline"
-                        >
-                          Mark all as read
-                        </button>
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications > 0 && (
-                          <div className="p-4 text-sm text-gray-400">
-                            You have {notifications} unread messages.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowUserDropdown(!showUserDropdown)}
-                    className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
-                  >
-                    {user ? user.user_metadata?.full_name?.[0] || 'U' : 'U'}
-                  </button>
-                  {showUserDropdown && (
-                    <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden">
-                      <div className="p-4 border-b border-slate-700">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                            {user ? user.user_metadata?.full_name?.[0] || 'U' : 'U'}
-                          </div>
-                          <div>
-                            <p className="font-semibold">{user ? user.user_metadata?.full_name || 'User' : 'Guest'}</p>
-                            <p className="text-sm text-gray-400">{user ? '@' + user.user_metadata?.preferred_username : '@guest'}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-2">
-                        {user ? (
-                          <>
-                            <Link to="/profile" className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
-                              <UserIcon size={18} />
-                              <span>Profile</span>
-                            </Link>
-                            <Link to="/settings" className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
-                              <Settings size={18} />
-                              <span>Settings</span>
-                            </Link>
-                            <button className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
-                              <Shield size={18} />
-                              <span>Privacy</span>
-                            </button>
-                            <button className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors">
-                              <HelpCircle size={18} />
-                              <span>Help</span>
-                            </button>
-                            <div className="border-t border-slate-700 mt-2 pt-2">
-                              <button
-                                onClick={handleLogout}
-                                className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors text-red-400"
-                              >
-                                <LogOut size={18} />
-                                <span>Logout</span>
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <button
-                            onClick={handleLogin}
-                            className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors"
-                          >
-                            <LogOut size={18} />
-                            <span>Login</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
-          </div>
-        </header>
-        {showMobileMenu && (
-          <div className="lg:hidden fixed inset-x-0 top-16 bg-slate-800/95 backdrop-blur-md z-40 border-b border-slate-700">
-            <nav className="flex flex-col p-4 space-y-2">
-              <Link to="/" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
-                <Home size={18} />
-                <span>Home</span>
-              </Link>
-              <Link to="/discover" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
-                <Hash size={18} />
-                <span>Discover</span>
-              </Link>
-              <Link to="/friends" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
-                <Users size={18} />
-                <span>Friends</span>
-              </Link>
-              <Link to="/settings" className="text-left py-2 px-4 hover:bg-slate-700 rounded-lg transition-colors flex items-center space-x-2">
-                <Settings size={18} />
-                <span>Settings</span>
-              </Link>
-            </nav>
-          </div>
-        )}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <aside className="hidden lg:block lg:col-span-3">
-              <div className="bg-slate-800 rounded-xl p-6 sticky top-24">
-                <nav className="space-y-2">
-                  <Link
-                    to="/"
-                    onClick={() => setActiveTab('feed')}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                      activeTab === 'feed' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
-                    }`}
-                  >
-                    <Home size={20} />
-                    <span>Feed</span>
-                  </Link>
-                  <Link
-                    to="/discover"
-                    onClick={() => setActiveTab('discover')}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                      activeTab === 'discover' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
-                    }`}
-                  >
-                    <Search size={20} />
-                    <span>Discover</span>
-                  </Link>
-                  <Link
-                    to="/friends"
-                    onClick={() => setActiveTab('friends')}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                      activeTab === 'friends' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
-                    }`}
-                  >
-                    <Users size={20} />
-                    <span>Friends</span>
-                  </Link>
-                  <Link
-                    to="/settings"
-                    onClick={() => setActiveTab('settings')}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                      activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
-                    }`}
-                  >
-                    <Settings size={20} />
-                    <span>Settings</span>
-                  </Link>
-                </nav>
-                <div className="mt-6 p-4 bg-slate-700/50 rounded-lg">
-                  <h4 className="font-semibold mb-3 text-sm">Your Stats</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Posts</span>
-                      <span className="font-medium">{posts.filter((p) => p.user_id === user?.id).length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Followers</span>
-                      <span className="font-medium">{0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Following</span>
-                      <span className="font-medium">{Object.values(followStatus).filter((v) => v).length}</span>
+          )}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <aside className="hidden lg:block lg:col-span-3">
+                <div className="bg-slate-800 rounded-xl p-6 sticky top-24">
+                  <nav className="space-y-2">
+                    <Link
+                      to="/"
+                      onClick={() => setActiveTab('feed')}
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                        activeTab === 'feed' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
+                      }`}
+                    >
+                      <Home size={20} />
+                      <span>Feed</span>
+                    </Link>
+                    <Link
+                      to="/discover"
+                      onClick={() => setActiveTab('discover')}
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                        activeTab === 'discover' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
+                      }`}
+                    >
+                      <Search size={20} />
+                      <span>Discover</span>
+                    </Link>
+                    <Link
+                      to="/friends"
+                      onClick={() => setActiveTab('friends')}
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                        activeTab === 'friends' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
+                      }`}
+                    >
+                      <Users size={20} />
+                      <span>Friends</span>
+                    </Link>
+                    <Link
+                      to="/settings"
+                      onClick={() => setActiveTab('settings')}
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                        activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'
+                      }`}
+                    >
+                      <Settings size={20} />
+                      <span>Settings</span>
+                    </Link>
+                  </nav>
+                  <div className="mt-6 p-4 bg-slate-700/50 rounded-lg">
+                    <h4 className="font-semibold mb-3 text-sm">Your Stats</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Posts</span>
+                        <span className="font-medium">{posts.filter((p) => p.user_id === user?.id).length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Followers</span>
+                        <span className="font-medium">{0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Following</span>
+                        <span className="font-medium">{Object.values(followStatus).filter((v) => v).length}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </aside>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <MainFeed
-                    posts={posts}
-                    handlePost={handlePost}
-                    setNewPost={setNewPost}
-                    newPost={newPost}
-                    handleLike={handleLike}
-                    handleComment={handleComment}
-                    handleShare={handleShare}
-                    handleDeletePost={handleDeletePost}
-                    comments={comments}
-                    showCommentModal={showCommentModal}
-                    setShowCommentModal={setShowCommentModal}
-                    selectedPost={selectedPost}
-                    newComment={newComment}
-                    setNewComment={setNewComment}
-                    submitComment={submitComment}
-                  />
-                }
-              />
-              <Route path="/discover" element={<Discover communities={communities} />} />
-              <Route path="/friends" element={<Friends suggestedFriends={suggestedFriends} handleFollow={handleFollow} followStatus={followStatus} />} />
-              <Route path="/settings" element={<div className="lg:col-span-6 bg-slate-800 rounded-xl p-6">Settings Page (To be implemented)</div>} />
-              <Route path="/profile" element={<div className="lg:col-span-6 bg-slate-800 rounded-xl p-6">Profile Page (To be implemented)</div>} />
-            </Routes>
-            <aside className="hidden lg:block lg:col-span-3">
-              <div className="bg-slate-800 rounded-xl p-6 mb-6">
-                <h3 className="font-semibold text-lg mb-4 flex items-center space-x-2">
-                  <TrendingUp size={20} />
-                  <span>Trending Communities</span>
-                </h3>
-                <div className="space-y-3">
-                  {communities.map((community) => (
-                    <div
-                      key={community.id}
-                      className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg cursor-pointer transition-all hover:translate-x-1"
-                    >
-                      <h4 className="font-medium text-indigo-400">{community.name}</h4>
-                      <span className="text-sm text-gray-400">{community.member_count} members</span>
-                    </div>
-                  ))}
-                </div>
-                <button className="mt-4 text-indigo-400 text-sm hover:underline">
-                  Show more
-                </button>
-              </div>
-              <div className="bg-slate-800 rounded-xl p-6">
-                <h3 className="font-semibold text-lg mb-4 flex items-center space-x-2">
-                  <Users size={20} />
-                  <span>Suggested Friends</span>
-                </h3>
-                <div className="space-y-4">
-                  {suggestedFriends.map((friend) => (
-                    <div key={friend.id} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-sm">
-                          {friend.avatar_url ? (
-                            <img src={friend.avatar_url} alt={friend.full_name} className="w-full h-full rounded-full object-cover" />
-                          ) : (
-                            friend.full_name[0]
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm hover:text-indigo-400 cursor-pointer">{friend.full_name}</h4>
-                          <span className="text-xs text-gray-400">@{friend.username}</span>
-                          <p className="text-xs text-gray-500">Vibe Score: {friend.vibe_score}</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleFollow(friend.user_id)}
-                        className={`px-3 py-1 text-sm rounded-lg transition-all ${
-                          followStatus[friend.user_id]
-                            ? 'bg-slate-700 text-gray-400 hover:bg-slate-600'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-500'
-                        }`}
+              </aside>
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <MainFeed
+                      posts={posts}
+                      handlePost={handlePost}
+                      setNewPost={setNewPost}
+                      newPost={newPost}
+                      handleLike={handleLike}
+                      handleComment={handleComment}
+                      handleShare={handleShare}
+                      handleDeletePost={handleDeletePost}
+                      comments={comments}
+                      showCommentModal={showCommentModal}
+                      setShowCommentModal={setShowCommentModal}
+                      selectedPost={selectedPost}
+                      newComment={newComment}
+                      setNewComment={setNewComment}
+                      submitComment={submitComment}
+                    />
+                  }
+                />
+                <Route path="/discover" element={<Discover communities={communities} />} />
+                <Route path="/friends" element={<Friends suggestedFriends={suggestedFriends} handleFollow={handleFollow} followStatus={followStatus} />} />
+                <Route path="/settings" element={<div className="lg:col-span-6 bg-slate-800 rounded-xl p-6">Settings Page (To be implemented)</div>} />
+                <Route path="/profile" element={<div className="lg:col-span-6 bg-slate-800 rounded-xl p-6">Profile Page (To be implemented)</div>} />
+              </Routes>
+              <aside className="hidden lg:block lg:col-span-3">
+                <div className="bg-slate-800 rounded-xl p-6 mb-6">
+                  <h3 className="font-semibold text-lg mb-4 flex items-center space-x-2">
+                    <TrendingUp size={20} />
+                    <span>Trending Communities</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {communities.map((community) => (
+                      <div
+                        key={community.id}
+                        className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg cursor-pointer transition-all hover:translate-x-1"
                       >
-                        {followStatus[friend.user_id] ? 'Following' : 'Follow'}
-                      </button>
-                    </div>
-                  ))}
+                        <h4 className="font-medium text-indigo-400">{community.name}</h4>
+                        <span className="text-sm text-gray-400">{community.member_count} members</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="mt-4 text-indigo-400 text-sm hover:underline">
+                    Show more
+                  </button>
                 </div>
-              </div>
-            </aside>
+                <div className="bg-slate-800 rounded-xl p-6">
+                  <h3 className="font-semibold text-lg mb-4 flex items-center space-x-2">
+                    <Users size={20} />
+                    <span>Suggested Friends</span>
+                  </h3>
+                  <div className="space-y-4">
+                    {suggestedFriends.map((friend) => (
+                      <div key={friend.id} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-sm">
+                            {friend.avatar_url ? (
+                              <img src={friend.avatar_url} alt={friend.full_name} className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              friend.full_name[0]
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-sm hover:text-indigo-400 cursor-pointer">{friend.full_name}</h4>
+                            <span className="text-xs text-gray-400">@{friend.username}</span>
+                            <p className="text-xs text-gray-500">Vibe Score: {friend.vibe_score}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleFollow(friend.user_id)}
+                          className={`px-3 py-1 text-sm rounded-lg transition-all ${
+                            followStatus[friend.user_id]
+                              ? 'bg-slate-700 text-gray-400 hover:bg-slate-600'
+                              : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                          }`}
+                        >
+                          {followStatus[friend.user_id] ? 'Following' : 'Follow'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </aside>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </BrowserRouter>
   );
 };
