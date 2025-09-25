@@ -68,7 +68,7 @@ const DebugPanel: React.FC<{
     borderRadius: '4px',
     border: '1px solid #ccc'
   }}>
-    <strong>🔧 EchoVibe Debug:</strong><br/>
+    <strong>🔧 SparkVibe Debug:</strong><br/>
     Env URL: {import.meta.env.VITE_SUPABASE_URL ? '✅' : '❌'}<br/>
     Env Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅' : '❌'}<br/>
     Connection: {connectionStatus === null ? '⏳' : connectionStatus ? '✅' : '❌'}<br/>
@@ -89,7 +89,7 @@ export const Feed: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        console.log('🚀 Initializing EchoVibe Feed...');
+        console.log('🚀 Initializing SparkVibe Feed...');
         
         // Step 1: Check environment and test connection
         checkDeploymentEnv();
