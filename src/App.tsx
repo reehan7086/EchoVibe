@@ -1,12 +1,11 @@
 import * as React from 'react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter, Route, Routes, Link, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Link, useNavigate, Navigate} from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut, Send, UserPlus, UserCheck, Camera, Upload, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
-
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -135,7 +134,21 @@ const formatDate = (date: string) => {
   if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d`;
   return postDate.toLocaleDateString();
 };
-
+const getCurrentUser = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error) {
+    console.error('Auth error:', error);
+    return null;
+  }
+  
+  if (!user || !user.id) {
+    console.warn('No authenticated user found');
+    return null;
+  }
+  
+  return user;
+};
 // Components
 const LandingPage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-white flex items-center justify-center">
@@ -1409,34 +1422,43 @@ const App: React.FC = () => {
       }
     };
     fetchProfile();
-  }, [user]);
+  }, [user?.id]);
 
   // Fetch posts
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const { data: likesData, error: likesError } = await supabase
-          .from('likes')
-          .select('post_id')
-          .eq('user_id', user?.id || '');
-        if (likesError) throw new Error(`Error fetching likes: ${likesError.message}`);
-        const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
-        const { data, error } = await supabase
-          .from('vibe_echoes')
-          .select('*, profiles(username, full_name, avatar_url)')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
-        if (error) throw new Error(`Error fetching posts: ${error.message}`);
-        setPosts(
-          (data || []).map((post) => ({
-            ...post,
-            user_has_liked: likedPostIds.has(post.id),
-          }))
-        );
-      } catch (error) {
-        console.error('Error fetching posts:', error);
-      }
-    };
+const fetchPosts = async () => {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      setPosts([]);
+      return;
+    }
+
+    const { data: likesData, error: likesError } = await supabase
+      .from('likes')
+      .select('post_id')
+      .eq('user_id', currentUser.id);
+    
+    if (likesError) throw new Error(`Error fetching likes: ${likesError.message}`);
+    const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
+    
+    const { data, error } = await supabase
+      .from('vibe_echoes')
+      .select('*, profiles(username, full_name, avatar_url)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw new Error(`Error fetching posts: ${error.message}`);
+    setPosts(
+      (data || []).map((post) => ({
+        ...post,
+        user_has_liked: likedPostIds.has(post.id),
+      }))
+    );
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+  }
+};
     fetchPosts();
 
     const subscription = supabase
@@ -1455,64 +1477,82 @@ const App: React.FC = () => {
     return () => {
   subscription.unsubscribe();
 };
-  }, [user]);
+  }, [user?.id]);
 
   // Fetch suggested friends
   useEffect(() => {
-    const fetchSuggestedFriends = async () => {
-      try {
-        const { data: followsData, error: followsError } = await supabase
-          .from('follows')
-          .select('following_id')
-          .eq('follower_id', user?.id || '');
-        if (followsError) throw new Error(`Error fetching follows: ${followsError.message}`);
-        const followingIds = new Set(followsData?.map((f) => f.following_id) || []);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, user_id, username, full_name, avatar_url, vibe_score, created_at, updated_at')
-          .neq('user_id', user?.id || '')
-          .not('user_id', 'in', `(${Array.from(followingIds).join(',')})`)
-          .limit(5);
-        if (error) throw new Error(`Error fetching suggested friends: ${error.message}`);
-        setSuggestedFriends(data || []);
-        setFollowStatus(
-          Object.fromEntries(
-            (data || []).map((profile) => [profile.user_id, followingIds.has(profile.user_id)])
-          )
-        );
-      } catch (error) {
-        console.error('Error fetching suggested friends:', error);
-      }
-    };
+const fetchSuggestedFriends = async () => {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      setSuggestedFriends([]);
+      return;
+    }
+
+    const { data: followsData, error: followsError } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', currentUser.id);
+    
+    if (followsError) throw new Error(`Error fetching follows: ${followsError.message}`);
+    const followingIds = new Set(followsData?.map((f) => f.following_id) || []);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, user_id, username, full_name, avatar_url, vibe_score, created_at, updated_at')
+      .neq('user_id', currentUser.id)
+      .limit(5);
+    
+    if (error) throw new Error(`Error fetching suggested friends: ${error.message}`);
+    
+    const filteredData = (data || []).filter(profile => !followingIds.has(profile.user_id));
+    setSuggestedFriends(filteredData);
+    setFollowStatus(
+      Object.fromEntries(
+        filteredData.map((profile) => [profile.user_id, followingIds.has(profile.user_id)])
+      )
+    );
+  } catch (error) {
+    console.error('Error fetching suggested friends:', error);
+  }
+};
     fetchSuggestedFriends();
-  }, [user]);
+  }, [user?.id]);
 
   // Fetch communities
   useEffect(() => {
-    const fetchCommunities = async () => {
-      try {
-        const { data: membershipsData, error: membershipsError } = await supabase
-          .from('community_memberships')
-          .select('community_id')
-          .eq('user_id', user?.id || '');
-        if (membershipsError) throw new Error(`Error fetching memberships: ${membershipsError.message}`);
-        const membershipIds = new Set(membershipsData?.map((m) => m.community_id) || []);
-        const { data, error } = await supabase
-          .from('communities')
-          .select('id, name, description, category, member_count, created_at, is_active')
-          .eq('is_active', true)
-          .order('member_count', { ascending: false });
-        if (error) throw new Error(`Error fetching communities: ${error.message}`);
-        setCommunities(
-          (data || []).map((community) => ({
-            ...community,
-            is_member: membershipIds.has(community.id),
-          }))
-        );
-      } catch (error) {
-        console.error('Error fetching communities:', error);
-      }
-    };
+const fetchCommunities = async () => {
+  try {
+    const currentUser = await getCurrentUser();
+    
+    let membershipIds = new Set();
+    if (currentUser) {
+      const { data: membershipsData, error: membershipsError } = await supabase
+        .from('community_memberships')
+        .select('community_id')
+        .eq('user_id', currentUser.id);
+      
+      if (membershipsError) throw new Error(`Error fetching memberships: ${membershipsError.message}`);
+      membershipIds = new Set(membershipsData?.map((m) => m.community_id) || []);
+    }
+    
+    const { data, error } = await supabase
+      .from('communities')
+      .select('id, name, description, category, member_count, created_at, is_active')
+      .eq('is_active', true)
+      .order('member_count', { ascending: false });
+    
+    if (error) throw new Error(`Error fetching communities: ${error.message}`);
+    setCommunities(
+      (data || []).map((community) => ({
+        ...community,
+        is_member: membershipIds.has(community.id),
+      }))
+    );
+  } catch (error) {
+    console.error('Error fetching communities:', error);
+  }
+};
     fetchCommunities();
 
     const subscription = supabase
@@ -1524,7 +1564,7 @@ const App: React.FC = () => {
     return () => {
   subscription.unsubscribe();
 };
-  }, [user]);
+  }, [user?.id]);
 
 // Fetch chats
 useEffect(() => {
@@ -1612,7 +1652,7 @@ useEffect(() => {
   return () => {
     subscription.unsubscribe();
   };
-}, [user]);
+}, [user?.id]);
 
   // Fetch notifications
   useEffect(() => {
@@ -1654,7 +1694,7 @@ useEffect(() => {
     return () => {
   subscription.unsubscribe();
 };
-  }, [user]);
+  }, [user?.id]);
 
   // Handlers
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
