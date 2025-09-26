@@ -1424,10 +1424,13 @@ const initializeApp = async () => {
 };
     initializeApp();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) navigate('/login');
-    });
+const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+  setUser(session?.user ?? null);
+  // Only redirect if we're on a protected route, not on public pages
+  if (!session?.user && !['/login', '/signup', '/'].includes(location.pathname)) {
+    navigate('/login');
+  }
+});
     return () => {
   subscription.unsubscribe();
 };
