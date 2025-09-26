@@ -1,57 +1,99 @@
 import * as React from 'react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter, Route, Routes, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut, Send, UserPlus, UserCheck, Camera, Upload, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from './lib/supabase';
-import type { Database } from '../supabase/types';
+import { createClient } from '@supabase/supabase-js';
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL!;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
 
 // Types
 type User = SupabaseUser;
 
-type Profile = Database['public']['Tables']['profiles']['Row'] & {
+type Profile = {
+  id: string;
+  user_id: string;
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  vibe_score: number | null;
   follower_count?: number;
   following_count?: number;
   is_private?: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
-type VibeEcho = Database['public']['Tables']['vibe_echoes']['Row'] & {
-  profiles: Pick<Database['public']['Tables']['profiles']['Row'], 'username' | 'full_name' | 'avatar_url'>;
+type VibeEcho = {
+  id: string;
+  user_id: string;
+  content: string;
+  mood: string;
+  media_url: string | null;
+  media_type: string;
+  likes_count: number;
+  responses_count: number;
+  is_active: boolean;
+  created_at: string;
+  profiles?: {
+    username: string | null;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
   user_has_liked?: boolean;
 };
 
-type Comment = Database['public']['Tables']['messages']['Row'] & {
-  profiles: Pick<Database['public']['Tables']['profiles']['Row'], 'username' | 'full_name' | 'avatar_url'>;
-};
-
-type Like = {
+type Comment = {
   id: string;
-  post_id: string;
-  user_id: string;
+  chat_id: string;  // Keep this as chat_id
+  sender_id: string;
+  content: string;
   created_at: string;
+  profiles?: {
+    username: string | null;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
 };
 
-type Follow = {
+type Community = {
   id: string;
-  follower_id: string;
-  following_id: string;
+  name: string;
+  description: string;
+  category: string;
+  member_count: number;
+  is_active: boolean;
   created_at: string;
-};
-
-type Community = Database['public']['Tables']['communities']['Row'] & {
   is_member?: boolean;
 };
 
-type Chat = Database['public']['Tables']['chats']['Row'] & {
-  last_message?: string;
-  last_message_at?: string;
-  other_user?: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>;
+type Chat = {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  created_at: string;
+  last_message: string | null;
+  last_message_at: string | null;
+  other_user?: {
+    username: string | null;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
 };
 
-type Message = Database['public']['Tables']['messages']['Row'] & {
-  profiles: Pick<Database['public']['Tables']['profiles']['Row'], 'username' | 'full_name'>;
+type Message = {
+  id: string;
+  chat_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  profiles?: {
+    username: string | null;
+    full_name: string | null;
+  };
 };
 
 type NotificationRow = {
@@ -314,7 +356,7 @@ const PostCard: React.FC<{
           {post.profiles?.avatar_url ? (
             <img
               src={post.profiles.avatar_url}
-              alt={post.profiles.full_name || 'User'}
+              alt={post.profiles?.full_name || 'User'}
               className="w-full h-full rounded-full object-cover"
               loading="lazy"
             />
@@ -496,13 +538,13 @@ const SearchResults: React.FC<{
           {users.map((user) => (
             <div key={user.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.full_name} className="w-full h-full rounded-full object-cover" loading="lazy" />
-                  ) : (
-                    user.full_name[0]
-                  )}
-                </div>
+<div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
+  {user.avatar_url ? (
+    <img src={user.avatar_url} alt={user.full_name || 'User'} className="w-full h-full rounded-full object-cover" loading="lazy" />
+  ) : (
+    user.full_name?.[0] || 'U'
+  )}
+</div>
                 <div>
                   <h4 className="font-medium">{user.full_name}</h4>
                   <p className="text-sm text-white/60">@{user.username}</p>
@@ -660,7 +702,7 @@ const ChatList: React.FC<{
               {chat.other_user?.avatar_url ? (
                 <img
                   src={chat.other_user.avatar_url}
-                  alt={chat.other_user.full_name}
+                  alt={chat.other_user?.full_name || 'User'}
                   className="w-full h-full rounded-full object-cover"
                   loading="lazy"
                 />
@@ -702,7 +744,7 @@ const ChatWindow: React.FC<{
             {otherUser?.avatar_url ? (
               <img
                 src={otherUser.avatar_url}
-                alt={otherUser.full_name}
+                alt={otherUser?.full_name || 'User'}
                 className="w-full h-full rounded-full object-cover"
                 loading="lazy"
               />
@@ -1058,7 +1100,7 @@ const ProfilePage: React.FC<{
         {profile?.avatar_url ? (
           <img
             src={profile.avatar_url}
-            alt={profile.full_name}
+            alt={profile?.full_name || 'User'}
             className="w-full h-full rounded-full object-cover"
             loading="lazy"
           />
@@ -1282,7 +1324,15 @@ const SettingsPage: React.FC<{
 };
 
 const App: React.FC = () => {
-  // State management
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+};
+
+const AppContent: React.FC = () => {
+  // Move all the existing state and logic from App component here
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<VibeEcho[]>([]);
@@ -1310,7 +1360,6 @@ const App: React.FC = () => {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
-
   // Initialize app
   useEffect(() => {
     const initializeApp = async () => {
@@ -1647,16 +1696,16 @@ useEffect(() => {
     try {
       const sanitizedPost = sanitizeHtml(newPost.trim(), { allowedTags: [], allowedAttributes: {} });
       const mediaMatch = sanitizedPost.match(/\[Media: (.*?)\]/);
-      const post: Database['public']['Tables']['vibe_echoes']['Insert'] = {
-        user_id: user.id,
-        content: mediaMatch ? sanitizedPost.replace(mediaMatch[0], '') : sanitizedPost,
-        mood: selectedMood,
-        media_url: mediaMatch ? mediaMatch[1] : null,
-        media_type: mediaMatch ? (mediaMatch[1].endsWith('.mp4') ? 'video' : 'image') : 'text',
-        likes_count: 0,
-        responses_count: 0,
-        is_active: true,
-      };
+const post = {
+  user_id: user.id,
+  content: mediaMatch ? sanitizedPost.replace(mediaMatch[0], '') : sanitizedPost,
+  mood: selectedMood,
+  media_url: mediaMatch ? mediaMatch[1] : null,
+  media_type: mediaMatch ? (mediaMatch[1].endsWith('.mp4') ? 'video' : 'image') : 'text',
+  likes_count: 0,
+  responses_count: 0,
+  is_active: true,
+};
       const { data, error } = await supabase
         .from('vibe_echoes')
         .insert([post])
@@ -1773,11 +1822,11 @@ const submitComment = async () => {
     const sanitizedComment = sanitizeHtml(newComment.trim(), { allowedTags: [], allowedAttributes: {} });
     const chatId = `post_${selectedPost}`;
     
-    const comment: Database['public']['Tables']['messages']['Insert'] = {
-      chat_id: chatId,
-      sender_id: user.id,
-      content: sanitizedComment,
-    };
+const comment = {
+  chat_id: chatId,
+  sender_id: user.id,
+  content: sanitizedComment,
+};
     const { data, error } = await supabase
       .from('messages')
       .insert([comment])
@@ -1934,11 +1983,11 @@ const submitComment = async () => {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId || !user) return;
     try {
-      const message: Database['public']['Tables']['messages']['Insert'] = {
-        chat_id: selectedChatId,
-        sender_id: user.id,
-        content: newMessage.trim(),
-      };
+const message = {
+  chat_id: selectedChatId,
+  sender_id: user.id,
+  content: newMessage.trim(),
+};
       const { data, error } = await supabase
         .from('messages')
         .insert([message])
@@ -2056,7 +2105,7 @@ const submitComment = async () => {
     }
   };
 
-  if (loading) {
+ if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
@@ -2064,16 +2113,16 @@ const submitComment = async () => {
     );
   }
 
-if (!user) {
-  return (
-    <Routes>
-      <Route path="/login" element={<LandingPage />} />
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route path="*" element={<LandingPage />} />
-    </Routes>
-  );
-}
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="*" element={<LandingPage />} />
+      </Routes>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-white">
@@ -2230,18 +2279,18 @@ if (!user) {
                   {suggestedFriends.slice(0, 3).map((friend) => (
                     <div key={friend.id} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-sm">
-                          {friend.avatar_url ? (
-                            <img
-                              src={friend.avatar_url}
-                              alt={friend.full_name}
-                              className="w-full h-full rounded-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            friend.full_name[0]
-                          )}
-                        </div>
+<div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-sm">
+  {friend.avatar_url ? (
+    <img
+      src={friend.avatar_url}
+      alt={friend.full_name || 'User'}
+      className="w-full h-full rounded-full object-cover"
+      loading="lazy"
+    />
+  ) : (
+    friend.full_name?.[0] || 'U'
+  )}
+</div>
                         <div>
                           <h4 className="font-medium text-sm hover:text-indigo-400 cursor-pointer">{friend.full_name}</h4>
                           <span className="text-xs text-gray-400">@{friend.username}</span>

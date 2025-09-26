@@ -1,22 +1,36 @@
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '../../supabase/types'
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../supabase/types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Environment variables with proper fallbacks
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rtrwrjzatvdyclntelca.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4';
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing environment variables')
+// Validate environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase environment variables');
+  throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be defined');
 }
 
-const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+// Log environment status (only in development)
+if (import.meta.env.DEV) {
+  console.log('🔧 Supabase Configuration:');
+  console.log('Environment:', import.meta.env.MODE);
+  console.log('URL:', supabaseUrl);
+  console.log('Key prefix:', supabaseAnonKey.substring(0, 20) + '...');
+}
+
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
   realtime: {
     params: {
       eventsPerSecond: 10
     }
   }
 });
-
-export default supabase;
 
 // Test connection function
 export const testConnection = async () => {
