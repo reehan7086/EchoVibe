@@ -1,9 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '../../supabase/types'
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../supabase/types';
 
-// Environment variables with proper fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rtrwrjzatvdyclntelca.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0cndyanphdHZkeWNsbnRlbGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NjM2NjMsImV4cCI6MjA3NDAzOTY2M30.r2w14sflhDGf9GGuTqeiLG34bQ0JTpVuLD7i1r-Xlx4';
+// Environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl) {
   throw new Error('VITE_SUPABASE_URL is not defined. Check your environment variables.');
@@ -13,15 +13,16 @@ if (!supabaseAnonKey) {
   throw new Error('VITE_SUPABASE_ANON_KEY is not defined. Check your environment variables.');
 }
 
-// const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-//   realtime: {
-//     params: {
-//       eventsPerSecond: 10
-//     }
-//   }
-// });
+console.log('Supabase URL:', supabaseUrl);
+console.log('Supabase Anon Key (prefix):', supabaseAnonKey.substring(0, 20) + '...');
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+});
 
 export default supabase;
 
