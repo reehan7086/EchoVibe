@@ -154,7 +154,7 @@ const LandingPage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-white flex items-center justify-center">
     <div className="text-center max-w-md mx-auto p-8">
       <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-        Welcome to EchoVibe
+        Welcome to SparkVibe
       </h1>
       <p className="text-xl text-white/80 mb-8">Connect, share, and discover amazing content with your community.</p>
       <Link to="/login" className="px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all">
