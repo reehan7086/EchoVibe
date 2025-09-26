@@ -1,488 +1,366 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { supabase } from '../supabase_bkp/client';
-import { 
-  Heart, 
-  Users, 
-  MapPin, 
-  Zap, 
-  Star,
-  ArrowRight,
-  Globe,
-  Music,
-  Camera,
-  MessageCircle,
-  Play,
-  Mail,
-  Eye,
-  EyeOff
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Heart, MessageCircle, Users, Search, Smile, Menu, X } from 'lucide-react';
 
-const LandingPage = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+const LandingPage: React.FC = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) return;
-    
-    setLoading(true);
-    setMessage(null);
-    
-    try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: name,
-            }
-          }
-        });
-        
-        if (error) throw error;
-        
-        setMessage({
-          type: 'success',
-          text: 'Welcome to SparkVibe! Check your email to verify your account.'
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) throw error;
-        
-        setMessage({
-          type: 'success',
-          text: 'Welcome back! You\'re now connected to your vibe tribe!'
-        });
-      }
-    } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error.message || 'Something went wrong. Please try again.'
-      });
-    } finally {
-      setLoading(false);
+  const features = [
+    {
+      icon: <Heart className="w-8 h-8" />,
+      title: "Express Your Vibe",
+      description: "Share your thoughts, feelings, and moments with a community that truly cares about authentic expression.",
+      color: "from-pink-500 to-rose-500"
+    },
+    {
+      icon: <MessageCircle className="w-8 h-8" />,
+      title: "Meaningful Connections",
+      description: "Connect with like-minded individuals through genuine conversations and shared experiences.",
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: "Vibrant Communities",
+      description: "Join communities centered around your interests, passions, and values.",
+      color: "from-purple-500 to-violet-500"
+    },
+    {
+      icon: <Search className="w-8 h-8" />,
+      title: "Discover Content",
+      description: "Find amazing content and creators that match your interests and mood.",
+      color: "from-amber-500 to-orange-500"
     }
-  };
+  ];
 
-  const handleGoogleAuth = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin
-        }
-      });
-      
-      if (error) throw error;
-    } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error.message || 'Google login failed. Please try again.'
-      });
-    } finally {
-      setLoading(false);
+  const testimonials = [
+    {
+      name: "Sarah Johnson",
+      role: "Content Creator",
+      avatar: "👩‍💼",
+      content: "SparkVibe has revolutionized how I connect with my audience. The authentic interactions here are unmatched.",
+      rating: 5
+    },
+    {
+      name: "Marcus Chen",
+      role: "Community Leader",
+      avatar: "👨‍💻",
+      content: "The community features are incredible. I've built meaningful relationships that extend beyond the platform.",
+      rating: 5
+    },
+    {
+      name: "Emily Rodriguez",
+      role: "Digital Artist",
+      avatar: "👩‍🎨",
+      content: "I love how easy it is to express my creative vibes and discover inspiring content daily.",
+      rating: 5
+    },
+    {
+      name: "Alex Kim",
+      role: "Tech Enthusiast",
+      avatar: "👨‍🔧",
+      content: "SparkVibe's discovery algorithm is spot-on. Always finding communities that match my interests perfectly.",
+      rating: 5
     }
-  };
+  ];
+
+  const stats = [
+    { number: "10K+", label: "Active Members" },
+    { number: "50K+", label: "Daily Connections" },
+    { number: "100+", label: "Communities" },
+    { number: "99.9%", label: "Uptime" }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [testimonials.length]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-pink-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-20 left-1/3 w-80 h-80 bg-yellow-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
-        <div className="absolute bottom-40 right-1/3 w-64 h-64 bg-green-500/20 rounded-full blur-3xl animate-pulse delay-3000"></div>
-      </div>
-
-      {/* Floating Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 animate-float">
-          <div className="w-8 h-8 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
-            <Heart className="w-4 h-4 text-white" />
-          </div>
-        </div>
-        <div className="absolute top-1/3 right-1/4 animate-float delay-1000">
-          <div className="w-10 h-10 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full flex items-center justify-center">
-            <Music className="w-5 h-5 text-white" />
-          </div>
-        </div>
-        <div className="absolute bottom-1/4 left-1/3 animate-float delay-2000">
-          <div className="w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-            <Zap className="w-3 h-3 text-white" />
-          </div>
-        </div>
-        <div className="absolute bottom-1/3 right-1/3 animate-float delay-3000">
-          <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center">
-            <Camera className="w-6 h-6 text-white" />
-          </div>
-        </div>
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-12 min-h-screen items-center">
-          
-          {/* Left Side - Hero Content */}
-          <div className="text-center lg:text-left space-y-8">
-            {/* Logo & Badge */}
-            <div className="space-y-4">
-              <Badge className="bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 px-4 py-2 text-sm font-semibold">
-                🚀 Join 50K+ Vibers Worldwide
-              </Badge>
-              
-              <h1 className="text-5xl lg:text-7xl font-black text-white leading-tight">
-                Find Your
-                <span className="bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent animate-gradient-shift bg-300% ml-4">
-                  Vibe
-                </span>
-                <br />
-                <span className="text-3xl lg:text-5xl text-gray-300 font-light">
-                  Connect Instantly
-                </span>
-              </h1>
-            </div>
-
-            {/* Description */}
-            <p className="text-xl text-gray-300 max-w-lg leading-relaxed">
-              Discover people who match your energy nearby. Share your mood through 
-              <span className="text-pink-400 font-semibold"> video</span>, 
-              <span className="text-cyan-400 font-semibold"> audio</span>, or 
-              <span className="text-yellow-400 font-semibold"> text</span> and spark 
-              <span className="text-green-400 font-semibold"> instant connections</span>.
-            </p>
-
-            {/* Features */}
-            <div className="grid grid-cols-2 gap-4 max-w-lg">
-              <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-full px-4 py-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <MapPin className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-white font-medium">Find Nearby</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white overflow-hidden">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex items-center space-x-2"
+            >
+              <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
+                <Smile className="w-6 h-6" />
               </div>
-              
-              <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-full px-4 py-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-white font-medium">AI Matching</span>
-              </div>
-              
-              <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-full px-4 py-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center">
-                  <Users className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-white font-medium">Safe & Fun</span>
-              </div>
-              
-              <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-full px-4 py-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                  <Globe className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-white font-medium">Global Vibes</span>
+              <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                SparkVibe
+              </span>
+            </motion.div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-8">
+              <a href="#features" className="text-white/80 hover:text-white transition-colors">Features</a>
+              <a href="#testimonials" className="text-white/80 hover:text-white transition-colors">Testimonials</a>
+              <a href="#stats" className="text-white/80 hover:text-white transition-colors">Stats</a>
+              <a href="#about" className="text-white/80 hover:text-white transition-colors">About</a>
+              <div className="flex items-center space-x-4">
+                <Link 
+                  to="/login" 
+                  className="px-4 py-2 text-white/80 hover:text-white transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  to="/signup" 
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all"
+                >
+                  Get Started
+                </Link>
               </div>
             </div>
 
-            {/* Social Proof */}
-            <div className="flex items-center justify-center lg:justify-start space-x-6 text-gray-300">
-              <div className="flex items-center space-x-2">
-                <div className="flex -space-x-2">
-                  {[1,2,3,4,5].map(i => (
-                    <div key={i} className="w-8 h-8 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full border-2 border-white flex items-center justify-center text-white text-sm font-bold">
-                      {String.fromCharCode(64 + i)}
-                    </div>
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+
+          {/* Mobile Navigation */}
+          <AnimatePresence>
+            {isMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="md:hidden pb-4"
+              >
+                <div className="flex flex-col space-y-4">
+                  <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Features</a>
+                  <a href="#testimonials" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Testimonials</a>
+                  <a href="#stats" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Stats</a>
+                  <a href="#about" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">About</a>
+                  <Link 
+                    to="/login" 
+                    onClick={() => setIsMenuOpen(false)}
+                    className="px-4 py-2 text-white/80 hover:text-white transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                  <Link 
+                    to="/signup" 
+                    onClick={() => setIsMenuOpen(false)}
+                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all text-center"
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="min-h-screen flex items-center justify-center pt-20 px-4 relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(139,92,246,0.1),transparent)]" />
+        <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="text-center max-w-4xl mx-auto z-10"
+        >
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent leading-tight">
+            Ignite Your Social Spark
+          </h1>
+          <p className="text-xl md:text-2xl text-white/80 mb-10 max-w-2xl mx-auto">
+            Connect authentically, share your vibe, and discover vibrant communities that resonate with your soul.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link 
+              to="/signup" 
+              className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all transform hover:scale-105"
+            >
+              Join Now - It's Free!
+            </Link>
+            <Link 
+              to="/login" 
+              className="px-8 py-4 border-2 border-purple-500 rounded-full font-bold text-lg hover:bg-purple-500/10 transition-all transform hover:scale-105"
+            >
+              Sign In
+            </Link>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-20 px-4 bg-black/20 relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent)]" />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <motion.h2 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
+          >
+            Why Choose SparkVibe?
+          </motion.h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="group relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-6 hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
+                <div className="relative z-10 flex flex-col items-center text-center">
+                  <div className={`p-4 rounded-full bg-gradient-to-br ${feature.color} mb-4 transform group-hover:scale-110 transition-transform duration-300 shadow-md`}>
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 text-white">{feature.title}</h3>
+                  <p className="text-white/70">{feature.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <motion.h2 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
+          >
+            What Our Users Say
+          </motion.h2>
+          <div className="relative max-w-3xl mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentTestimonial}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.5 }}
+                className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 text-center shadow-lg"
+              >
+                <div className="text-3xl mb-4">{testimonials[currentTestimonial].avatar}</div>
+                <p className="text-xl mb-4 italic text-white/90">"{testimonials[currentTestimonial].content}"</p>
+                <div className="flex justify-center mb-2">
+                  {Array.from({ length: testimonials[currentTestimonial].rating }).map((_, i) => (
+                    <span key={i} className="text-yellow-400">★</span>
                   ))}
                 </div>
-                <span className="text-sm">Join thousands of vibers</span>
-              </div>
-              
-              <div className="flex items-center space-x-1">
-                {[1,2,3,4,5].map(i => (
-                  <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
-                ))}
-                <span className="text-sm ml-2">4.9/5 App Store</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Side - Auth Form */}
-          <div className="flex items-center justify-center">
-            <Card className="w-full max-w-md bg-white/10 backdrop-blur-xl border-0 shadow-2xl">
-              <CardContent className="p-8">
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-white mb-2">
-                    {isSignUp ? 'Join the Vibe' : 'Welcome Back'}
-                  </h2>
-                  <p className="text-gray-300">
-                    {isSignUp 
-                      ? 'Create your account and start vibing!' 
-                      : 'Sign in to continue your vibe journey'
-                    }
-                  </p>
-                </div>
-
-                {message && (
-                  <div className={`mb-4 p-3 rounded-lg text-sm ${
-                    message.type === 'success' 
-                      ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-                      : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                  }`}>
-                    {message.text}
-                  </div>
-                )}
-
-                <form onSubmit={handleEmailAuth} className="space-y-6">
-                  {isSignUp && (
-                    <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Your Name
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="Enter your name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="bg-white/20 border-white/30 text-white placeholder:text-gray-300 focus:border-pink-400 focus:ring-pink-400"
-                        required={isSignUp}
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Email Address
-                    </label>
-                    <Input
-                      type="email"
-                      placeholder="Enter your email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="bg-white/20 border-white/30 text-white placeholder:text-gray-300 focus:border-pink-400 focus:ring-pink-400"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="bg-white/20 border-white/30 text-white placeholder:text-gray-300 focus:border-pink-400 focus:ring-pink-400 pr-10"
-                        required
-                        minLength={6}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-300 hover:text-white"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
-                  >
-                    {loading ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Getting your vibe ready...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <Mail className="w-4 h-4" />
-                        <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </div>
-                    )}
-                  </Button>
-                </form>
-
-                <div className="my-6 flex items-center">
-                  <hr className="flex-1 border-white/20" />
-                  <span className="px-4 text-white/60 text-sm">or</span>
-                  <hr className="flex-1 border-white/20" />
-                </div>
-
-                <Button
-                  onClick={handleGoogleAuth}
-                  disabled={loading}
-                  variant="outline"
-                  className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20 font-medium py-3 rounded-lg transition-all duration-300"
-                >
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    <span>Continue with Google</span>
-                  </div>
-                </Button>
-
-                <div className="mt-6 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setIsSignUp(!isSignUp)}
-                    className="text-white/80 hover:text-white text-sm transition-colors"
-                  >
-                    {isSignUp 
-                      ? 'Already have an account? Sign in' 
-                      : "Don't have an account? Join the vibe"
-                    }
-                  </button>
-                </div>
-
-                <div className="mt-6 text-center">
-                  <p className="text-xs text-white/60">
-                    By continuing, you agree to our{' '}
-                    <a href="#" className="text-pink-400 hover:text-pink-300">Terms</a>
-                    {' '}and{' '}
-                    <a href="#" className="text-pink-400 hover:text-pink-300">Privacy Policy</a>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Bottom Stats */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          <div className="space-y-2">
-            <div className="text-3xl font-bold text-white">50K+</div>
-            <div className="text-gray-300 text-sm">Active Vibers</div>
-          </div>
-          <div className="space-y-2">
-            <div className="text-3xl font-bold text-white">2M+</div>
-            <div className="text-gray-300 text-sm">Connections Made</div>
-          </div>
-          <div className="space-y-2">
-            <div className="text-3xl font-bold text-white">150+</div>
-            <div className="text-gray-300 text-sm">Countries</div>
-          </div>
-          <div className="space-y-2">
-            <div className="text-3xl font-bold text-white">4.9★</div>
-            <div className="text-gray-300 text-sm">App Rating</div>
-          </div>
-        </div>
-
-        {/* Preview Cards */}
-        <div className="mt-16 relative">
-          <h3 className="text-2xl font-bold text-white text-center mb-8">
-            See how people are vibing right now
-          </h3>
-          
-          <div className="flex justify-center space-x-4 overflow-hidden">
-            {/* Sample Vibe Cards */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 w-72 animate-float">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                  S
-                </div>
-                <div>
-                  <div className="text-white font-medium">Sarah</div>
-                  <div className="text-gray-300 text-sm">2 blocks away</div>
-                </div>
-              </div>
-              <p className="text-white text-sm mb-3">
-                "Just finished an amazing yoga session in the park! ✨ Anyone want to grab smoothies? 🥤"
-              </p>
-              <div className="flex space-x-2">
-                <Badge className="bg-yellow-500/20 text-yellow-300 border-0">😌 Zen</Badge>
-                <Badge className="bg-green-500/20 text-green-300 border-0">🧘 Yoga</Badge>
-              </div>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 w-72 animate-float delay-1000 hidden md:block">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                  M
-                </div>
-                <div>
-                  <div className="text-white font-medium">Mike</div>
-                  <div className="text-gray-300 text-sm">1.2 km away</div>
-                </div>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3 mb-3 flex items-center space-x-2">
-                <Play className="w-4 h-4 text-white" />
-                <div className="flex-1 h-2 bg-gray-600 rounded">
-                  <div className="h-2 bg-cyan-400 rounded w-1/3"></div>
-                </div>
-                <span className="text-white text-xs">0:45</span>
-              </div>
-              <div className="flex space-x-2">
-                <Badge className="bg-orange-500/20 text-orange-300 border-0">🎵 Music</Badge>
-                <Badge className="bg-red-500/20 text-red-300 border-0">⚡ Energetic</Badge>
-              </div>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 w-72 animate-float delay-2000 hidden lg:block">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
-                  A
-                </div>
-                <div>
-                  <div className="text-white font-medium">Alex</div>
-                  <div className="text-gray-300 text-sm">0.5 km away</div>
-                </div>
-              </div>
-              <div className="bg-gray-800 rounded-lg h-32 mb-3 flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-gray-400" />
-              </div>
-              <p className="text-white text-sm mb-3">
-                "Coffee art attempt #47 ☕️ Getting better!"
-              </p>
-              <div className="flex space-x-2">
-                <Badge className="bg-yellow-500/20 text-yellow-300 border-0">😊 Happy</Badge>
-                <Badge className="bg-purple-500/20 text-purple-300 border-0">☕ Coffee</Badge>
-              </div>
+                <h4 className="font-semibold text-white">{testimonials[currentTestimonial].name}</h4>
+                <p className="text-white/60">{testimonials[currentTestimonial].role}</p>
+              </motion.div>
+            </AnimatePresence>
+            <div className="flex justify-center mt-6 space-x-2">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentTestimonial(index)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    currentTestimonial === index ? 'bg-purple-500 scale-125' : 'bg-white/20 hover:bg-white/40'
+                  }`}
+                  aria-label={`Go to testimonial ${index + 1}`}
+                />
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
-          }
-          .animate-float {
-            animation: float 6s ease-in-out infinite;
-          }
-          .animate-float.delay-1000 {
-            animation-delay: -2s;
-          }
-          .animate-float.delay-2000 {
-            animation-delay: -4s;
-          }
-          .animate-float.delay-3000 {
-            animation-delay: -6s;
-          }
-        `
-      }} />
+      {/* Stats Section */}
+      <section id="stats" className="py-20 px-4 bg-black/20 relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(139,92,246,0.05),transparent)]" />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <motion.h2 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
+          >
+            Our Growing Community
+          </motion.h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="text-center p-6 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all"
+              >
+                <div className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
+                  {stat.number}
+                </div>
+                <div className="text-white/70">{stat.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section id="about" className="py-20 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.h2 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
+          >
+            About SparkVibe
+          </motion.h2>
+          <motion.p 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="text-xl text-white/80 mb-12"
+          >
+            SparkVibe is more than a social platform – it's a space where authentic connections flourish. Built with passion in 2025, we empower users to express their true selves, build meaningful relationships, and discover content that inspires.
+          </motion.p>
+          <Link 
+            to="/signup" 
+            className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all transform hover:scale-105"
+          >
+            Start Your Journey
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-8 px-4 border-t border-white/10 bg-black/20">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between text-white/60 text-sm">
+          <div className="flex items-center space-x-2 mb-4 md:mb-0">
+            <Smile className="w-5 h-5 text-purple-400" />
+            <span>SparkVibe © 2025</span>
+          </div>
+          <div className="flex space-x-6">
+            <a href="#" className="hover:text-white transition-colors">Privacy</a>
+            <a href="#" className="hover:text-white transition-colors">Terms</a>
+            <a href="#" className="hover:text-white transition-colors">Contact</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
