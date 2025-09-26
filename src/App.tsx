@@ -4,8 +4,8 @@ import { BrowserRouter, Route, Routes, Link, useNavigate, useLocation } from 're
 import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut, Send, UserPlus, UserCheck, Camera, Upload, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL!;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
