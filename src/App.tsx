@@ -2182,9 +2182,9 @@ if (loading) {
 
 return !user ? (
   <Routes>
+    <Route path="/" element={<LandingPage />} />
     <Route path="/login" element={<LoginPage />} />
     <Route path="/signup" element={<SignUpPage />} />
-    <Route path="*" element={<LandingPage />} />
   </Routes>
 ) : (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-white">
