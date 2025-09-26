@@ -2490,12 +2490,4 @@ return !user ? (
   </div>
 );
 };
-const AppWithRouter: React.FC = () => {
-  return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <App />
-    </BrowserRouter>
-  );
-};
-
-export default AppWithRouter;
+export default App;
