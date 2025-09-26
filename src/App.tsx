@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter, Route, Routes, Link, useNavigate, Navigate} from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import {BrowserRouter, Route, Routes, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut, Send, UserPlus, UserCheck, Camera, Upload, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
@@ -1375,7 +1375,21 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const location = useLocation(); 
   const navigate = useNavigate();
+
+    useEffect(() => {
+    const pathToTab = {
+      '/': 'feed',
+      '/search': 'search', 
+      '/messages': 'messages',
+      '/communities': 'communities',
+      '/profile': 'profile',
+      '/settings': 'settings'
+    } as const;
+    
+    setActiveTab(pathToTab[location.pathname as keyof typeof pathToTab] || 'feed');
+  }, [location.pathname]);
 
   // Initialize app
   useEffect(() => {
@@ -2159,238 +2173,57 @@ const message = {
 
 
 if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
+    </div>
+  );
+}
+
+return !user ? (
+  <Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/signup" element={<SignUpPage />} />
+    <Route path="*" element={<LandingPage />} />
+  </Routes>
+) : (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-white">
+    <header className="sticky top-0 z-50 bg-black/30 backdrop-blur-xl border-b border-white/10">
+      <div className="flex items-center justify-between px-4 py-3">
+        <button
+          onClick={() => setSideMenuOpen(true)}
+          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all lg:hidden"
+          aria-label="Open menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+          SparkVibe
+        </h1>
+        <NotificationBell
+          notifications={notifications}
+          onMarkAsRead={handleMarkNotificationAsRead}
+          onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+        />
       </div>
-    );
-  }
-return (
-  <>
-    {!user ? (
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="*" element={<LandingPage />} />
-      </Routes>
-    ) : (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-white">
-        <header className="sticky top-0 z-50 bg-black/30 backdrop-blur-xl border-b border-white/10">
-          <div className="flex items-center justify-between px-4 py-3">
-            <button
-              onClick={() => setSideMenuOpen(true)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all lg:hidden"
-              aria-label="Open menu"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-              SparkVibe
-            </h1>
-            <NotificationBell
-              notifications={notifications}
-              onMarkAsRead={handleMarkNotificationAsRead}
-              onMarkAllAsRead={handleMarkAllNotificationsAsRead}
-            />
-          </div>
-        </header>
+    </header>
 
-        <main className="pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <aside className="hidden lg:block lg:col-span-3">
-              <nav className="space-y-2 sticky top-24">
-                {[
-                  { id: 'feed', label: 'Feed', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z', path: '/' },
-                  { id: 'search', label: 'Search', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', path: '/search' },
-                  { id: 'messages', label: 'Messages', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', path: '/messages' },
-                  { id: 'communities', label: 'Communities', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', path: '/communities' },
-                  { id: 'profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', path: '/profile' },
-                ].map((item) => (
-                  <Link
-                    key={item.id}
-                    to={item.path}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
-                      activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/60 hover:text-white hover:bg-white/5'
-                    }`}
-                    aria-label={item.label}
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                    </svg>
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-            </aside>
-
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <MainFeed
-                    posts={posts}
-                    handlePost={handlePost}
-                    setNewPost={setNewPost}
-                    newPost={newPost}
-                    characterCount={characterCount}
-                    textareaRef={textareaRef}
-                    handleTextChange={handleTextChange}
-                    handleLike={handleLike}
-                    handleComment={handleComment}
-                    handleShare={handleShare}
-                    handleDeletePost={handleDeletePost}
-                    user={user}
-                    uploading={uploading}
-                    onFileSelect={handleFileSelect}
-                    selectedMood={selectedMood}
-                    setSelectedMood={setSelectedMood}
-                  />
-                }
-              />
-              <Route
-                path="/search"
-                element={
-                  <SearchPage
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    searchResults={searchResults}
-                    onSearch={handleSearch}
-                    onFollowUser={handleFollow}
-                    followStatus={followStatus}
-                    handleLike={handleLike}
-                    handleComment={handleComment}
-                    handleShare={handleShare}
-                    handleDeletePost={handleDeletePost}
-                    currentUser={user}
-                  />
-                }
-              />
-              <Route
-                path="/messages"
-                element={
-                  <MessagesPage
-                    chats={chats}
-                    selectedChatId={selectedChatId}
-                    messages={messages}
-                    newMessage={newMessage}
-                    setNewMessage={setNewMessage}
-                    onSelectChat={handleSelectChat}
-                    onSendMessage={handleSendMessage}
-                    onCloseChat={() => setSelectedChatId(null)}
-                    currentUser={user}
-                  />
-                }
-              />
-              <Route
-                path="/communities"
-                element={
-                  <CommunitiesPage
-                    communities={communities}
-                    onJoinCommunity={handleJoinCommunity}
-                    onLeaveCommunity={handleLeaveCommunity}
-                    currentUser={user}
-                  />
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProfilePage
-                    user={user}
-                    profile={profile}
-                    posts={posts.filter((p) => p.user_id === user.id)}
-                    handleLike={handleLike}
-                    handleComment={handleComment}
-                    handleShare={handleShare}
-                    handleDeletePost={handleDeletePost}
-                    onLogout={handleLogout}
-                  />
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <SettingsPage
-                    user={user}
-                    profile={profile}
-                    updateProfile={updateProfile}
-                  />
-                }
-              />
-            </Routes>
-
-            <aside className="hidden lg:block lg:col-span-3">
-              <div className="space-y-6 sticky top-24">
-                <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
-                  <h3 className="font-semibold text-lg mb-4">Who to Follow</h3>
-                  <div className="space-y-4">
-                    {suggestedFriends.slice(0, 3).map((friend) => (
-                      <div key={friend.id} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-sm">
-                            {friend.avatar_url ? (
-                              <img
-                                src={friend.avatar_url}
-                                alt={friend.full_name || 'User'}
-                                className="w-full h-full rounded-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              friend.full_name?.[0] || 'U'
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-sm hover:text-indigo-400 cursor-pointer">{friend.full_name}</h4>
-                            <span className="text-xs text-gray-400">@{friend.username}</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleFollow(friend.user_id)}
-                          className={`px-3 py-1 text-sm rounded-lg transition-all ${
-                            followStatus[friend.user_id]
-                              ? 'bg-slate-700 text-gray-400 hover:bg-slate-600'
-                              : 'bg-indigo-600 text-white hover:bg-indigo-500'
-                          }`}
-                          aria-label={`${followStatus[friend.user_id] ? 'Unfollow' : 'Follow'} ${friend.full_name}`}
-                        >
-                          {followStatus[friend.user_id] ? 'Following' : 'Follow'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
-                  <h3 className="font-semibold text-lg mb-4">Trending Communities</h3>
-                  <div className="space-y-3">
-                    {communities.slice(0, 3).map((community) => (
-                      <div key={community.id} className="p-3 bg-white/5 rounded-lg hover:bg-white/10 cursor-pointer transition-all">
-                        <h4 className="font-medium text-sm text-purple-400">{community.name}</h4>
-                        <p className="text-xs text-white/60 mt-1">{community.member_count} members</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </main>
-
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-xl border-t border-white/10 lg:hidden">
-          <div className="flex items-center justify-around py-2">
+    <main className="pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <aside className="hidden lg:block lg:col-span-3">
+          <nav className="space-y-2 sticky top-24">
             {[
-              { id: 'feed', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z', label: 'Feed', path: '/' },
-              { id: 'search', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', label: 'Search', path: '/search' },
-              { id: 'messages', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', label: 'Messages', path: '/messages' },
-              { id: 'communities', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', label: 'Communities', path: '/communities' },
-              { id: 'profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', label: 'Profile', path: '/profile' }
+              { id: 'feed', label: 'Feed', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z', path: '/' },
+              { id: 'search', label: 'Search', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', path: '/search' },
+              { id: 'messages', label: 'Messages', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', path: '/messages' },
+              { id: 'communities', label: 'Communities', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', path: '/communities' },
+              { id: 'profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', path: '/profile' },
             ].map((item) => (
               <Link
                 key={item.id}
                 to={item.path}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${
+                className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
                   activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/60 hover:text-white hover:bg-white/5'
                 }`}
                 aria-label={item.label}
@@ -2398,83 +2231,263 @@ return (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
                 </svg>
-                <span className="text-xs font-medium">{item.label}</span>
+                {item.label}
               </Link>
             ))}
-          </div>
-        </nav>
+          </nav>
+        </aside>
 
-        <AnimatePresence>
-          {sideMenuOpen && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 z-60 lg:hidden"
-                onClick={() => setSideMenuOpen(false)}
-                aria-hidden="true"
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <MainFeed
+                posts={posts}
+                handlePost={handlePost}
+                setNewPost={setNewPost}
+                newPost={newPost}
+                characterCount={characterCount}
+                textareaRef={textareaRef}
+                handleTextChange={handleTextChange}
+                handleLike={handleLike}
+                handleComment={handleComment}
+                handleShare={handleShare}
+                handleDeletePost={handleDeletePost}
+                user={user}
+                uploading={uploading}
+                onFileSelect={handleFileSelect}
+                selectedMood={selectedMood}
+                setSelectedMood={setSelectedMood}
               />
-              <motion.div
-                initial={{ x: -300 }}
-                animate={{ x: 0 }}
-                exit={{ x: -300 }}
-                className="fixed top-0 left-0 h-full w-80 bg-black/90 backdrop-blur-xl z-70 p-6 lg:hidden"
-              >
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-xl">
-                    {profile?.full_name?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold">{profile?.full_name || 'User'}</h2>
-                    <p className="text-white/60">@{profile?.username || 'user'}</p>
-                  </div>
-                </div>
-                <nav className="space-y-2">
-                  {[
-                    { id: 'profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', path: '/profile' },
-                    { id: 'settings', label: 'Settings', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4', path: '/settings' }
-                  ].map((item) => (
-                    <Link
-                      key={item.id}
-                      to={item.path}
-                      onClick={() => setSideMenuOpen(false)}
-                      className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-white/10 transition-all text-left"
-                      aria-label={item.label}
-                    >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                      </svg>
-                      {item.label}
-                    </Link>
-                  ))}
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-red-500/10 text-red-400 transition-all text-left mt-8"
-                    aria-label="Sign out"
-                  >
-                    <LogOut className="w-6 h-6" />
-                    Sign Out
-                  </button>
-                </nav>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <SearchPage
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                searchResults={searchResults}
+                onSearch={handleSearch}
+                onFollowUser={handleFollow}
+                followStatus={followStatus}
+                handleLike={handleLike}
+                handleComment={handleComment}
+                handleShare={handleShare}
+                handleDeletePost={handleDeletePost}
+                currentUser={user}
+              />
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <MessagesPage
+                chats={chats}
+                selectedChatId={selectedChatId}
+                messages={messages}
+                newMessage={newMessage}
+                setNewMessage={setNewMessage}
+                onSelectChat={handleSelectChat}
+                onSendMessage={handleSendMessage}
+                onCloseChat={() => setSelectedChatId(null)}
+                currentUser={user}
+              />
+            }
+          />
+          <Route
+            path="/communities"
+            element={
+              <CommunitiesPage
+                communities={communities}
+                onJoinCommunity={handleJoinCommunity}
+                onLeaveCommunity={handleLeaveCommunity}
+                currentUser={user}
+              />
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProfilePage
+                user={user}
+                profile={profile}
+                posts={posts.filter((p) => p.user_id === user.id)}
+                handleLike={handleLike}
+                handleComment={handleComment}
+                handleShare={handleShare}
+                handleDeletePost={handleDeletePost}
+                onLogout={handleLogout}
+              />
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <SettingsPage
+                user={user}
+                profile={profile}
+                updateProfile={updateProfile}
+              />
+            }
+          />
+        </Routes>
 
-        <CommentModal
-          isOpen={showCommentModal}
-          onClose={() => setShowCommentModal(false)}
-          postId={selectedPost}
-          comments={selectedPost ? comments[selectedPost] || [] : []}
-          newComment={newComment}
-          setNewComment={setNewComment}
-          onSubmitComment={submitComment}
-          currentUser={user}
-        />
+        <aside className="hidden lg:block lg:col-span-3">
+          {/* Right sidebar with suggested friends and trending communities */}
+          <div className="space-y-6 sticky top-24">
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
+              <h3 className="font-semibold text-lg mb-4">Who to Follow</h3>
+              <div className="space-y-4">
+                {suggestedFriends.slice(0, 3).map((friend) => (
+                  <div key={friend.id} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-sm">
+                        {friend.avatar_url ? (
+                          <img
+                            src={friend.avatar_url}
+                            alt={friend.full_name || 'User'}
+                            className="w-full h-full rounded-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          friend.full_name?.[0] || 'U'
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-sm hover:text-indigo-400 cursor-pointer">{friend.full_name}</h4>
+                        <span className="text-xs text-gray-400">@{friend.username}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleFollow(friend.user_id)}
+                      className={`px-3 py-1 text-sm rounded-lg transition-all ${
+                        followStatus[friend.user_id]
+                          ? 'bg-slate-700 text-gray-400 hover:bg-slate-600'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                      }`}
+                      aria-label={`${followStatus[friend.user_id] ? 'Unfollow' : 'Follow'} ${friend.full_name}`}
+                    >
+                      {followStatus[friend.user_id] ? 'Following' : 'Follow'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
+              <h3 className="font-semibold text-lg mb-4">Trending Communities</h3>
+              <div className="space-y-3">
+                {communities.slice(0, 3).map((community) => (
+                  <div key={community.id} className="p-3 bg-white/5 rounded-lg hover:bg-white/10 cursor-pointer transition-all">
+                    <h4 className="font-medium text-sm text-purple-400">{community.name}</h4>
+                    <p className="text-xs text-white/60 mt-1">{community.member_count} members</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
-    )}
-  </>
+    </main>
+
+    {/* Mobile navigation and side menu components */}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-xl border-t border-white/10 lg:hidden">
+<div className="flex items-center justify-around py-2">
+  {[
+    { id: 'feed', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z', label: 'Feed', path: '/' },
+    { id: 'search', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', label: 'Search', path: '/search' },
+    { id: 'messages', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', label: 'Messages', path: '/messages' },
+    { id: 'communities', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', label: 'Communities', path: '/communities' },
+    { id: 'profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', label: 'Profile', path: '/profile' }
+  ].map((item) => (
+    <Link
+      key={item.id}
+      to={item.path}
+      onClick={() => setActiveTab(item.id)}
+      className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${
+        activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/60 hover:text-white hover:bg-white/5'
+      }`}
+      aria-label={item.label}
+    >
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+      </svg>
+      <span className="text-xs font-medium">{item.label}</span>
+    </Link>
+  ))}
+</div>
+    </nav>
+
+    <AnimatePresence>
+      {sideMenuOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-60 lg:hidden"
+            onClick={() => setSideMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <motion.div
+  initial={{ x: -300 }}
+  animate={{ x: 0 }}
+  exit={{ x: -300 }}
+  className="fixed top-0 left-0 h-full w-80 bg-black/90 backdrop-blur-xl z-70 p-6 lg:hidden"
+>
+  <div className="flex items-center gap-4 mb-8">
+    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-xl">
+      {profile?.full_name?.[0]?.toUpperCase() || 'U'}
+    </div>
+    <div>
+      <h2 className="text-xl font-bold">{profile?.full_name || 'User'}</h2>
+      <p className="text-white/60">@{profile?.username || 'user'}</p>
+    </div>
+  </div>
+  <nav className="space-y-2">
+    {[
+      { id: 'profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', path: '/profile' },
+      { id: 'settings', label: 'Settings', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4', path: '/settings' }
+    ].map((item) => (
+      <Link
+        key={item.id}
+        to={item.path}
+        onClick={() => setSideMenuOpen(false)}
+        className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-white/10 transition-all text-left"
+        aria-label={item.label}
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+        </svg>
+        {item.label}
+      </Link>
+    ))}
+    <button
+      onClick={handleLogout}
+      className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-red-500/10 text-red-400 transition-all text-left mt-8"
+      aria-label="Sign out"
+    >
+      <LogOut className="w-6 h-6" />
+      Sign Out
+    </button>
+  </nav>
+</motion.div>
+        </>
+      )}
+    </AnimatePresence>
+
+    <CommentModal
+      isOpen={showCommentModal}
+      onClose={() => setShowCommentModal(false)}
+      postId={selectedPost}
+      comments={selectedPost ? comments[selectedPost] || [] : []}
+      newComment={newComment}
+      setNewComment={setNewComment}
+      onSubmitComment={submitComment}
+      currentUser={user}
+    />
+  </div>
 );
 };
 const AppWithRouter: React.FC = () => {
@@ -2484,4 +2497,5 @@ const AppWithRouter: React.FC = () => {
     </BrowserRouter>
   );
 };
+
 export default AppWithRouter;
