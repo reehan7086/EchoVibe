@@ -1,6 +1,6 @@
 // src/App.tsx
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 
@@ -136,9 +136,7 @@ const AppContent: React.FC = () => {
 
 // Only one BrowserRouter at the very top
 const App: React.FC = () => (
-  <BrowserRouter>
     <AppContent />
-  </BrowserRouter>
 );
 
 export default App;
