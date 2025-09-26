@@ -9,7 +9,11 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
-
+console.log('Environment debug:', {
+  all_env: import.meta.env,
+  supabase_url: import.meta.env.VITE_SUPABASE_URL,
+  supabase_key: import.meta.env.VITE_SUPABASE_ANON_KEY,
+});
 // Types
 type User = SupabaseUser;
 
