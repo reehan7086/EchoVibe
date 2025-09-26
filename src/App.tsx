@@ -117,9 +117,7 @@ const AppContent: React.FC = () => {
 
 // Only one BrowserRouter at the very top
 const App: React.FC = () => (
-  <BrowserRouter>
-    <AppContent />
-  </BrowserRouter>
+  <AppContent />
 );
 
 export default App;
