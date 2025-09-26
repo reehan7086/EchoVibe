@@ -1,14 +1,16 @@
 import * as React from 'react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter, Route, Routes, Link, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Link, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut, Send, UserPlus, UserCheck, Camera, Upload, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
+import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
+import sanitizeHtml from 'sanitize-html';
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
-import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
-import sanitizeHtml from 'sanitize-html';
+
 console.log('Environment debug:', {
   all_env: import.meta.env,
   supabase_url: import.meta.env.VITE_SUPABASE_URL,
@@ -1336,7 +1338,6 @@ const App: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  // Move all the existing state and logic from App component here
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<VibeEcho[]>([]);
@@ -2109,7 +2110,8 @@ const message = {
     }
   };
 
- if (loading) {
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
@@ -2140,7 +2142,7 @@ const message = {
             <Menu className="w-6 h-6" />
           </button>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-            EchoVibe
+            SparkVibe
           </h1>
           <NotificationBell
             notifications={notifications}
