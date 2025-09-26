@@ -1,3 +1,4 @@
+// src/App.tsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
@@ -11,7 +12,9 @@ import MainDashboard from './components/MainDashboard';
 import LoadingSpinner from './components/LoadingSpinner';
 
 // Types
-import { Profile } from './types';
+import type { Database } from './types';
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type InsertProfile = Database['public']['Tables']['profiles']['Insert'];
 
 // AppContent handles auth state and routing
 const AppContent: React.FC = () => {
@@ -25,7 +28,10 @@ const AppContent: React.FC = () => {
     const initializeAuth = async () => {
       try {
         setLoading(true);
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
         if (error && error.name !== 'AuthSessionMissingError') {
           throw new Error(`Session fetch failed: ${error.message}`);
@@ -46,60 +52,67 @@ const AppContent: React.FC = () => {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null);
 
-      if (event === 'SIGNED_IN' && session?.user) {
-        await fetchOrCreateProfile(session.user);
-      }
+        if (event === 'SIGNED_IN' && session?.user) {
+          await fetchOrCreateProfile(session.user);
+        }
 
-      if (!session?.user && !['/login', '/signup', '/'].includes(location.pathname)) {
-        navigate('/login');
+        if (!session?.user && !['/login', '/signup', '/'].includes(location.pathname)) {
+          navigate('/login');
+        }
       }
-    });
+    );
 
     return () => subscription.unsubscribe();
   }, [navigate, location.pathname]);
 
   const fetchOrCreateProfile = async (user: User) => {
     try {
-      let { data: profileData, error: profileError } = await supabase
+      // Fetch existing profile
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .single() as { data: Profile | null; error: any };
 
-      if (profileError && profileError.code === 'PGRST116') {
-        const newProfile = {
+      let profileData = data;
+
+      // If profile not found, create one
+      if (error && error.code === 'PGRST116') {
+        const newProfile: InsertProfile = {
           id: user.id,
-          username: user.user_metadata?.preferred_username ||
-                    user.user_metadata?.name?.toLowerCase().replace(/\s+/g, '') ||
-                    user.email?.split('@')[0] ||
-                    `user_${user.id.slice(0, 8)}`,
+          username:
+            user.user_metadata?.preferred_username ||
+            user.user_metadata?.name?.toLowerCase().replace(/\s+/g, '') ||
+            user.email?.split('@')[0] ||
+            `user_${user.id.slice(0, 8)}`,
           full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New User',
           avatar_url: user.user_metadata?.avatar_url || null,
           vibe_score: 0,
-          is_online: false
+          is_online: false,
         };
 
         const { data: createdProfile, error: createError } = await supabase
           .from('profiles')
-          .insert([newProfile])
+          .insert([newProfile] as InsertProfile[])
           .select()
-          .single();
+          .single() as { data: Profile | null; error: any };
 
         if (createError) {
           console.error('Error creating profile:', createError);
         } else {
           profileData = createdProfile;
         }
-      } else if (profileError) {
-        throw new Error(`Profile fetch failed: ${profileError.message}`);
+      } else if (error) {
+        throw new Error(`Profile fetch failed: ${error.message}`);
       }
 
-      setProfile(profileData);
-    } catch (error) {
-      console.error('Error fetching/creating profile:', error);
+      setProfile(profileData ?? null);
+    } catch (err) {
+      console.error('Error fetching/creating profile:', err);
     }
   };
 
@@ -107,17 +120,25 @@ const AppContent: React.FC = () => {
 
   return (
     <Routes>
-      <Route path="/" element={!user ? <LandingPage /> : <MainDashboard user={user} profile={profile} />} />
+      <Route
+        path="/"
+        element={!user ? <LandingPage /> : <MainDashboard user={user} profile={profile} />}
+      />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
-      <Route path="/dashboard/*" element={user ? <MainDashboard user={user} profile={profile} /> : <LoginPage />} />
+      <Route
+        path="/dashboard/*"
+        element={user ? <MainDashboard user={user} profile={profile} /> : <LoginPage />}
+      />
     </Routes>
   );
 };
 
 // Only one BrowserRouter at the very top
 const App: React.FC = () => (
-  <AppContent />
+  <BrowserRouter>
+    <AppContent />
+  </BrowserRouter>
 );
 
 export default App;
