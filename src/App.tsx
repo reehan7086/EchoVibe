@@ -190,7 +190,7 @@ const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 flex items-center justify-center">
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-6 text-center">Log In to EchoVibe</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">Log In to Sparkvibe</h2>
         {error && <p className="text-red-400 mb-4">{error}</p>}
         <div className="space-y-4">
           <input
@@ -263,7 +263,7 @@ const SignUpPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 flex items-center justify-center">
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-6 text-center">Sign Up for EchoVibe</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">Sign Up for SparkVibe</h2>
         {error && <p className="text-red-400 mb-4">{error}</p>}
         <div className="space-y-4">
           <input
@@ -1341,7 +1341,7 @@ const SettingsPage: React.FC<{
           </div>
         </div>
         <div className="pt-4">
-          <p className="text-center text-white/40 text-sm">EchoVibe v1.0.0</p>
+          <p className="text-center text-white/40 text-sm">SparkVibe v1.0.0</p>
         </div>
       </div>
     </main>
