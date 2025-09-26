@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter, Route, Routes, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Link, useNavigate, Navigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, Users, Search, Bell, Menu, X, MoreHorizontal, LogOut, Send, UserPlus, UserCheck, Camera, Upload, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
@@ -1330,14 +1330,6 @@ const SettingsPage: React.FC<{
 };
 
 const App: React.FC = () => {
-  return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
-  );
-};
-
-const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<VibeEcho[]>([]);
@@ -1365,6 +1357,7 @@ const AppContent: React.FC = () => {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
+
   // Initialize app
   useEffect(() => {
     const initializeApp = async () => {
@@ -2111,7 +2104,7 @@ const message = {
   };
 
 
-  if (loading) {
+if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
@@ -2181,100 +2174,133 @@ const message = {
             </nav>
           </aside>
 
-          <Routes>
+<Routes>
             <Route
               path="/"
               element={
-                <MainFeed
-                  posts={posts}
-                  handlePost={handlePost}
-                  setNewPost={setNewPost}
-                  newPost={newPost}
-                  characterCount={characterCount}
-                  textareaRef={textareaRef}
-                  handleTextChange={handleTextChange}
-                  handleLike={handleLike}
-                  handleComment={handleComment}
-                  handleShare={handleShare}
-                  handleDeletePost={handleDeletePost}
-                  user={user}
-                  uploading={uploading}
-                  onFileSelect={handleFileSelect}
-                  selectedMood={selectedMood}
-                  setSelectedMood={setSelectedMood}
-                />
+                user ? (
+                  <MainFeed
+                    posts={posts}
+                    handlePost={handlePost}
+                    setNewPost={setNewPost}
+                    newPost={newPost}
+                    characterCount={characterCount}
+                    textareaRef={textareaRef}
+                    handleTextChange={handleTextChange}
+                    handleLike={handleLike}
+                    handleComment={handleComment}
+                    handleShare={handleShare}
+                    handleDeletePost={handleDeletePost}
+                    user={user}
+                    uploading={uploading}
+                    onFileSelect={handleFileSelect}
+                    selectedMood={selectedMood}
+                    setSelectedMood={setSelectedMood}
+                  />
+                ) : (
+                  <Navigate to="/login" />
+                )
               }
             />
             <Route
               path="/search"
               element={
-                <SearchPage
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  searchResults={searchResults}
-                  onSearch={handleSearch}
-                  onFollowUser={handleFollow}
-                  followStatus={followStatus}
-                  handleLike={handleLike}
-                  handleComment={handleComment}
-                  handleShare={handleShare}
-                  handleDeletePost={handleDeletePost}
-                  currentUser={user}
-                />
+                user ? (
+                  <SearchPage
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    searchResults={searchResults}
+                    onSearch={handleSearch}
+                    onFollowUser={handleFollow}
+                    followStatus={followStatus}
+                    handleLike={handleLike}
+                    handleComment={handleComment}
+                    handleShare={handleShare}
+                    handleDeletePost={handleDeletePost}
+                    currentUser={user}
+                  />
+                ) : (
+                  <Navigate to="/login" />
+                )
               }
             />
             <Route
               path="/messages"
               element={
-                <MessagesPage
-                  chats={chats}
-                  selectedChatId={selectedChatId}
-                  messages={messages}
-                  newMessage={newMessage}
-                  setNewMessage={setNewMessage}
-                  onSelectChat={handleSelectChat}
-                  onSendMessage={handleSendMessage}
-                  onCloseChat={() => setSelectedChatId(null)}
-                  currentUser={user}
-                />
+                user ? (
+                  <MessagesPage
+                    chats={chats}
+                    selectedChatId={selectedChatId}
+                    messages={messages}
+                    newMessage={newMessage}
+                    setNewMessage={setNewMessage}
+                    onSelectChat={handleSelectChat}
+                    onSendMessage={handleSendMessage}
+                    onCloseChat={() => setSelectedChatId(null)}
+                    currentUser={user}
+                  />
+                ) : (
+                  <Navigate to="/login" />
+                )
               }
             />
             <Route
               path="/communities"
               element={
-                <CommunitiesPage
-                  communities={communities}
-                  onJoinCommunity={handleJoinCommunity}
-                  onLeaveCommunity={handleLeaveCommunity}
-                  currentUser={user}
-                />
+                user ? (
+                  <CommunitiesPage
+                    communities={communities}
+                    onJoinCommunity={handleJoinCommunity}
+                    onLeaveCommunity={handleLeaveCommunity}
+                    currentUser={user}
+                  />
+                ) : (
+                  <Navigate to="/login" />
+                )
               }
             />
             <Route
               path="/profile"
               element={
-                <ProfilePage
-                  user={user}
-                  profile={profile}
-                  posts={posts.filter((p) => p.user_id === user.id)}
-                  handleLike={handleLike}
-                  handleComment={handleComment}
-                  handleShare={handleShare}
-                  handleDeletePost={handleDeletePost}
-                  onLogout={handleLogout}
-                />
+                user ? (
+                  <ProfilePage
+                    user={user}
+                    profile={profile}
+                    posts={posts.filter((p) => p.user_id === user.id)}
+                    handleLike={handleLike}
+                    handleComment={handleComment}
+                    handleShare={handleShare}
+                    handleDeletePost={handleDeletePost}
+                    onLogout={handleLogout}
+                  />
+                ) : (
+                  <Navigate to="/login" />
+                )
               }
             />
             <Route
               path="/settings"
               element={
-                <SettingsPage
-                  user={user}
-                  profile={profile}
-                  updateProfile={updateProfile}
-                />
+                user ? (
+                  <SettingsPage
+                    user={user}
+                    profile={profile}
+                    updateProfile={updateProfile}
+                  />
+                ) : (
+                  <Navigate to="/login" />
+                )
               }
             />
+            <Route
+              path="/login"
+              element={!user ? <LoginPage /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/signup"
+              element={!user ? <SignUpPage /> : <Navigate to="/" />}
+            />
+            <Route path="*" element={<LandingPage />} />
           </Routes>
 
           <aside className="hidden lg:block lg:col-span-3">
