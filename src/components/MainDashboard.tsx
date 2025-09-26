@@ -203,15 +203,16 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
 
         {/* Main content */}
         <section className="lg:col-span-6">
-          <Routes>
-            <Route path="/" element={<FeedPage user={user} profile={profile} />} />
-            <Route path="/search" element={<SearchPage user={user} profile={profile} />} />
-            <Route path="/messages" element={<MessagesPage user={user} />} />
-            <Route path="/communities" element={<CommunitiesPage user={user} />} />
-            <Route path="/profile" element={<ProfilePage user={user} profile={profile} onLogout={handleLogout} />} />
-            <Route path="/settings" element={<SettingsPage user={user} profile={profile} updateProfile={updateProfile} />} />
-          </Routes>
-        </section>
+  <Routes>
+    <Route path="" element={<FeedPage user={user} profile={profile} />} />
+    <Route path="search" element={<SearchPage user={user} profile={profile} />} />
+    <Route path="messages" element={<MessagesPage user={user} />} />
+    <Route path="communities" element={<CommunitiesPage user={user} />} />
+    <Route path="profile" element={<ProfilePage user={user} profile={profile} onLogout={handleLogout} />} />
+    <Route path="settings" element={<SettingsPage user={user} profile={profile} updateProfile={updateProfile} />} />
+  </Routes>
+</section>
+
 
         {/* Right sidebar */}
         <aside className="hidden lg:block lg:col-span-3">
