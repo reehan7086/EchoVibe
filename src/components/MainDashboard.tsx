@@ -3,7 +3,7 @@ import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Menu, LogOut, MessageSquare, Users, Search, Settings, User as UserIcon, Home 
+  Menu, LogOut, MessageSquare, Users, Search, Settings, User as UserIcon, Home, X 
 } from 'lucide-react';
 
 // Pages
@@ -32,6 +32,27 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Helper function to create complete profile from partial data
+  const createCompleteProfile = (partialProfile: any): Profile | undefined => {
+    if (!partialProfile) return undefined;
+    
+    return {
+      id: partialProfile.id || '',
+      user_id: partialProfile.user_id || '',
+      username: partialProfile.username || '',
+      full_name: partialProfile.full_name || '',
+      bio: partialProfile.bio,
+      avatar_url: partialProfile.avatar_url,
+      location: partialProfile.location,
+      city: partialProfile.city,
+      created_at: partialProfile.created_at || new Date().toISOString(),
+      updated_at: partialProfile.updated_at,
+      vibe_score: partialProfile.vibe_score || 0,
+      is_online: partialProfile.is_online || false,
+      last_active: partialProfile.last_active
+    };
+  };
+
   // Set active tab based on route
   useEffect(() => {
     const pathToTab: Record<string, string> = {
@@ -51,76 +72,106 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
   
     const fetchNotifications = async () => {
       try {
+        // CORRECTED: Use actual database column names
         const { data, error } = await supabase
           .from('notifications')
-          .select('*, profiles!related_user_id(username, full_name, avatar_url)')
+          .select(`
+            id,
+            user_id,
+            related_user_id,
+            type,
+            message,
+            created_at,
+            read,
+            profiles!related_user_id(
+              id,
+              user_id,
+              username,
+              full_name,
+              avatar_url,
+              vibe_score,
+              is_online,
+              created_at,
+              updated_at,
+              bio,
+              location,
+              city,
+              last_active
+            )
+          `)
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(20);
   
         if (error) throw error;
-        setNotifications(data || []);
+
+        // Map to expected format with compatibility fields
+        const mappedNotifications = data?.map(notification => ({
+          ...notification,
+          content: notification.message, // Map for compatibility
+          is_read: notification.read,     // Map for compatibility
+          related_user_profile: createCompleteProfile(notification.profiles)
+        })) || [];
+
+        setNotifications(mappedNotifications);
       } catch (err) {
         console.error('Error fetching notifications:', err);
       }
     };
   
-    fetchNotifications(); // call async function here
+    fetchNotifications();
   
+    // CORRECTED: Real-time subscription
     const subscription = supabase
       .channel('notifications')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        async (payload: any) => {
-          if (payload.new.user_id === user.id) {
-            try {
-              const { data: profileData } = await supabase
-                .from('profiles')
-                .select('username, full_name, avatar_url')
-                .eq('id', payload.new.related_user_id)
-                .single();
-  
-              const newNotification: Notification = {
-                id: payload.new.id,
-                user_id: payload.new.user_id,
-                type: payload.new.type,
-                content: payload.new.content,
-                created_at: payload.new.created_at,
-                is_read: payload.new.is_read,
-                related_user_profile: profileData ? {
-                  id: payload.new.related_user_id || '',
-                  username: profileData.username || '',
-                  full_name: profileData.full_name || '',
-                  bio: null,
-                  avatar_url: profileData.avatar_url,
-                  location: null,
-                  city: null,
-                  created_at: new Date().toISOString(),
-                  updated_at: null,
-                  vibe_score: 0,
-                  is_online: false,
-                  last_active: undefined
-                } as Profile : undefined,
-              };
-  
-              setNotifications(prev => [newNotification, ...prev]);
-            } catch (err) {
-              console.error('Error fetching related profile:', err);
-            }
-          }
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
+      }, async (payload: any) => {
+        try {
+          // Fetch the related profile for the new notification
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select(`
+              id,
+              user_id,
+              username,
+              full_name,
+              avatar_url,
+              vibe_score,
+              is_online,
+              created_at,
+              updated_at,
+              bio,
+              location,
+              city,
+              last_active
+            `)
+            .eq('user_id', payload.new.related_user_id)
+            .single();
+
+          const newNotification = {
+            ...payload.new,
+            content: payload.new.message, // Map for compatibility
+            is_read: payload.new.read,    // Map for compatibility
+            related_user_profile: createCompleteProfile(profileData)
+          };
+
+          setNotifications(prev => [newNotification, ...prev]);
+        } catch (err) {
+          console.error('Error fetching related profile:', err);
         }
-      )
+      })
       .subscribe();
   
-    // CLEANUP: synchronous
     return () => {
       subscription.unsubscribe();
     };
   }, [user.id]);
-  
 
-  // Logout
+  // CORRECTED: Logout function
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -130,45 +181,48 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
     }
   };
 
-  // Mark a single notification as read
+  // CORRECTED: Mark notification as read
   const handleMarkNotificationAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
+        .update({ read: true }) // Use 'read' not 'is_read'
         .eq('id', notificationId);
+        
       if (error) throw error;
 
       setNotifications(prev =>
-        prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
+        prev.map(n => n.id === notificationId ? { ...n, read: true, is_read: true } : n)
       );
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
   };
 
-  // Mark all notifications as read
+  // CORRECTED: Mark all notifications as read
   const handleMarkAllNotificationsAsRead = async () => {
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', user.id);
+        .update({ read: true }) // Use 'read' not 'is_read'
+        .eq('user_id', user.id)
+        .eq('read', false);
+
       if (error) throw error;
 
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, read: true, is_read: true })));
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
   };
 
-  // Update profile
+  // CORRECTED: Update profile function
   const updateProfile = async (updates: Partial<Profile>) => {
     try {
       const { error } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', user.id);
+        .eq('user_id', user.id); // Use user_id not id
       if (error) throw error;
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -198,7 +252,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
             <Menu className="w-6 h-6" />
           </button>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-            SparkVibe
+            EchoVibe
           </h1>
           <NotificationBell
             notifications={notifications}
@@ -226,6 +280,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
                 {item.label}
               </Link>
             ))}
+            
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-4 p-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all mt-8"
+            >
+              <LogOut className="w-6 h-6" />
+              Logout
+            </button>
           </nav>
         </aside>
 
@@ -259,13 +322,107 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
                   <p className="text-sm text-white/60">@{profile?.username || 'user'}</p>
                 </div>
               </div>
+              
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-purple-400">{profile?.vibe_score || 0}</div>
+                  <div className="text-xs text-white/60">Vibe Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-purple-400">
+                    {profile?.is_online ? 'Online' : 'Offline'}
+                  </div>
+                  <div className="text-xs text-white/60">Status</div>
+                </div>
+              </div>
             </div>
           </div>
         </aside>
       </main>
 
-      {/* Mobile nav and side menu */}
-      {/* ...same as original, omitted for brevity */}
+      {/* Mobile side menu */}
+      <AnimatePresence>
+        {sideMenuOpen && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+              onClick={() => setSideMenuOpen(false)}
+            />
+            
+            {/* Side menu */}
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              className="fixed left-0 top-0 h-full w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 z-50 lg:hidden"
+            >
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-xl font-bold text-white">EchoVibe</h2>
+                  <button
+                    onClick={() => setSideMenuOpen(false)}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                {/* Profile info */}
+                <div className="flex items-center space-x-3 mb-6 p-3 rounded-lg bg-white/5">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt={profile.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      profile?.full_name?.[0]?.toUpperCase() || 'U'
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-white">{profile?.full_name || 'User'}</h4>
+                    <p className="text-sm text-white/60">@{profile?.username || 'user'}</p>
+                  </div>
+                </div>
+                
+                {/* Navigation */}
+                <nav className="space-y-2">
+                  {navigationItems.map(item => (
+                    <Link
+                      key={item.id}
+                      to={item.path}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setSideMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                        activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/70 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      {item.label}
+                    </Link>
+                  ))}
+                  
+                  {/* Mobile logout */}
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setSideMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all mt-6"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Logout
+                  </button>
+                </nav>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

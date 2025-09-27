@@ -40,6 +40,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     
     return {
       id: profileData.id,
+      user_id: profileData.user_id,
       username: profileData.username || '',
       full_name: profileData.full_name || '',
       bio: profileData.bio,
@@ -68,7 +69,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
         console.log('🔄 Fetching posts...');
 
-        // Get user's likes first
+        // Get user's likes first (CORRECTED: using 'likes' table with 'post_id')
         const { data: likesData, error: likesError } = await supabase
           .from('likes')
           .select('post_id')
@@ -80,31 +81,30 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
         const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
 
-        // Fetch posts
-// Replace your current posts query with:
-// Fetch posts with correct column selection
-const { data: postsData, error: postsError } = await supabase
-  .from('vibe_echoes')
-  .select(`
-    id,
-    user_id,
-    content,
-    media_url,
-    media_type,
-    mood,
-    activity,
-    location,
-    city,
-    duration,
-    created_at,
-    expires_at,
-    likes_count,
-    responses_count,
-    is_active
-  `)
-  .eq('is_active', true)
-  .order('created_at', { ascending: false })
-  .limit(20);
+        // Fetch posts (CORRECTED: removed columns that don't exist in your DB)
+        const { data: postsData, error: postsError } = await supabase
+          .from('vibe_echoes')
+          .select(`
+            id,
+            user_id,
+            content,
+            media_url,
+            media_type,
+            mood,
+            activity,
+            location,
+            city,
+            duration,
+            created_at,
+            expires_at,
+            likes_count,
+            responses_count,
+            is_active,
+            profile_id
+          `)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(20);
 
         if (postsError) {
           throw postsError;
@@ -119,6 +119,7 @@ const { data: postsData, error: postsError } = await supabase
             .from('profiles')
             .select(`
               id,
+              user_id,
               username,
               full_name,
               bio,
@@ -131,14 +132,14 @@ const { data: postsData, error: postsError } = await supabase
               is_online,
               last_active
             `)
-            .in('id', userIds);
+            .in('user_id', userIds);
 
           if (!profilesError && profilesData) {
             setUserProfiles(profilesData as Profile[]);
             enrichedPosts = postsData.map(post => ({
               ...post,
               user_has_liked: likedPostIds.has(post.id),
-              profiles: createSafeProfile(profilesData.find(profile => profile.id === post.user_id))
+              profiles: createSafeProfile(profilesData.find(profile => profile.user_id === post.user_id))
             }));
           }
         }
@@ -169,8 +170,8 @@ const { data: postsData, error: postsError } = await supabase
             // Fetch profile for new post
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('id, username, full_name, avatar_url, vibe_score, bio, location, city, created_at, updated_at, is_online, last_active')
-              .eq('id', payload.new.user_id)
+              .select('id, user_id, username, full_name, avatar_url, vibe_score, bio, location, city, created_at, updated_at, is_online, last_active')
+              .eq('user_id', payload.new.user_id)
               .single();
 
             const newPost: VibeEcho = {
@@ -273,7 +274,8 @@ const { data: postsData, error: postsError } = await supabase
           expires_at,
           likes_count,
           responses_count,
-          is_active
+          is_active,
+          profile_id
         `)
         .single();
 
@@ -365,6 +367,7 @@ const { data: postsData, error: postsError } = await supabase
           created_at,
           profiles:sender_id (
             id,
+            user_id,
             username,
             full_name,
             bio,
@@ -412,19 +415,6 @@ const { data: postsData, error: postsError } = await supabase
       });
 
       const chatId = `post_${selectedPost}`;
-
-      // Ensure chat exists
-      const { error: chatError } = await supabase
-        .from('chats')
-        .upsert({
-          id: chatId,
-          user1_id: user.id,
-          user2_id: posts.find(p => p.id === selectedPost)?.user_id || user.id
-        });
-
-      if (chatError) {
-        console.error('Error creating chat:', chatError);
-      }
 
       // Insert comment
       const { data, error } = await supabase
