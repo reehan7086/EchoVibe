@@ -1,209 +1,180 @@
+// src/components/pages/ProfilePage.tsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
-import { motion } from 'framer-motion';
-import { LogOut, Edit, Calendar, MapPin, Link2, Mail, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-import { Profile, VibeEcho } from '../../types';
-import PostCard from '../common/PostCard';
-import { formatDate } from '../../utils';
+import { User, Profile, VibeEcho } from '../../types';
+import { Edit3, MapPin, Link as LinkIcon, Calendar, X, Save, Camera } from 'lucide-react';
 
 interface ProfilePageProps {
   user: User;
-  profile: Profile | null;
-  onLogout: () => void;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, profile, onLogout }) => {
-  const [posts, setPosts] = useState<VibeEcho[]>([]);
+export const ProfilePage: React.FC<ProfilePageProps> = ({ user }) => {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [userPosts, setUserPosts] = useState<VibeEcho[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    username: '',
+    bio: '',
+    website: '',
+    location: '',
+    avatar_url: ''
+  });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved'>('posts');
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editProfile, setEditProfile] = useState({
-    full_name: profile?.full_name || '',
-    username: profile?.username || '',
-    bio: profile?.bio || '',
-    location: profile?.location || '',
-    city: profile?.city || ''
-  });
-  const [stats, setStats] = useState({
-    postsCount: 0,
-    likesReceived: 0,
-    commentsReceived: 0
-  });
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchUserPosts();
-    fetchUserStats();
-  }, [user]);
-
-  const fetchUserPosts = async () => {
+  // Fetch user profile
+  const fetchProfile = async () => {
     try {
-      setLoading(true);
-      
-      // Get user's likes for the posts
-      const { data: likesData } = await supabase
-          .from('vibe_likes')
-          .select('vibe_echo_id')
-        .eq('id', user.id);
-      
-      const likedPostIds = new Set(likesData?.map((like) => like.vibe_echo_id) || []);
-      
       const { data, error } = await supabase
-        .from('vibe_echoes')
-        .select('*, profiles(username, full_name, avatar_url)')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw new Error(`Error fetching posts: ${error.message}`);
-      
-      setPosts((data || []).map((post) => ({
-        ...post,
-        user_has_liked: likedPostIds.has(post.id),
-      })));
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      if (data) {
+        setProfile(data);
+        setEditForm({
+          full_name: data.full_name || '',
+          username: data.username || '',
+          bio: data.bio || '',
+          website: data.website || '',
+          location: data.location || '',
+          avatar_url: data.avatar_url || ''
+        });
+      } else {
+        // Create profile if doesn't exist
+        const newProfile = {
+          id: user.id,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
+          bio: '',
+          website: '',
+          location: '',
+          avatar_url: user.user_metadata?.avatar_url || '',
+          status: 'online',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const { data: insertedProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert([newProfile])
+          .select()
+          .single();
+
+        if (!insertError && insertedProfile) {
+          setProfile(insertedProfile);
+          setEditForm({
+            full_name: insertedProfile.full_name || '',
+            username: insertedProfile.username || '',
+            bio: insertedProfile.bio || '',
+            website: insertedProfile.website || '',
+            location: insertedProfile.location || '',
+            avatar_url: insertedProfile.avatar_url || ''
+          });
+        }
+      }
     } catch (error) {
-      console.error('Error fetching user posts:', error);
+      console.error('Error in fetchProfile:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUserStats = async () => {
+  // Fetch user posts from vibe_echoes table
+  const fetchUserPosts = async () => {
     try {
-      // Get posts count
-      const { count: postsCount } = await supabase
+      const { data, error } = await supabase
         .from('vibe_echoes')
-        .select('*', { count: 'exact', head: true })
+        .select(`
+          *,
+          profiles!vibe_echoes_profile_id_fkey (
+            full_name,
+            username,
+            avatar_url
+          )
+        `)
         .eq('user_id', user.id)
-        .eq('is_active', true);
-      
-      // Get likes received on user's posts
-      const { data: userPosts } = await supabase
-        .from('vibe_echoes')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('is_active', true);
-      
-      const postIds = userPosts?.map(p => p.id) || [];
-      
-      let likesReceived = 0;
-      let commentsReceived = 0;
-      
-      if (postIds.length > 0) {
-        const { count: likesCount } = await supabase
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .in('post_id', postIds);
-        
-        const { count: commentsCount } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .in('chat_id', postIds.map(id => `post_${id}`));
-        
-        likesReceived = likesCount || 0;
-        commentsReceived = commentsCount || 0;
-      }
-      
-      setStats({
-        postsCount: postsCount || 0,
-        likesReceived,
-        commentsReceived
-      });
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUserPosts(data || []);
     } catch (error) {
-      console.error('Error fetching user stats:', error);
+      console.error('Error fetching user posts:', error);
     }
   };
 
-  const handleUpdateProfile = async () => {
+  useEffect(() => {
+    fetchProfile();
+    fetchUserPosts();
+  }, [user.id]);
+
+  // Handle profile update
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
-          full_name: editProfile.full_name,
-          username: editProfile.username,
-          bio: editProfile.bio,
-          location: editProfile.location,
-          city: editProfile.city
+          ...editForm,
+          updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
-      
-      if (error) throw new Error(`Error updating profile: ${error.message}`);
-      
-      setShowEditModal(false);
-      window.location.reload(); // Refresh to show updated profile
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setProfile(data);
+      setIsEditing(false);
+      alert('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile.');
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleLike = async (postId: string) => {
-    const post = posts.find((p) => p.id === postId);
-    if (!post) return;
-    
-    try {
-      if (post.user_has_liked) {
-        const { error } = await supabase
-          .from('likes')
-          .delete()
-          .match({ post_id: postId, user_id: user.id });
-        if (error) throw new Error(`Error unliking: ${error.message}`);
-        setPosts(posts.map((p) => (p.id === postId ? { ...p, likes_count: p.likes_count - 1, user_has_liked: false } : p)));
-      } else {
-        const { error } = await supabase
-          .from('vibe_likes')
-          .insert([{ vibe_echo_id: postId, user_id: user.id }]);
-        if (error) throw new Error(`Error liking: ${error.message}`);
-        setPosts(posts.map((p) => (p.id === postId ? { ...p, likes_count: p.likes_count + 1, user_has_liked: true } : p)));
-      }
-    } catch (error) {
-      console.error('Error updating like:', error);
-      alert('Failed to update like.');
-    }
-  };
+  // Handle avatar upload
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const handleComment = (postId: string) => {
-    // Navigate to post detail or open comment modal
-    console.log('Comment on post:', postId);
-  };
-
-  const handleShare = async (postId: string) => {
     try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`);
-        alert('Post link copied to clipboard!');
-      } else {
-        alert('Sharing not supported in this browser.');
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      alert('Failed to share post.');
-    }
-  };
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
 
-  const handleDeletePost = async (postId: string) => {
-    if (!confirm('Are you sure you want to delete this post?')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('vibe_echoes')
-        .update({ is_active: false })
-        .eq('id', postId)
-        .eq('id', user.id);
-      
-      if (error) throw new Error(`Error deleting post: ${error.message}`);
-      setPosts(posts.filter((p) => p.id !== postId));
-      setStats(prev => ({ ...prev, postsCount: prev.postsCount - 1 }));
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      setEditForm(prev => ({ ...prev, avatar_url: publicUrl }));
     } catch (error) {
-      console.error('Error deleting post:', error);
-      alert('Failed to delete post.');
+      console.error('Error uploading avatar:', error);
+      alert('Failed to upload avatar. Please try again.');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
       </div>
     );
   }
@@ -216,236 +187,265 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, profile, onLogout }) =>
     >
       {/* Profile Header */}
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-        <div className="flex flex-col md:flex-row items-start gap-6">
+        <div className="flex flex-col md:flex-row gap-6">
           {/* Avatar */}
           <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-3xl">
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-2xl md:text-3xl font-bold">
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
-                  alt={profile?.full_name || 'User'}
+                  alt={profile.full_name || 'User'}
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : (
                 profile?.full_name?.[0]?.toUpperCase() || 'U'
               )}
             </div>
+            {isEditing && (
+              <label className="absolute bottom-0 right-0 bg-purple-500 hover:bg-purple-600 rounded-full p-2 cursor-pointer">
+                <Camera size={16} className="text-white" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
 
           {/* Profile Info */}
           <div className="flex-1">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <h2 className="text-2xl font-bold text-white">{profile?.full_name || 'User'}</h2>
+                <h1 className="text-2xl font-bold text-white">
+                  {profile?.full_name || 'User'}
+                </h1>
                 <p className="text-white/60">@{profile?.username || 'user'}</p>
-              </div>
-              <div className="flex gap-2 mt-4 md:mt-0">
-                <button
-                  onClick={() => setShowEditModal(true)}
-                  className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all flex items-center gap-2"
-                >
-                  <Edit size={16} />
-                  Edit Profile
-                </button>
-                <button
-                  onClick={onLogout}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all flex items-center gap-2"
-                >
-                  <LogOut size={16} />
-                  Sign Out
-                </button>
-              </div>
-            </div>
-
-            {/* Bio */}
-            {profile?.bio && (
-              <p className="text-white/80 mb-4">{profile.bio}</p>
-            )}
-
-            {/* Meta Info */}
-            <div className="flex flex-wrap gap-4 text-sm text-white/60 mb-4">
-              <div className="flex items-center gap-1">
-                <Calendar size={14} />
-                Joined {formatDate(profile?.created_at || '')}
-              </div>
-              {profile?.location && (
-                <div className="flex items-center gap-1">
-                  <MapPin size={14} />
-                  {profile.location}
-                </div>
-              )}
-              {profile?.city && (
-                <div className="flex items-center gap-1">
-                  <MapPin size={14} />
-                  <span className="text-white/60">
-                    {profile.city}
+                <div className="flex items-center gap-2 mt-2">
+                  <div className={`w-3 h-3 rounded-full ${
+                    profile?.is_online ? 'bg-green-400' : 'bg-gray-400'
+                  }`}></div>
+                  <span className="text-sm text-white/60">
+                    {profile?.is_online ? 'Online' : 'Offline'}
                   </span>
                 </div>
+              </div>
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all"
+              >
+                <Edit3 size={16} />
+                Edit Profile
+              </button>
+            </div>
+
+            {/* Bio and Details */}
+            <div className="space-y-3">
+              {profile?.bio && (
+                <p className="text-white/80">{profile.bio}</p>
               )}
-              <div className="flex items-center gap-1">
-                <Mail size={14} />
-                {user.email}
+              
+              <div className="flex flex-wrap gap-4 text-sm text-white/60">
+              {profile?.location && typeof profile.location === 'string' && (
+                  <div className="flex items-center gap-1">
+                    <MapPin size={14} />
+                    {profile.location}
+                  </div>
+                )}
+                {profile?.city && (
+                  <div className="flex items-center gap-1">
+                    <MapPin size={14} />
+                    {profile.city}
+                  </div>
+                )}
+                <div className="flex items-center gap-1">
+                  <Calendar size={14} />
+                  Joined {new Date(profile?.created_at || '').toLocaleDateString('en-US', { 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* Stats */}
-            <div className="flex gap-8">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-400">{stats.postsCount}</div>
-                <div className="text-sm text-white/60">Posts</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-400">0</div>
-                <div className="text-sm text-white/60">Followers</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-400">0</div>
-                <div className="text-sm text-white/60">Following</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-400">{stats.likesReceived}</div>
-                <div className="text-sm text-white/60">Likes</div>
+              {/* Stats */}
+              <div className="flex gap-6 pt-4 border-t border-white/10">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-white">{userPosts.length}</div>
+                  <div className="text-sm text-white/60">Posts</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-white">0</div>
+                  <div className="text-sm text-white/60">Following</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-white">0</div>
+                  <div className="text-sm text-white/60">Followers</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-        <div className="flex gap-4 mb-6 border-b border-white/10">
-          {[
-            { id: 'posts', label: 'Posts', count: stats.postsCount },
-            { id: 'liked', label: 'Liked', count: null },
-            { id: 'saved', label: 'Saved', count: null }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as 'posts' | 'liked' | 'saved')}
-              className={`pb-2 px-1 transition-all ${
-                activeTab === tab.id
-                  ? 'text-purple-400 border-b-2 border-purple-400'
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              {tab.label} {tab.count !== null && `(${tab.count})`}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'posts' && (
-          <div className="space-y-4">
-            {posts.length > 0 ? (
-              posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onLike={handleLike}
-                  onComment={handleComment}
-                  onShare={handleShare}
-                  onDelete={handleDeletePost}
-                  currentUser={user}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-white/60">
-                <p>No posts yet.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'liked' && (
-          <div className="text-center py-8 text-white/60">
-            <p>Liked posts feature coming soon!</p>
-          </div>
-        )}
-
-        {activeTab === 'saved' && (
-          <div className="text-center py-8 text-white/60">
-            <p>Saved posts feature coming soon!</p>
-          </div>
-        )}
       </div>
 
       {/* Edit Profile Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-white/10 flex justify-between items-center">
-              <h3 className="font-semibold text-white">Edit Profile</h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-all text-white"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm text-white/60 mb-2">Full Name</label>
-                <input
-                  value={editProfile.full_name}
-                  onChange={(e) => setEditProfile(prev => ({ ...prev, full_name: e.target.value }))}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">Username</label>
-                <input
-                  value={editProfile.username}
-                  onChange={(e) => setEditProfile(prev => ({ ...prev, username: e.target.value }))}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">Bio</label>
-                <textarea
-                  value={editProfile.bio}
-                  onChange={(e) => setEditProfile(prev => ({ ...prev, bio: e.target.value }))}
-                  placeholder="Tell us about yourself..."
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:border-purple-400 resize-none"
-                  rows={3}
-                  maxLength={150}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">Location</label>
-                <input
-                  value={editProfile.location}
-                  onChange={(e) => setEditProfile(prev => ({ ...prev, location: e.target.value }))}
-                  placeholder="Where are you based?"
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">City</label>
-                <input
-                  value={editProfile.city}
-                  onChange={(e) => setEditProfile(prev => ({ ...prev, city: e.target.value }))}
-                  placeholder="Your city"
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
+      <AnimatePresence>
+        {isEditing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="bg-slate-800 rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-white">Edit Profile</h2>
                 <button
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all"
+                  onClick={() => setIsEditing(false)}
+                  className="p-2 hover:bg-white/10 rounded-lg text-white"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateProfile}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-all"
-                >
-                  Save Changes
+                  <X size={20} />
                 </button>
               </div>
-            </div>
+
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter your username"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    Bio
+                  </label>
+                  <textarea
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                    placeholder="Tell us about yourself"
+                    rows={3}
+                    maxLength={150}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={editForm.website}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, website: e.target.value }))}
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="https://your-website.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.location}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Where are you based?"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="flex-1 px-4 py-2 border border-white/20 text-white rounded-lg hover:bg-white/10 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        Save Changes
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* User Posts */}
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+        <h2 className="text-xl font-bold text-white mb-6">Your Posts</h2>
+        
+        {userPosts.length > 0 ? (
+          <div className="space-y-4">
+            {userPosts.map((post) => (
+              <div key={post.id} className="bg-white/5 rounded-xl p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white/60">
+                      {new Date(post.created_at).toLocaleDateString()}
+                    </span>
+                    {post.mood && (
+                      <>
+                        <span className="text-white/60">•</span>
+                        <span className="text-sm text-white/60 capitalize">
+                          feeling {post.mood}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <p className="text-white leading-relaxed">{post.content}</p>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-white/60">You haven't posted anything yet.</p>
+            <p className="text-white/40 text-sm mt-2">Share your first post to get started!</p>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };

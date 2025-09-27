@@ -284,11 +284,11 @@ const AppContent: React.FC = () => {
       <Route path="/signup" element={<SignUpPage />} />
       <Route
         path="/dashboard/*"
-        element={user ? <MainDashboard user={user} profile={profile} /> : <LoginPage />}
+        element={user ? <MainDashboard user={user} /> : <LoginPage />}
       />
       <Route
         path="/*"
-        element={!user ? <LandingPage /> : <MainDashboard user={user} profile={profile} />}
+        element={!user ? <LandingPage /> : <MainDashboard user={user} />}
       />
     </Routes>
   );

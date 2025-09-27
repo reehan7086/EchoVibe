@@ -1,3 +1,4 @@
+// src/components/pages/MessagesPage.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
@@ -49,6 +50,25 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
     };
   }, [user?.id]);
 
+  const createDefaultProfile = (userId: string, name: string = 'Unknown User'): Profile => ({
+    id: userId,
+    user_id: userId,
+    username: name.toLowerCase().replace(/\s+/g, ''),
+    full_name: name,
+    bio: '',
+    avatar_url: '',
+    location: null,
+    city: '',
+    vibe_score: 0,
+    is_online: false,
+    last_active: new Date().toISOString(),
+    cards_generated: 0,
+    cards_shared: 0,
+    viral_score: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  });
+
   const setupRealtimeSubscription = () => {
     if (!user?.id || subscriptionRef.current) return;
 
@@ -75,23 +95,24 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
               setChats((prev) => [
                 { 
                   ...payload.new,
-                  match_id: payload.new.match_id || 'default', // Ensure match_id is present
-                  other_user: profileData || { 
-                    id: '',
-                    user_id: otherUserId,
-                    username: 'Unknown', 
-                    full_name: 'Unknown User', 
-                    avatar_url: null,
-                    created_at: new Date().toISOString(),
-                    vibe_score: 0,
-                    is_online: false
-                  } as Profile
+                  match_id: payload.new.match_id || 'default',
+                  other_user: profileData || createDefaultProfile(otherUserId)
                 } as Chat,
                 ...prev,
               ]);
             }
           } catch (error) {
             console.error('Error fetching profile for new chat:', error);
+            if (mountedRef.current) {
+              setChats((prev) => [
+                { 
+                  ...payload.new,
+                  match_id: payload.new.match_id || 'default',
+                  other_user: createDefaultProfile(otherUserId)
+                } as Chat,
+                ...prev,
+              ]);
+            }
           }
         }
       })
@@ -113,20 +134,17 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
             if (mountedRef.current) {
               setMessages((prev) => [...prev, { 
                 ...payload.new, 
-                profiles: profileData || { 
-                  id: '',
-                  user_id: payload.new.sender_id,
-                  username: 'Unknown', 
-                  full_name: 'Unknown User', 
-                  avatar_url: null,
-                  created_at: new Date().toISOString(),
-                  vibe_score: 0,
-                  is_online: false
-                } as Profile
+                profiles: profileData || createDefaultProfile(payload.new.sender_id)
               } as Message]);
             }
           } catch (error) {
             console.error('Error fetching profile for new message:', error);
+            if (mountedRef.current) {
+              setMessages((prev) => [...prev, { 
+                ...payload.new, 
+                profiles: createDefaultProfile(payload.new.sender_id)
+              } as Message]);
+            }
           }
         }
         
@@ -181,34 +199,16 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
 
             return {
               ...chat,
-              match_id: chat.match_id || 'default', // Ensure match_id is present
-              other_user: profileData || { 
-                id: '',
-                user_id: otherUserId,
-                username: 'Unknown', 
-                full_name: 'Unknown User', 
-                avatar_url: null,
-                created_at: new Date().toISOString(),
-                vibe_score: 0,
-                is_online: false
-              } as Profile,
-            };
+              match_id: chat.match_id || 'default',
+              other_user: profileData || createDefaultProfile(otherUserId)
+            } as Chat;
           } catch (profileError) {
             console.error('Error fetching profile for chat:', profileError);
             return {
               ...chat,
-              match_id: chat.match_id || 'default', // Ensure match_id is present
-              other_user: { 
-                id: '',
-                user_id: otherUserId,
-                username: 'Unknown', 
-                full_name: 'Unknown User', 
-                avatar_url: null,
-                created_at: new Date().toISOString(),
-                vibe_score: 0,
-                is_online: false
-              } as Profile,
-            };
+              match_id: chat.match_id || 'default',
+              other_user: createDefaultProfile(otherUserId)
+            } as Chat;
           }
         })
       );
@@ -233,7 +233,27 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
     try {
       const { data, error } = await supabase
         .from('messages')
-        .select('*, profiles(*)')
+        .select(`
+          *,
+          profiles:sender_id (
+            id,
+            user_id,
+            username,
+            full_name,
+            avatar_url,
+            bio,
+            location,
+            city,
+            vibe_score,
+            is_online,
+            last_active,
+            cards_generated,
+            cards_shared,
+            viral_score,
+            created_at,
+            updated_at
+          )
+        `)
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
       
@@ -243,10 +263,17 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
       }
       
       if (mountedRef.current) {
-        setMessages(data || []);
+        const messagesWithProfiles = (data || []).map(message => ({
+          ...message,
+          profiles: message.profiles || createDefaultProfile(message.sender_id)
+        }));
+        setMessages(messagesWithProfiles);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
+      if (mountedRef.current) {
+        setMessages([]);
+      }
     }
   };
 
@@ -260,13 +287,37 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
       const message = {
         chat_id: selectedChatId,
         sender_id: user.id,
+        topic: 'general',
         content: messageContent,
+        extension: 'text',
+        message_type: 'text',
+        private: false
       };
       
       const { data, error } = await supabase
         .from('messages')
         .insert([message])
-        .select('*, profiles(*)')
+        .select(`
+          *,
+          profiles:sender_id (
+            id,
+            user_id,
+            username,
+            full_name,
+            avatar_url,
+            bio,
+            location,
+            city,
+            vibe_score,
+            is_online,
+            last_active,
+            cards_generated,
+            cards_shared,
+            viral_score,
+            created_at,
+            updated_at
+          )
+        `)
         .single();
       
       if (error) {
@@ -332,13 +383,39 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
       if (existingChat && mountedRef.current) {
         setSelectedChatId(existingChat.id);
         setShowNewChatModal(false);
+        setUserSearchQuery('');
+        setSearchUsers([]);
+        await handleSelectChat(existingChat.id);
         return;
+      }
+      
+      // Create new match first (required by your schema)
+      const { data: matchData, error: matchError } = await supabase
+        .from('vibe_matches')
+        .insert([{ 
+          user1_id: user.id, 
+          user2_id: otherUserId,
+          compatibility_score: 0.8,
+          chat_started: true,
+          is_active: true
+        }])
+        .select('id')
+        .single();
+        
+      if (matchError) {
+        console.error('Error creating match:', matchError);
+        throw matchError;
       }
       
       // Create new chat
       const { data, error } = await supabase
         .from('chats')
-        .insert([{ match_id: 'temp', user1_id: user.id, user2_id: otherUserId }])
+        .insert([{ 
+          match_id: matchData.id, 
+          user1_id: user.id, 
+          user2_id: otherUserId,
+          is_active: true
+        }])
         .select('id')
         .single();
       
@@ -350,7 +427,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
       if (mountedRef.current) {
         setSelectedChatId(data.id);
         setShowNewChatModal(false);
+        setUserSearchQuery('');
+        setSearchUsers([]);
         await fetchChats(); // Refresh chat list
+        await handleSelectChat(data.id);
       }
     } catch (error) {
       console.error('Error starting new chat:', error);
@@ -364,7 +444,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
-        <span className="ml-2">Loading messages...</span>
+        <span className="ml-2 text-white">Loading messages...</span>
       </div>
     );
   }
@@ -463,29 +543,40 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
                     selectedChat?.other_user?.full_name?.[0]?.toUpperCase() || 'U'
                   )}
                 </div>
-                <h3 className="font-semibold text-white">{selectedChat?.other_user?.full_name || 'Chat'}</h3>
+                <div>
+                  <h3 className="font-semibold text-white">{selectedChat?.other_user?.full_name || 'Chat'}</h3>
+                  <p className="text-xs text-white/60">
+                    {selectedChat?.other_user?.is_online ? 'Online' : 'Offline'}
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender_id === user.id ? 'justify-end' : 'justify-start'}`}
-                >
+              {messages.length > 0 ? (
+                messages.map((message) => (
                   <div
-                    className={`max-w-xs px-4 py-2 rounded-lg ${
-                      message.sender_id === user.id
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-white/10 text-white'
-                    }`}
+                    key={message.id}
+                    className={`flex ${message.sender_id === user.id ? 'justify-end' : 'justify-start'}`}
                   >
-                    <p className="text-sm">{message.content}</p>
-                    <span className="text-xs opacity-60 mt-1 block">{formatDate(message.created_at)}</span>
+                    <div
+                      className={`max-w-xs px-4 py-2 rounded-lg ${
+                        message.sender_id === user.id
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white/10 text-white'
+                      }`}
+                    >
+                      <p className="text-sm">{message.content}</p>
+                      <span className="text-xs opacity-60 mt-1 block">{formatDate(message.created_at)}</span>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-white/60">No messages yet. Start the conversation!</p>
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Message Input */}
@@ -526,7 +617,11 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
             <div className="p-4 border-b border-white/10 flex justify-between items-center">
               <h3 className="font-semibold text-white">Start New Conversation</h3>
               <button
-                onClick={() => setShowNewChatModal(false)}
+                onClick={() => {
+                  setShowNewChatModal(false);
+                  setUserSearchQuery('');
+                  setSearchUsers([]);
+                }}
                 className="p-2 hover:bg-white/10 rounded-lg transition-all text-white"
               >
                 <X size={20} />

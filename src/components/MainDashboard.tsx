@@ -1,12 +1,21 @@
+// src/components/MainDashboard.tsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
-import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Menu, LogOut, MessageSquare, Users, Search, Settings, User as UserIcon, Home, X 
+  Home, 
+  Search, 
+  MessageCircle, 
+  Users, 
+  User as UserIcon, 
+  Settings, 
+  Menu,
+  X,
+  LogOut 
 } from 'lucide-react';
+import { User, Profile } from '../types';
+import { supabase } from '../lib/supabase';
 
-// Pages
+// Import page components
 import FeedPage from './pages/FeedPage';
 import SearchPage from './pages/SearchPage';
 import MessagesPage from './pages/MessagesPage';
@@ -14,423 +23,359 @@ import CommunitiesPage from './pages/CommunitiesPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 
-// Components
-import NotificationBell from './common/NotificationBell';
-
-import { Profile, Notification } from '../types';
-import { supabase } from '../lib/supabase';
-
 interface MainDashboardProps {
   user: User;
-  profile: Profile | null;
 }
 
-const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
-  const [sideMenuOpen, setSideMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('feed');
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const navigate = useNavigate();
-  const location = useLocation();
+interface UserProfile {
+  id: string;
+  full_name: string;
+  username: string;
+  avatar_url?: string;
+  is_online?: boolean;
+}
 
-  // Helper function to create complete profile from partial data
-  const createCompleteProfile = (partialProfile: any): Profile | undefined => {
-    if (!partialProfile) return undefined;
+type ActiveTab = 'feed' | 'search' | 'messages' | 'communities' | 'profile' | 'settings';
+
+const navItems = [
+  { id: 'feed' as ActiveTab, icon: Home, label: 'Feed' },
+  { id: 'search' as ActiveTab, icon: Search, label: 'Search' },
+  { id: 'messages' as ActiveTab, icon: MessageCircle, label: 'Messages' },
+  { id: 'communities' as ActiveTab, icon: Users, label: 'Communities' },
+  { id: 'profile' as ActiveTab, icon: UserIcon, label: 'Profile' },
+  { id: 'settings' as ActiveTab, icon: Settings, label: 'Settings' },
+];
+
+export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('feed');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [vibeScore] = useState(0);
+
+  // Convert UserProfile to Profile for component props
+  const convertToProfile = (userProfile: UserProfile | null): Profile | null => {
+    if (!userProfile) return null;
     
     return {
-      id: partialProfile.id || '',
-      user_id: partialProfile.user_id || '',
-      username: partialProfile.username || '',
-      full_name: partialProfile.full_name || '',
-      bio: partialProfile.bio,
-      avatar_url: partialProfile.avatar_url,
-      location: partialProfile.location,
-      city: partialProfile.city,
-      created_at: partialProfile.created_at || new Date().toISOString(),
-      updated_at: partialProfile.updated_at,
-      vibe_score: partialProfile.vibe_score || 0,
-      is_online: partialProfile.is_online || false,
-      last_active: partialProfile.last_active
+      id: userProfile.id,
+      user_id: userProfile.id,
+      username: userProfile.username,
+      full_name: userProfile.full_name,
+      bio: '',
+      avatar_url: userProfile.avatar_url,
+      location: null,
+      city: '',
+      vibe_score: 0,
+      is_online: userProfile.is_online || false,
+      last_active: new Date().toISOString(),
+      cards_generated: 0,
+      cards_shared: 0,
+      viral_score: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
   };
 
-  // Set active tab based on route
-  useEffect(() => {
-    const pathToTab: Record<string, string> = {
-      '/dashboard': 'feed',
-      '/dashboard/': 'feed',
-      '/dashboard/search': 'search', 
-      '/dashboard/messages': 'messages',
-      '/dashboard/communities': 'communities',
-      '/dashboard/profile': 'profile',
-      '/dashboard/settings': 'settings',
-    };
-    setActiveTab(pathToTab[location.pathname] || 'feed');
-  }, [location.pathname]);
+  // Helper function for profile updates
+  const handleProfileUpdate = (updates: Partial<Profile>) => {
+    if (!userProfile) return;
+    
+    setUserProfile(prev => prev ? {
+      ...prev,
+      full_name: updates.full_name || prev.full_name,
+      username: updates.username || prev.username,
+      avatar_url: updates.avatar_url || prev.avatar_url,
+      is_online: updates.is_online !== undefined ? updates.is_online : prev.is_online
+    } : null);
+  };
 
-  // Fetch notifications and subscribe to real-time changes
+  // Fetch user profile
   useEffect(() => {
-    if (!user?.id) return;
-  
-    const fetchNotifications = async () => {
+    const fetchUserProfile = async () => {
       try {
         const { data, error } = await supabase
-          .from('notifications')
-          .select(`
-            id,
-            user_id,
-            related_user_id,
-            type,
-            message,
-            created_at,
-            read,
-            profiles!related_user_id(
-              id,
-              user_id,
-              username,
-              full_name,
-              avatar_url,
-              vibe_score,
-              is_online,
-              created_at,
-              updated_at,
-              bio,
-              location,
-              city,
-              last_active
-            )
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(20);
-  
-        if (error) throw error;
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-        const mappedNotifications = data?.map(notification => ({
-          ...notification,
-          content: notification.message,
-          is_read: notification.read,
-          related_user_profile: createCompleteProfile(notification.profiles)
-        })) || [];
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching profile:', error);
+          return;
+        }
 
-        setNotifications(mappedNotifications);
-      } catch (err) {
-        console.error('Error fetching notifications:', err);
-      }
-    };
-  
-    fetchNotifications();
-  
-    const subscription = supabase
-      .channel('notifications')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${user.id}`
-      }, async (payload: any) => {
-        try {
-          const { data: profileData } = await supabase
+        if (data) {
+          setUserProfile({
+            id: data.id,
+            full_name: data.full_name,
+            username: data.username,
+            avatar_url: data.avatar_url,
+            is_online: data.is_online
+          });
+          
+          // Update status to online
+          await supabase
             .from('profiles')
-            .select(`
-              id,
-              user_id,
-              username,
-              full_name,
-              avatar_url,
-              vibe_score,
-              is_online,
-              created_at,
-              updated_at,
-              bio,
-              location,
-              city,
-              last_active
-            `)
-            .eq('user_id', payload.new.related_user_id)
-            .single();
-
-          const newNotification = {
-            ...payload.new,
-            content: payload.new.message,
-            is_read: payload.new.read,
-            related_user_profile: createCompleteProfile(profileData)
+            .update({ is_online: true, last_active: new Date().toISOString() })
+            .eq('id', user.id);
+        } else {
+          // Create profile if it doesn't exist
+          const newProfile = {
+            id: user.id,
+            user_id: user.id,
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
+            avatar_url: user.user_metadata?.avatar_url,
+            is_online: true,
+            last_active: new Date().toISOString()
           };
 
-          setNotifications(prev => [newNotification, ...prev]);
-        } catch (err) {
-          console.error('Error fetching related profile:', err);
+          const { data: insertedProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert([newProfile])
+            .select()
+            .single();
+
+          if (!insertError && insertedProfile) {
+            setUserProfile({
+              id: insertedProfile.id,
+              full_name: insertedProfile.full_name,
+              username: insertedProfile.username,
+              avatar_url: insertedProfile.avatar_url,
+              is_online: insertedProfile.is_online
+            });
+          }
         }
-      })
-      .subscribe();
-  
-    return () => {
-      subscription.unsubscribe();
+      } catch (error) {
+        console.error('Error in fetchUserProfile:', error);
+      }
     };
-  }, [user.id]);
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
-  };
+    fetchUserProfile();
 
-  const handleMarkNotificationAsRead = async (notificationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-        
-      if (error) throw error;
-
-      setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, read: true, is_read: true } : n)
-      );
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
-
-  const handleMarkAllNotificationsAsRead = async () => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-
-      if (error) throw error;
-
-      setNotifications(prev => prev.map(n => ({ ...n, read: true, is_read: true })));
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-    }
-  };
-
-  const updateProfile = async (updates: Partial<Profile>) => {
-    try {
-      const { error } = await supabase
+    // Set status to offline when component unmounts
+    return () => {
+      supabase
         .from('profiles')
-        .update(updates)
-        .eq('user_id', user.id);
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      throw error;
+        .update({ is_online: false })
+        .eq('id', user.id);
+    };
+  }, [user]);
+
+  const handleSignOut = async () => {
+    if (confirm('Are you sure you want to sign out?')) {
+      // Set status to offline before signing out
+      if (userProfile) {
+        await supabase
+          .from('profiles')
+          .update({ is_online: false })
+          .eq('id', user.id);
+      }
+      
+      await supabase.auth.signOut();
     }
   };
 
-  const navigationItems = [
-    { id: 'feed', label: 'Feed', icon: Home, path: '/dashboard' },
-    { id: 'search', label: 'Search', icon: Search, path: '/dashboard/search' },
-    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/dashboard/messages' },
-    { id: 'communities', label: 'Communities', icon: Users, path: '/dashboard/communities' },
-    { id: 'profile', label: 'Profile', icon: UserIcon, path: '/dashboard/profile' },
-    { id: 'settings', label: 'Settings', icon: Settings, path: '/dashboard/settings' },
-  ];
+  const renderActiveTab = () => {
+    const profileData = convertToProfile(userProfile);
+    
+    switch (activeTab) {
+      case 'feed':
+        return <FeedPage user={user} />;
+      case 'search':
+        return <SearchPage user={user} profile={profileData} />;
+      case 'messages':
+        return <MessagesPage user={user} />;
+      case 'communities':
+        return <CommunitiesPage user={user} />;
+      case 'profile':
+        return <ProfilePage user={user} />;
+      case 'settings':
+        return <SettingsPage user={user} profile={profileData} updateProfile={handleProfileUpdate} />;
+      default:
+        return <FeedPage user={user} />;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-black/30 backdrop-blur-xl border-b border-white/10">
-        <div className="flex items-center justify-between px-4 py-3">
-          <button
-            onClick={() => setSideMenuOpen(true)}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-all lg:hidden"
-            aria-label="Open menu"
-            style={{ 
-              WebkitTapHighlightColor: 'transparent',
-              touchAction: 'manipulation',
-              minHeight: '44px',
-              minWidth: '44px'
-            }}
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto lg:grid lg:grid-cols-12 lg:gap-8 h-screen">
+        {/* Mobile Header */}
+        <div className="lg:hidden bg-white/10 backdrop-blur-xl border-b border-white/10 p-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
             SparkVibe
           </h1>
-          <NotificationBell
-            notifications={notifications}
-            onMarkAsRead={handleMarkNotificationAsRead}
-            onMarkAllAsRead={handleMarkAllNotificationsAsRead}
-          />
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-white hover:bg-white/10 rounded-lg"
+            aria-label="Toggle mobile menu"
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
-      </header>
 
-      {/* Main layout */}
-      <main className="pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:block lg:col-span-3">
-          <nav className="space-y-2 sticky top-24">
-            {navigationItems.map(item => (
-              <Link
-                key={item.id}
-                to={item.path}
-                onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
-                  activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/60 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <item.icon className="w-6 h-6" />
-                {item.label}
-              </Link>
-            ))}
-            
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-4 p-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all mt-8"
-            >
-              <LogOut className="w-6 h-6" />
-              Logout
-            </button>
-          </nav>
-        </aside>
+        {/* Sidebar Navigation */}
+        <nav className={`lg:col-span-3 xl:col-span-2 ${
+          isMobileMenuOpen ? 'block' : 'hidden'
+        } lg:block bg-white/5 backdrop-blur-xl border-r border-white/10 p-6 overflow-y-auto`}>
+          {/* Logo */}
+          <div className="hidden lg:block mb-8">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+              SparkVibe
+            </h1>
+          </div>
 
-        {/* Main content */}
-        <section className="lg:col-span-6">
-          <Routes>
-            {/* Fixed: Use relative paths for nested routes */}
-            <Route index element={<FeedPage user={user} profile={profile} />} />
-            <Route path="search" element={<SearchPage user={user} profile={profile} />} />
-            <Route path="messages" element={<MessagesPage user={user} />} />
-            <Route path="communities" element={<CommunitiesPage user={user} />} />
-            <Route path="profile" element={<ProfilePage user={user} profile={profile} onLogout={handleLogout} />} />
-            <Route path="settings" element={<SettingsPage user={user} profile={profile} updateProfile={updateProfile} />} />
-          </Routes>
-        </section>
-
-        {/* Right sidebar */}
-        <aside className="hidden lg:block lg:col-span-3">
-          <div className="space-y-6 sticky top-24">
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
-              <h3 className="font-semibold text-lg mb-4">Profile Summary</h3>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-lg">
-                  {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt={profile.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
+          {/* User Profile */}
+          <div className="mb-8 p-4 bg-white/5 rounded-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
+                  {userProfile?.avatar_url ? (
+                    <img
+                      src={userProfile.avatar_url}
+                      alt="Your avatar"
+                      className="w-full h-full rounded-full object-cover"
+                    />
                   ) : (
-                    profile?.full_name?.[0]?.toUpperCase() || 'U'
+                    userProfile?.full_name?.[0]?.toUpperCase() || 
+                    user?.email?.[0]?.toUpperCase() || 'U'
                   )}
                 </div>
-                <div>
-                  <h4 className="font-medium">{profile?.full_name || 'User'}</h4>
-                  <p className="text-sm text-white/60">@{profile?.username || 'user'}</p>
-                </div>
+                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${
+                  userProfile?.is_online ? 'bg-green-400' : 'bg-gray-400'
+                }`}></div>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-purple-400">{profile?.vibe_score || 0}</div>
-                  <div className="text-xs text-white/60">Vibe Score</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xl font-bold text-purple-400">
-                    {profile?.is_online ? 'Online' : 'Offline'}
-                  </div>
-                  <div className="text-xs text-white/60">Status</div>
-                </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-white truncate">
+                  {userProfile?.full_name || user?.user_metadata?.full_name || 'User'}
+                </h3>
+                <p className="text-sm text-white/60 truncate">
+                  @{userProfile?.username || 'user'}
+                </p>
+              </div>
+            </div>
+            <div className="text-xs text-white/60">
+              <div className="flex justify-between items-center">
+                <span>Vibe Score</span>
+                <span className="font-bold text-purple-400">{vibeScore}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Status</span>
+                <span className={`capitalize font-medium ${
+                  userProfile?.is_online ? 'text-green-400' : 'text-gray-400'
+                }`}>
+                  {userProfile?.is_online ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Items */}
+          <div className="space-y-2 mb-8">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    activeTab === item.id
+                      ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg shadow-purple-500/25'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Icon size={20} />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sign Out Button */}
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+          >
+            <LogOut size={20} />
+            <span className="font-medium">Sign Out</span>
+          </button>
+        </nav>
+
+        {/* Main Content */}
+        <main className="lg:col-span-9 xl:col-span-7 p-4 lg:p-6 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderActiveTab()}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        {/* Right Sidebar - Profile Summary */}
+        <aside className="hidden xl:block xl:col-span-3 p-6">
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 sticky top-6">
+            <h2 className="font-semibold text-white mb-4">Profile Summary</h2>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
+                {userProfile?.avatar_url ? (
+                  <img
+                    src={userProfile.avatar_url}
+                    alt="Your avatar"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  userProfile?.full_name?.[0]?.toUpperCase() || 'U'
+                )}
+              </div>
+              <div>
+                <h3 className="font-medium text-white">
+                  {userProfile?.full_name || 'User'}
+                </h3>
+                <p className="text-sm text-white/60">
+                  @{userProfile?.username || 'user'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-white/60">Vibe Score</span>
+                <span className="font-bold text-purple-400">{vibeScore}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">Status</span>
+                <span className={`capitalize font-medium ${
+                  userProfile?.is_online ? 'text-green-400' : 'text-gray-400'
+                }`}>
+                  {userProfile?.is_online ? 'Online' : 'Offline'}
+                </span>
               </div>
             </div>
           </div>
         </aside>
-      </main>
 
-      {/* Mobile side menu */}
-      <AnimatePresence>
-        {sideMenuOpen && (
-          <>
+        {/* Mobile Menu Overlay */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-              onClick={() => setSideMenuOpen(false)}
+              className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              onClick={() => setIsMobileMenuOpen(false)}
             />
-            
-            <motion.aside
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              className="fixed left-0 top-0 h-full w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 z-50 lg:hidden"
-            >
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-xl font-bold text-white">SparkVibe</h2>
-                  <button
-                    onClick={() => setSideMenuOpen(false)}
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-all"
-                    style={{ 
-                      WebkitTapHighlightColor: 'transparent',
-                      touchAction: 'manipulation',
-                      minHeight: '44px',
-                      minWidth: '44px'
-                    }}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                <div className="flex items-center space-x-3 mb-6 p-3 rounded-lg bg-white/5">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
-                    {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt={profile.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      profile?.full_name?.[0]?.toUpperCase() || 'U'
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-white">{profile?.full_name || 'User'}</h4>
-                    <p className="text-sm text-white/60">@{profile?.username || 'user'}</p>
-                  </div>
-                </div>
-                
-                <nav className="space-y-2">
-                  {navigationItems.map(item => (
-                    <Link
-                      key={item.id}
-                      to={item.path}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setSideMenuOpen(false);
-                      }}
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                        activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/70 hover:text-white hover:bg-white/5'
-                      }`}
-                      style={{ 
-                        WebkitTapHighlightColor: 'transparent',
-                        touchAction: 'manipulation'
-                      }}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      {item.label}
-                    </Link>
-                  ))}
-                  
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setSideMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 active:bg-red-500/20 transition-all mt-6"
-                    style={{ 
-                      WebkitTapHighlightColor: 'transparent',
-                      touchAction: 'manipulation',
-                      minHeight: '44px'
-                    }}
-                  >
-                    <LogOut className="w-5 h-5" />
-                    Logout
-                  </button>
-                </nav>
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
