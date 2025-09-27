@@ -12,7 +12,7 @@ interface FeedPageProps {
   user: User;
 }
 
-export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
+const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
   const [posts, setPosts] = useState<(VibeEcho & { profile?: any; user_has_liked?: boolean })[]>([]);
   const [newPost, setNewPost] = useState('');
   const [selectedMood, setSelectedMood] = useState('happy');
@@ -26,12 +26,12 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mountedRef = useRef(true);
-
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
 
   // Fetch user profile
   const fetchUserProfile = useCallback(async () => {
     try {
+      console.log('🔄 Fetching user profile...');
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -45,6 +45,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
 
       if (profile) {
         setUserProfile(profile);
+        console.log('✅ Profile found:', profile);
       } else {
         const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
@@ -59,36 +60,49 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
           .select()
           .single();
 
-        if (!insertError && newProfile) setUserProfile(newProfile);
+        if (!insertError && newProfile) {
+          setUserProfile(newProfile);
+          console.log('✅ Profile created:', newProfile);
+        }
       }
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
+    } catch (err) {
+      console.error('Unexpected error in fetchUserProfile:', err);
     }
   }, [user]);
 
-  // Fetch posts
+  // Fetch posts with profiles and likes
   const fetchPosts = useCallback(async () => {
     if (!mountedRef.current) return;
+    setLoading(true);
 
     try {
+      console.log('🔄 Fetching posts...');
       const { data: postsData, error } = await supabase
         .from('vibe_echoes')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching posts:', error);
+        setPosts([]);
+        return;
+      }
 
-      if (postsData && mountedRef.current) {
-        const postsWithProfiles = await Promise.all(postsData.map(async (post) => {
-          // Fetch profile for each post
+      if (!postsData) {
+        setPosts([]);
+        return;
+      }
+
+      // Fetch profiles and likes for each post
+      const postsWithProfiles = await Promise.all(postsData.map(async post => {
+        try {
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
             .eq('user_id', post.user_id)
             .single();
 
-          // Fetch likes
           const { data: likes } = await supabase
             .from('likes')
             .select('user_id')
@@ -97,28 +111,40 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
           return {
             ...post,
             profile: profile || null,
-            user_has_liked: likes?.some((like: any) => like.user_id === user.id) || false
+            user_has_liked: likes?.some(like => like.user_id === user.id) || false
           };
-        }));
+        } catch (innerErr) {
+          console.error('Error fetching profile/likes for post', post.id, innerErr);
+          return { ...post, profile: null, user_has_liked: false };
+        }
+      }));
 
+      if (mountedRef.current) {
         setPosts(postsWithProfiles);
+        console.log('✅ Posts loaded:', postsWithProfiles.length);
       }
-    } catch (error) {
-      console.error('Error fetching posts:', error);
+    } catch (err) {
+      console.error('Unexpected error fetching posts:', err);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   }, [user.id]);
 
+  // Initialize
   useEffect(() => {
     fetchUserProfile();
     fetchPosts();
 
+    // Safety: always stop loading after 10s if stuck
+    const timeout = setTimeout(() => setLoading(false), 10000);
+
     return () => {
       mountedRef.current = false;
+      clearTimeout(timeout);
     };
   }, [fetchUserProfile, fetchPosts]);
 
+  // Textarea auto-resize
   const handleTextareaResize = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -131,6 +157,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
     handleTextareaResize();
   };
 
+  // Create post
   const handlePost = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!newPost.trim() || uploading) return;
@@ -151,16 +178,16 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
       setNewPost('');
       setSelectedMood('happy');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
-
       fetchPosts();
-    } catch (error) {
-      console.error('Error creating post:', error);
-      alert('Failed to create post. Please try again.');
+    } catch (err) {
+      console.error('Error creating post:', err);
+      alert('Failed to create post.');
     } finally {
       setUploading(false);
     }
   };
 
+  // Like/unlike post
   const handleLike = async (postId: string) => {
     try {
       const post = posts.find(p => p.id === postId);
@@ -173,11 +200,12 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
       }
 
       fetchPosts();
-    } catch (error) {
-      console.error('Error handling like:', error);
+    } catch (err) {
+      console.error('Error handling like:', err);
     }
   };
 
+  // Comment modal
   const handleComment = (postId: string) => {
     setSelectedPostId(postId);
     setShowCommentModal(true);
@@ -186,21 +214,21 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
 
   const handleShare = (postId: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`);
-    alert('Post link copied to clipboard!');
+    alert('Post link copied!');
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (!confirm('Are you sure you want to delete this post?')) return;
-
+    if (!confirm('Are you sure?')) return;
     try {
       const { error } = await supabase.from('vibe_echoes').delete().eq('id', postId).eq('user_id', user.id);
       if (error) throw error;
       fetchPosts();
-    } catch (error) {
-      console.error('Error deleting post:', error);
+    } catch (err) {
+      console.error('Error deleting post:', err);
     }
   };
 
+  // Comments
   const fetchComments = async (postId: string) => {
     try {
       const { data, error } = await supabase
@@ -210,14 +238,13 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
         .order('created_at', { ascending: true });
       if (error) throw error;
       setComments(data || []);
-    } catch (error) {
-      console.error('Error fetching comments:', error);
+    } catch (err) {
+      console.error('Error fetching comments:', err);
     }
   };
 
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !selectedPostId) return;
-
     try {
       const { error } = await supabase
         .from('comments')
@@ -226,14 +253,14 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
 
       setNewComment('');
       fetchComments(selectedPostId);
-    } catch (error) {
-      console.error('Error submitting comment:', error);
+    } catch (err) {
+      console.error('Error submitting comment:', err);
     }
   };
 
   const handleFileSelect = async (file: File, type: 'image' | 'video') => {
     console.log('File selected:', file, type);
-    // implement your file upload logic here
+    // implement file upload here
   };
 
   if (loading) {
@@ -246,7 +273,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
 
   return (
     <motion.main initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Post Creation Form */}
+      {/* Post creation form */}
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
         <form onSubmit={handlePost} className="space-y-4">
           <div className="flex gap-4">
@@ -268,7 +295,8 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
                 rows={1}
                 style={{ overflow: 'hidden' }}
               />
-              {/* Mood Selector */}
+
+              {/* Mood selector */}
               <div className="space-y-2">
                 <p className="text-sm text-white/70">Current mood:</p>
                 <div className="flex gap-2 flex-wrap">
@@ -289,6 +317,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
                   ))}
                 </div>
               </div>
+
               {/* Actions */}
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
@@ -302,12 +331,12 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
                 >
                   {uploading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Posting...
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Posting...
                     </>
                   ) : (
                     <>
-                      <Send size={16} />
-                      Post
+                      <Send size={16} /> Post
                     </>
                   )}
                 </button>
@@ -317,7 +346,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
         </form>
       </div>
 
-      {/* Posts Feed */}
+      {/* Posts feed */}
       <div className="space-y-4">
         {posts.length > 0 ? (
           posts.map(post => (
@@ -338,7 +367,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
         )}
       </div>
 
-      {/* Comment Modal */}
+      {/* Comment modal */}
       <CommentModal
         isOpen={showCommentModal}
         onClose={() => setShowCommentModal(false)}
