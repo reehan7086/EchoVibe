@@ -1,4 +1,4 @@
-// src/types.ts - Updated to match your actual database schema
+// src/types.ts - Fully aligned with Supabase schema
 
 export type Profile = {
   id: string;
@@ -7,7 +7,7 @@ export type Profile = {
   full_name: string;
   bio?: string | null;
   avatar_url?: string | null;
-  location?: any | null; // jsonb in database
+  location?: any | null;
   city?: string | null;
   created_at: string;
   updated_at?: string | null;
@@ -15,9 +15,10 @@ export type Profile = {
   is_online: boolean;
   last_active?: string;
 
-  // 🔥 Added for vibe-cards logic
-  cards_shared?: number;   // total cards user shared
-  viral_score?: number;    // calculated viral reach metric
+  // Added fields
+  cards_generated?: number;
+  cards_shared?: number;
+  viral_score?: string | number;
 };
 
 export type VibeEcho = {
@@ -28,7 +29,7 @@ export type VibeEcho = {
   media_type: string;
   mood: string;
   activity?: string | null;
-  location?: any | null; // jsonb in database
+  location?: any | null;
   city?: string | null;
   duration?: number | null;
   created_at: string;
@@ -40,9 +41,9 @@ export type VibeEcho = {
   user_has_liked?: boolean;
   profiles?: Profile;
 
-  // 🔥 Added for PostCard references
-  vibe_card_id?: string;   // link to vibe_card
-  card_shares?: number;    // total times this card was shared
+  // New fields
+  vibe_card_id?: string;
+  card_shares?: number;
 };
 
 export type Comment = {
@@ -85,7 +86,7 @@ export type Community = {
   creator_id: string;
   category: string;
   location_based?: boolean;
-  location?: any | null; // jsonb in database
+  location?: any | null;
   member_count: number;
   created_at: string;
   is_active: boolean;
@@ -97,18 +98,18 @@ export type Notification = {
   user_id: string;
   related_user_id?: string | null;
   type: string;
-  message?: string | null; // Note: your DB has 'message' not 'content'
-  content?: string; // Keep for compatibility
+  message?: string | null;
+  content?: string;
   created_at: string;
-  read: boolean; // Note: your DB has 'read' not 'is_read'
-  is_read?: boolean; // Keep for compatibility
+  read: boolean;
+  is_read?: boolean;
   related_user_profile?: Profile;
 };
 
 export type Like = {
   id: string;
   user_id: string;
-  post_id: string; // Note: your DB has 'post_id' not 'vibe_echo_id'
+  post_id: string;
   created_at: string;
 };
 
@@ -123,7 +124,7 @@ export type VibeMatch = {
   id: string;
   user1_id: string;
   user2_id: string;
-  compatibility_score: number;
+  compatibility_score: string | number;
   matched_at: string;
   chat_started: boolean;
   is_active: boolean;
@@ -156,15 +157,8 @@ export type VibeCard = {
   id: string;
   user_id: string;
   post_id: string;
-  card_data: {
-    adventure_summary: string;
-    mood_boost: string;
-    brain_bite: string;
-    habit_nudge: string;
-    vibe_points: number;
-    streak_count: number;
-    template_theme: 'cosmic' | 'nature' | 'retro' | 'minimal';
-  };
+  card_data: any; // store raw JSON
+  template_theme: 'cosmic' | 'nature' | 'retro' | 'minimal';
   generated_at: string;
   shared_count: number;
   view_count: number;
@@ -179,70 +173,22 @@ export type CardShare = {
   shared_at: string;
 };
 
-// Database types for Supabase
+// Database types
 export type Database = {
   public: {
     Tables: {
-      profiles: {
-        Row: Profile;
-        Insert: Partial<Profile> & { user_id: string; username: string; full_name: string };
-        Update: Partial<Profile>;
-      };
-      vibe_echoes: {
-        Row: VibeEcho;
-        Insert: Partial<VibeEcho> & { user_id: string; content: string; mood: string };
-        Update: Partial<VibeEcho>;
-      };
-      messages: {
-        Row: Message;
-        Insert: Partial<Message> & { chat_id: string; sender_id: string; content: string };
-        Update: Partial<Message>;
-      };
-      chats: {
-        Row: Chat;
-        Insert: Partial<Chat> & { match_id: string; user1_id: string; user2_id: string };
-        Update: Partial<Chat>;
-      };
-      communities: {
-        Row: Community;
-        Insert: Partial<Community> & { name: string; description: string; creator_id: string; category: string };
-        Update: Partial<Community>;
-      };
-      notifications: {
-        Row: Notification;
-        Insert: Partial<Notification> & { user_id: string; type: string };
-        Update: Partial<Notification>;
-      };
-      likes: {
-        Row: Like;
-        Insert: Partial<Like> & { user_id: string; post_id: string };
-        Update: Partial<Like>;
-      };
-      follows: {
-        Row: Follow;
-        Insert: Partial<Follow> & { follower_id: string; following_id: string };
-        Update: Partial<Follow>;
-      };
-      vibe_matches: {
-        Row: VibeMatch;
-        Insert: Partial<VibeMatch> & { user1_id: string; user2_id: string };
-        Update: Partial<VibeMatch>;
-      };
-      community_members: {
-        Row: CommunityMember;
-        Insert: Partial<CommunityMember> & { community_id: string; user_id: string };
-        Update: Partial<CommunityMember>;
-      };
-      community_memberships: {
-        Row: CommunityMembership;
-        Insert: Partial<CommunityMembership> & { user_id: string; community_id: string };
-        Update: Partial<CommunityMembership>;
-      };
-      posts: {
-        Row: Post;
-        Insert: Partial<Post> & { user_id: string };
-        Update: Partial<Post>;
-      };
+      profiles: { Row: Profile; Insert: Partial<Profile> & { user_id: string; username: string; full_name: string }; Update: Partial<Profile>; };
+      vibe_echoes: { Row: VibeEcho; Insert: Partial<VibeEcho> & { user_id: string; content: string; mood: string }; Update: Partial<VibeEcho>; };
+      messages: { Row: Message; Insert: Partial<Message> & { chat_id: string; sender_id: string; content: string }; Update: Partial<Message>; };
+      chats: { Row: Chat; Insert: Partial<Chat> & { match_id: string; user1_id: string; user2_id: string }; Update: Partial<Chat>; };
+      communities: { Row: Community; Insert: Partial<Community> & { name: string; description: string; creator_id: string; category: string }; Update: Partial<Community>; };
+      notifications: { Row: Notification; Insert: Partial<Notification> & { user_id: string; type: string }; Update: Partial<Notification>; };
+      likes: { Row: Like; Insert: Partial<Like> & { user_id: string; post_id: string }; Update: Partial<Like>; };
+      follows: { Row: Follow; Insert: Partial<Follow> & { follower_id: string; following_id: string }; Update: Partial<Follow>; };
+      vibe_matches: { Row: VibeMatch; Insert: Partial<VibeMatch> & { user1_id: string; user2_id: string }; Update: Partial<VibeMatch>; };
+      community_members: { Row: CommunityMember; Insert: Partial<CommunityMember> & { community_id: string; user_id: string }; Update: Partial<CommunityMember>; };
+      community_memberships: { Row: CommunityMembership; Insert: Partial<CommunityMembership> & { user_id: string; community_id: string }; Update: Partial<CommunityMembership>; };
+      posts: { Row: Post; Insert: Partial<Post> & { user_id: string }; Update: Partial<Post>; };
     };
   };
 };

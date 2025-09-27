@@ -69,37 +69,38 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       try {
         setLoading(true);
         setError(null);
-
+    
         if (!user) {
           setPosts([]);
+          setLoading(false); // ← ADD THIS
           return;
         }
-
+    
         const { data: likesData } = await supabase
           .from('likes')
           .select('post_id')
           .eq('user_id', user.id);
-
+    
         const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
-
+    
         const { data: postsData, error: postsError } = await supabase
           .from('vibe_echoes')
           .select('*')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(20);
-
+    
         if (postsError) throw postsError;
-
+    
         let enrichedPosts = postsData || [];
-
+    
         if (postsData && postsData.length > 0) {
           const userIds = [...new Set(postsData.map((post) => post.user_id))];
           const { data: profilesData } = await supabase
             .from('profiles')
             .select('*')
             .in('user_id', userIds);
-
+    
           if (profilesData && isMounted) {
             setUserProfiles(profilesData as Profile[]);
             enrichedPosts = postsData.map((post) => ({
@@ -109,13 +110,17 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             }));
           }
         }
-
-        if (isMounted) setPosts(enrichedPosts);
+    
+        if (isMounted) {
+          setPosts(enrichedPosts);
+          setLoading(false); // ← ADD THIS to ensure loading is set to false
+        }
       } catch (err: any) {
         console.error(err);
-        if (isMounted) setError('Failed to load posts. Please try again.');
-      } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted) {
+          setError('Failed to load posts. Please try again.');
+          setLoading(false); // ← ADD THIS in error case too
+        }
       }
     };
 
