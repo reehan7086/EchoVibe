@@ -30,45 +30,45 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
 
   // Fetch user profile
-  const fetchUserProfile = useCallback(async () => {
-    try {
-      const { data: profile, error } = await supabase
+// Fetch user profile
+const fetchUserProfile = useCallback(async () => {
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id) // ✅ FIXED: use user_id instead of id
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching profile:', error);
+      return;
+    }
+
+    if (profile) {
+      setUserProfile(profile);
+    } else {
+      // Create profile if it doesn't exist
+      const { data: newProfile, error: insertError } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('id', user.id)
+        .insert([{
+          user_id: user.id, // ✅ ensure user_id is set
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
+          avatar_url: user.user_metadata?.avatar_url,
+          status: 'online'
+        }])
+        .select()
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-        return;
+      if (!insertError && newProfile) {
+        setUserProfile(newProfile);
       }
-
-      if (profile) {
-        setUserProfile(profile);
-      } else {
-        // Create profile if it doesn't exist
-        const { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: user.id,
-              full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-              username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
-              avatar_url: user.user_metadata?.avatar_url,
-              status: 'online'
-            }
-          ])
-          .select()
-          .single();
-
-        if (!insertError && newProfile) {
-          setUserProfile(newProfile);
-        }
-      }
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
     }
-  }, [user]);
+  } catch (error) {
+    console.error('Error in fetchUserProfile:', error);
+  }
+}, [user]);
+
 
   // Fetch posts with likes from vibe_echoes table
   const fetchPosts = useCallback(async () => {
