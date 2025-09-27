@@ -32,7 +32,17 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
   const [showCardGenerator, setShowCardGenerator] = useState(false);
   const [selectedPostForCard, setSelectedPostForCard] = useState<VibeEcho | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  console.log('🔍 FeedPage state:', { loading, postsCount: posts.length, user: user?.id });
 
+  if (loading) {
+    console.log('🔄 Still loading...');
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+        <span className="ml-2">Loading posts...</span>
+      </div>
+    );
+  }
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
 
   const createSafeProfile = (profileData: any): Profile | undefined => {
