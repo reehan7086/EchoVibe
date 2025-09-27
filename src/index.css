@@ -2,9 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+All colors MUST be HSL. */
 
 @layer base {
   :root {
@@ -52,19 +51,12 @@ All colors MUST be HSL.
     --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -115,4 +107,221 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Mobile Touch Optimizations */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Prevent zoom on input focus for iOS */
+input, textarea, select {
+  font-size: 16px !important;
+  -webkit-appearance: none;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+}
+
+/* Fix for iOS Safari textarea */
+textarea {
+  -webkit-appearance: none;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+  resize: none;
+}
+
+/* Ensure buttons are touch-friendly */
+button {
+  min-height: 44px;
+  min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Touch manipulation utility class */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Mobile specific fixes */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Fix for main content */
+  .main-content {
+    padding-bottom: env(safe-area-inset-bottom);
+    min-height: 100vh;
+  }
+  
+  /* Fix for mobile menu */
+  .mobile-menu {
+    z-index: 9999;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  
+  /* Fix for textarea in mobile */
+  textarea {
+    font-size: 16px !important;
+    line-height: 1.5;
+    padding: 8px;
+  }
+  
+  /* Fix for scroll issues */
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+  
+  /* Fix for modal overlays */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+  }
+}
+
+/* Fix for iOS safe areas */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Fix for Android keyboard issues */
+@media screen and (max-width: 768px) {
+  .keyboard-fix {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Fix for focus states on mobile */
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+}
+
+/* Disable selection on UI elements */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Fix for button active states */
+button:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Fix for link active states */
+a:active {
+  opacity: 0.7;
+  transition: opacity 0.1s ease;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Fix for momentum scrolling */
+.momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll;
+}
+
+/* Fix for backdrop blur on mobile */
+@supports (backdrop-filter: blur(10px)) {
+  .backdrop-blur {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+/* Fallback for older browsers */
+@supports not (backdrop-filter: blur(10px)) {
+  .backdrop-blur {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+}
+
+/* Additional EchoVibe specific optimizations */
+.post-textarea {
+  font-size: 16px !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  resize: none !important;
+  -webkit-appearance: none !important;
+}
+
+.post-textarea:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+}
+
+/* Fix for gradient backgrounds on mobile */
+.gradient-bg {
+  background-attachment: scroll;
+}
+
+/* Fix for mobile navigation */
+.mobile-nav-item {
+  min-height: 48px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Fix for post cards on mobile */
+.post-card {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Fix for modal interactions */
+.modal-content {
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for notification dropdown */
+.notification-dropdown {
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
+  max-height: 70vh;
+  overflow-y: auto;
 }

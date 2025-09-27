@@ -55,6 +55,15 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     };
   };
 
+  // Handle textarea click for mobile
+  const handleTextareaClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
   // Fetch posts with proper error handling
   useEffect(() => {
     const fetchPosts = async () => {
@@ -69,7 +78,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
         console.log('🔄 Fetching posts...');
 
-        // Get user's likes first (CORRECTED: using 'likes' table with 'post_id')
         const { data: likesData, error: likesError } = await supabase
           .from('likes')
           .select('post_id')
@@ -81,7 +89,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
         const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
 
-        // Fetch posts (CORRECTED: removed columns that don't exist in your DB)
         const { data: postsData, error: postsError } = await supabase
           .from('vibe_echoes')
           .select(`
@@ -110,7 +117,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
           throw postsError;
         }
 
-        // Fetch profiles for posts
         let enrichedPosts = postsData || [];
         if (postsData && postsData.length > 0) {
           const userIds = [...new Set(postsData.map(post => post.user_id))];
@@ -157,7 +163,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
     fetchPosts();
 
-    // Subscribe to new posts
     const subscription = supabase
       .channel('vibe_echoes_feed')
       .on('postgres_changes', { 
@@ -167,7 +172,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       }, async (payload) => {
         if (payload.new && payload.new.is_active) {
           try {
-            // Fetch profile for new post
             const { data: profileData } = await supabase
               .from('profiles')
               .select('id, user_id, username, full_name, avatar_url, vibe_score, bio, location, city, created_at, updated_at, is_online, last_active')
@@ -198,7 +202,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     setNewPost(text);
     setCharacterCount(text.length);
     
-    // Auto-resize textarea
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = `${textarea.scrollHeight}px`;
@@ -253,7 +256,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         likes_count: 0,
         responses_count: 0,
         is_active: true,
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       };
 
       const { data, error } = await supabase
@@ -281,7 +284,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
       if (error) throw error;
 
-      // Add the post to the feed immediately
       const newPostWithProfile: VibeEcho = {
         ...data,
         user_has_liked: false,
@@ -290,7 +292,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
       setPosts(prev => [newPostWithProfile, ...prev]);
 
-      // Reset form
       setNewPost('');
       setCharacterCount(0);
       setSelectedMood('happy');
@@ -315,7 +316,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
     try {
       if (post.user_has_liked) {
-        // Unlike
         await supabase
           .from('likes')
           .delete()
@@ -327,7 +327,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             : p
         ));
       } else {
-        // Like
         await supabase
           .from('likes')
           .insert([{ post_id: postId, user_id: user.id }]);
@@ -353,7 +352,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     setSelectedPost(postId);
     setShowCommentModal(true);
     
-    // Load comments for this post
     try {
       const chatId = `post_${postId}`;
       
@@ -416,7 +414,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
       const chatId = `post_${selectedPost}`;
 
-      // Insert comment
       const { data, error } = await supabase
         .from('messages')
         .insert([{
@@ -445,7 +442,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         [selectedPost]: [...(prev[selectedPost] || []), newCommentWithProfile]
       }));
 
-      // Update responses count
       setPosts(posts.map(p => 
         p.id === selectedPost 
           ? { ...p, responses_count: p.responses_count + 1 }
@@ -522,7 +518,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Create Post */}
+      {/* Create Post - MOBILE OPTIMIZED */}
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
         <div className="flex gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-lg flex-shrink-0">
@@ -541,9 +537,20 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
               ref={textareaRef}
               value={newPost}
               onChange={handleTextChange}
+              onClick={handleTextareaClick}
               placeholder="What's on your mind?"
-              className="w-full bg-transparent resize-none outline-none text-lg placeholder-white/50 min-h-[80px] text-white"
+              className="w-full bg-transparent resize-none outline-none text-lg placeholder-white/50 min-h-[80px] text-white border-none focus:ring-0 focus:border-none"
+              style={{
+                WebkitAppearance: 'none',
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                fontSize: '16px'
+              }}
               maxLength={280}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
             />
           </div>
         </div>
@@ -555,11 +562,16 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
               <button
                 key={mood}
                 onClick={() => setSelectedMood(mood)}
-                className={`px-3 py-1 rounded-full text-sm transition-all ${
+                className={`px-3 py-1 rounded-full text-sm transition-all select-none ${
                   selectedMood === mood 
                     ? 'bg-purple-500 text-white' 
-                    : 'bg-white/10 text-white/70 hover:bg-white/20'
+                    : 'bg-white/10 text-white/70 hover:bg-white/20 active:bg-white/30'
                 }`}
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation',
+                  minHeight: '32px'
+                }}
               >
                 {mood}
               </button>
@@ -570,7 +582,15 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-4">
             <MediaUpload onFileSelect={handleFileSelect} uploading={uploading} />
-            <button className="p-2 rounded-full bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-all">
+            <button 
+              className="p-2 rounded-full bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 active:bg-yellow-500/40 transition-all"
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                minHeight: '40px',
+                minWidth: '40px'
+              }}
+            >
               <Smile size={18} />
             </button>
           </div>
@@ -579,7 +599,12 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             <button
               onClick={handlePost}
               disabled={!newPost.trim() || characterCount > 280 || uploading}
-              className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-purple-500/25 transition-all text-white"
+              className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-purple-500/25 active:scale-95 transition-all text-white"
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                minHeight: '40px'
+              }}
             >
               {uploading ? 'Uploading...' : 'Post'}
             </button>

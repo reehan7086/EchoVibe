@@ -72,7 +72,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
   
     const fetchNotifications = async () => {
       try {
-        // CORRECTED: Use actual database column names
         const { data, error } = await supabase
           .from('notifications')
           .select(`
@@ -105,11 +104,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
   
         if (error) throw error;
 
-        // Map to expected format with compatibility fields
         const mappedNotifications = data?.map(notification => ({
           ...notification,
-          content: notification.message, // Map for compatibility
-          is_read: notification.read,     // Map for compatibility
+          content: notification.message,
+          is_read: notification.read,
           related_user_profile: createCompleteProfile(notification.profiles)
         })) || [];
 
@@ -121,7 +119,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
   
     fetchNotifications();
   
-    // CORRECTED: Real-time subscription
     const subscription = supabase
       .channel('notifications')
       .on('postgres_changes', {
@@ -131,7 +128,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
         filter: `user_id=eq.${user.id}`
       }, async (payload: any) => {
         try {
-          // Fetch the related profile for the new notification
           const { data: profileData } = await supabase
             .from('profiles')
             .select(`
@@ -154,8 +150,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
 
           const newNotification = {
             ...payload.new,
-            content: payload.new.message, // Map for compatibility
-            is_read: payload.new.read,    // Map for compatibility
+            content: payload.new.message,
+            is_read: payload.new.read,
             related_user_profile: createCompleteProfile(profileData)
           };
 
@@ -171,7 +167,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
     };
   }, [user.id]);
 
-  // CORRECTED: Logout function
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -181,12 +176,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
     }
   };
 
-  // CORRECTED: Mark notification as read
   const handleMarkNotificationAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true }) // Use 'read' not 'is_read'
+        .update({ read: true })
         .eq('id', notificationId);
         
       if (error) throw error;
@@ -199,12 +193,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
     }
   };
 
-  // CORRECTED: Mark all notifications as read
   const handleMarkAllNotificationsAsRead = async () => {
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true }) // Use 'read' not 'is_read'
+        .update({ read: true })
         .eq('user_id', user.id)
         .eq('read', false);
 
@@ -216,13 +209,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
     }
   };
 
-  // CORRECTED: Update profile function
   const updateProfile = async (updates: Partial<Profile>) => {
     try {
       const { error } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('user_id', user.id); // Use user_id not id
+        .eq('user_id', user.id);
       if (error) throw error;
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -246,8 +238,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
         <div className="flex items-center justify-between px-4 py-3">
           <button
             onClick={() => setSideMenuOpen(true)}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all lg:hidden"
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-all lg:hidden"
             aria-label="Open menu"
+            style={{ 
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
+              minHeight: '44px',
+              minWidth: '44px'
+            }}
           >
             <Menu className="w-6 h-6" />
           </button>
@@ -281,7 +279,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
               </Link>
             ))}
             
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-4 p-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all mt-8"
@@ -323,7 +320,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
                 </div>
               </div>
               
-              {/* Stats */}
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="text-center">
                   <div className="text-xl font-bold text-purple-400">{profile?.vibe_score || 0}</div>
@@ -345,7 +341,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
       <AnimatePresence>
         {sideMenuOpen && (
           <>
-            {/* Overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -354,7 +349,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
               onClick={() => setSideMenuOpen(false)}
             />
             
-            {/* Side menu */}
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
@@ -366,13 +360,18 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
                   <h2 className="text-xl font-bold text-white">EchoVibe</h2>
                   <button
                     onClick={() => setSideMenuOpen(false)}
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-all"
+                    style={{ 
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
+                      minHeight: '44px',
+                      minWidth: '44px'
+                    }}
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 
-                {/* Profile info */}
                 <div className="flex items-center space-x-3 mb-6 p-3 rounded-lg bg-white/5">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
                     {profile?.avatar_url ? (
@@ -387,7 +386,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
                   </div>
                 </div>
                 
-                {/* Navigation */}
                 <nav className="space-y-2">
                   {navigationItems.map(item => (
                     <Link
@@ -400,19 +398,27 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
                       className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
                         activeTab === item.id ? 'text-purple-400 bg-purple-500/10' : 'text-white/70 hover:text-white hover:bg-white/5'
                       }`}
+                      style={{ 
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation'
+                      }}
                     >
                       <item.icon className="w-5 h-5" />
                       {item.label}
                     </Link>
                   ))}
                   
-                  {/* Mobile logout */}
                   <button
                     onClick={() => {
                       handleLogout();
                       setSideMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all mt-6"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 active:bg-red-500/20 transition-all mt-6"
+                    style={{ 
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
+                      minHeight: '44px'
+                    }}
                   >
                     <LogOut className="w-5 h-5" />
                     Logout
