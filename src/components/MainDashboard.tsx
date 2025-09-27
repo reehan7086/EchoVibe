@@ -1,23 +1,23 @@
-// src/components/MainDashboard.tsx
+// src/components/MainDashboard.tsx - Updated for Map-focused SparkVibe
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Home, 
-  Search, 
+  Map, 
   MessageCircle, 
   Users, 
   User as UserIcon, 
   Settings, 
   Menu,
   X,
-  LogOut 
+  LogOut,
+  MapPin
 } from 'lucide-react';
-import { User, Profile } from '../types';
+import { User } from '@supabase/supabase-js';
+import { Profile } from '../types';
 import { supabase } from '../lib/supabase';
 
 // Import page components
-import FeedPage from './pages/FeedPage';
-import SearchPage from './pages/SearchPage';
+import MapPage from './pages/MapPage';
 import MessagesPage from './pages/MessagesPage';
 import CommunitiesPage from './pages/CommunitiesPage';
 import ProfilePage from './pages/ProfilePage';
@@ -35,13 +35,15 @@ interface UserProfile {
   username: string;
   avatar_url?: string;
   is_online?: boolean;
+  location?: { lat: number; lng: number };
+  city?: string;
+  mood?: string;
 }
 
-type ActiveTab = 'feed' | 'search' | 'messages' | 'communities' | 'profile' | 'settings';
+type ActiveTab = 'map' | 'messages' | 'communities' | 'profile' | 'settings';
 
 const navItems = [
-  { id: 'feed' as ActiveTab, icon: Home, label: 'Feed' },
-  { id: 'search' as ActiveTab, icon: Search, label: 'Search' },
+  { id: 'map' as ActiveTab, icon: Map, label: 'Vibe Map' },
   { id: 'messages' as ActiveTab, icon: MessageCircle, label: 'Messages' },
   { id: 'communities' as ActiveTab, icon: Users, label: 'Communities' },
   { id: 'profile' as ActiveTab, icon: UserIcon, label: 'Profile' },
@@ -49,10 +51,10 @@ const navItems = [
 ];
 
 export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('feed');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('map'); // Default to map
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [vibeScore] = useState(0);
+  const [nearbyUsers, setNearbyUsers] = useState<UserProfile[]>([]);
 
   // Convert UserProfile to Profile for component props
   const convertToProfile = (userProfile: UserProfile | null): Profile | null => {
@@ -60,19 +62,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
     
     return {
       id: userProfile.id,
-      user_id: userProfile.user_id,  // ✅ fixed
+      user_id: userProfile.user_id,
       username: userProfile.username,
       full_name: userProfile.full_name,
       bio: '',
       avatar_url: userProfile.avatar_url,
-      location: null,
-      city: '',
-      vibe_score: 0,
+      location: userProfile.location ? `${userProfile.location.lat},${userProfile.location.lng}` : undefined,
+      city: userProfile.city || '',
       is_online: userProfile.is_online || false,
-      last_active: new Date().toISOString(),
-      cards_generated: 0,
-      cards_shared: 0,
-      viral_score: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -91,14 +88,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
     } : null);
   };
 
-  // Fetch user profile
+  // Fetch user profile and set up location
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_id', user.id)  // ✅ schema uses user_id
+          .eq('user_id', user.id)
           .single();
 
         if (error && error.code !== 'PGRST116') {
@@ -109,17 +106,23 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         if (data) {
           setUserProfile({
             id: data.id,
-            user_id: data.user_id,  // ✅ include user_id
+            user_id: data.user_id,
             full_name: data.full_name,
             username: data.username,
             avatar_url: data.avatar_url,
-            is_online: data.is_online
+            is_online: data.is_online,
+            location: data.location ? JSON.parse(data.location) : null,
+            city: data.city,
+            mood: data.mood
           });
           
           // Update status to online
           await supabase
             .from('profiles')
-            .update({ is_online: true, last_active: new Date().toISOString() })
+            .update({ 
+              is_online: true, 
+              last_active: new Date().toISOString() 
+            })
             .eq('user_id', user.id);
         } else {
           // Create profile if it doesn't exist
@@ -129,7 +132,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
             username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
             avatar_url: user.user_metadata?.avatar_url,
             is_online: true,
-            last_active: new Date().toISOString()
+            last_active: new Date().toISOString(),
+            mood: 'happy'
           };
 
           const { data: insertedProfile, error: insertError } = await supabase
@@ -141,11 +145,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
           if (!insertError && insertedProfile) {
             setUserProfile({
               id: insertedProfile.id,
-              user_id: insertedProfile.user_id, // ✅ fixed
+              user_id: insertedProfile.user_id,
               full_name: insertedProfile.full_name,
               username: insertedProfile.username,
               avatar_url: insertedProfile.avatar_url,
-              is_online: insertedProfile.is_online
+              is_online: insertedProfile.is_online,
+              location: insertedProfile.location ? JSON.parse(insertedProfile.location) : undefined,
+              city: insertedProfile.city,
+              mood: insertedProfile.mood
             });
           }
         }
@@ -161,8 +168,37 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
       supabase
         .from('profiles')
         .update({ is_online: false })
-        .eq('user_id', user.id);  // ✅ schema fixed
+        .eq('user_id', user.id);
     };
+  }, [user]);
+
+  // Get user's current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          const location = { lat: latitude, lng: longitude };
+          
+          // Update user's location in database
+          await supabase
+            .from('profiles')
+            .update({ 
+              location: JSON.stringify(location),
+              last_active: new Date().toISOString()
+            })
+            .eq('user_id', user.id);
+
+          setUserProfile(prev => prev ? { ...prev, location } : null);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          // Use default location (Dubai) if permission denied
+          const defaultLocation = { lat: 25.276987, lng: 55.296249 };
+          setUserProfile(prev => prev ? { ...prev, location: defaultLocation } : null);
+        }
+      );
+    }
   }, [user]);
 
   const handleSignOut = async () => {
@@ -172,7 +208,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         await supabase
           .from('profiles')
           .update({ is_online: false })
-          .eq('user_id', user.id);  // ✅ schema fixed
+          .eq('user_id', user.id);
       }
       
       await supabase.auth.signOut();
@@ -183,10 +219,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
     const profileData = convertToProfile(userProfile);
     
     switch (activeTab) {
-      case 'feed':
-        return <FeedPage user={user} />;
-      case 'search':
-        return <SearchPage user={user} profile={profileData} />;
+      case 'map':
+        return <MapPage />;
       case 'messages':
         return <MessagesPage user={user} />;
       case 'communities':
@@ -196,7 +230,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
       case 'settings':
         return <SettingsPage user={user} profile={profileData} updateProfile={handleProfileUpdate} />;
       default:
-        return <FeedPage user={user} />;
+        return <MapPage />; // Always default to map
     }
   };
 
@@ -207,7 +241,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         <div className="hidden lg:block lg:col-span-2 bg-black bg-opacity-20 backdrop-blur-lg p-4">
           <div className="flex flex-col h-full">
             <div className="flex items-center space-x-2 mb-8">
-              <Users className="w-6 h-6 text-white" />
+              <MapPin className="w-6 h-6 text-white" />
               <span className="text-white font-bold text-lg">SparkVibe</span>
             </div>
             <nav className="flex-1 space-y-2">
@@ -240,7 +274,10 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
 
         {/* Mobile Header */}
         <div className="lg:hidden fixed top-0 left-0 right-0 bg-black bg-opacity-30 backdrop-blur-lg z-50 p-4 flex justify-between items-center">
-          <span className="text-white font-bold">SparkVibe</span>
+          <div className="flex items-center space-x-2">
+            <MapPin className="w-5 h-5 text-white" />
+            <span className="text-white font-bold">SparkVibe</span>
+          </div>
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="text-white"
@@ -259,7 +296,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
               className="lg:hidden fixed inset-0 bg-black bg-opacity-70 backdrop-blur-lg z-40"
             >
               <div className="flex flex-col h-full p-8">
-                <div className="flex-1 space-y-4">
+                <div className="flex-1 space-y-4 mt-16">
                   {navItems.map(item => (
                     <button
                       key={item.id}
@@ -293,8 +330,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         </AnimatePresence>
 
         {/* Main Content */}
-        <div className="col-span-12 lg:col-span-7 pt-16 lg:pt-0">
-          <div className="h-screen overflow-y-auto p-4 lg:p-8">
+        <div className="col-span-12 lg:col-span-10 pt-16 lg:pt-0">
+          <div className="h-screen overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -302,41 +339,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
+                className="h-full"
               >
                 {renderActiveTab()}
               </motion.div>
             </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="hidden lg:block lg:col-span-3 bg-black bg-opacity-20 backdrop-blur-lg p-6">
-          <div className="space-y-6">
-            {userProfile && (
-              <div className="bg-white/10 rounded-2xl p-4 text-white">
-                <div className="flex items-center space-x-4">
-                  {userProfile.avatar_url ? (
-                    <img 
-                      src={userProfile.avatar_url} 
-                      alt={userProfile.full_name} 
-                      className="w-12 h-12 rounded-full"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center">
-                      <UserIcon className="w-6 h-6" />
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="font-semibold">{userProfile.full_name}</h3>
-                    <p className="text-sm text-gray-300">@{userProfile.username}</p>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-white/10">
-                  <p className="text-sm text-gray-300">Vibe Score</p>
-                  <p className="text-2xl font-bold text-purple-400">{vibeScore}</p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

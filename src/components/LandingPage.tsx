@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Users, Search, Smile, Menu, X } from 'lucide-react';
+import { MapPin, MessageCircle, Users, Zap, Smile, Menu, X, Heart } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -9,27 +9,27 @@ const LandingPage: React.FC = () => {
 
   const features = [
     {
-      icon: <Heart className="w-8 h-8" />,
-      title: "Express Your Vibe",
-      description: "Share your thoughts, feelings, and moments with a community that truly cares about authentic expression.",
-      color: "from-pink-500 to-rose-500"
-    },
-    {
-      icon: <MessageCircle className="w-8 h-8" />,
-      title: "Meaningful Connections",
-      description: "Connect with like-minded individuals through genuine conversations and shared experiences.",
+      icon: <MapPin className="w-8 h-8" />,
+      title: "Find Your Vibe Nearby",
+      description: "Discover people with similar energy and interests within your vicinity using our interactive vibe map.",
       color: "from-blue-500 to-cyan-500"
     },
     {
-      icon: <Users className="w-8 h-8" />,
-      title: "Vibrant Communities",
-      description: "Join communities centered around your interests, passions, and values.",
+      icon: <Zap className="w-8 h-8" />,
+      title: "Instant Connections",
+      description: "Connect with compatible souls around you in real-time. No endless swiping, just genuine proximity-based matching.",
       color: "from-purple-500 to-violet-500"
     },
     {
-      icon: <Search className="w-8 h-8" />,
-      title: "Discover Content",
-      description: "Find amazing content and creators that match your interests and mood.",
+      icon: <MessageCircle className="w-8 h-8" />,
+      title: "Meaningful Conversations",
+      description: "Start authentic chats with nearby people who share your current mood and interests.",
+      color: "from-pink-500 to-rose-500"
+    },
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: "Local Communities",
+      description: "Join location-based communities and meet people who are actually around you.",
       color: "from-amber-500 to-orange-500"
     }
   ];
@@ -37,39 +37,39 @@ const LandingPage: React.FC = () => {
   const testimonials = [
     {
       name: "Sarah Johnson",
-      role: "Content Creator",
+      role: "Local Explorer",
       avatar: "👩‍💼",
-      content: "SparkVibe has revolutionized how I connect with my audience. The authentic interactions here are unmatched.",
+      content: "I've met so many amazing people near my neighborhood! SparkVibe made real connections possible.",
       rating: 5
     },
     {
       name: "Marcus Chen",
-      role: "Community Leader",
+      role: "Community Builder",
       avatar: "👨‍💻",
-      content: "The community features are incredible. I've built meaningful relationships that extend beyond the platform.",
+      content: "The map feature is incredible. I can see who's nearby and connect instantly. No more lonely coffee breaks!",
       rating: 5
     },
     {
       name: "Emily Rodriguez",
-      role: "Digital Artist",
+      role: "Digital Nomad",
       avatar: "👩‍🎨",
-      content: "I love how easy it is to express my creative vibes and discover inspiring content daily.",
+      content: "Wherever I travel, SparkVibe helps me find my tribe. It's like having instant local friends.",
       rating: 5
     },
     {
       name: "Alex Kim",
-      role: "Tech Enthusiast",
+      role: "Social Butterfly",
       avatar: "👨‍🔧",
-      content: "SparkVibe's discovery algorithm is spot-on. Always finding communities that match my interests perfectly.",
+      content: "Finally, an app that connects you with people who are actually around! Perfect for spontaneous meetups.",
       rating: 5
     }
   ];
 
   const stats = [
-    { number: "10K+", label: "Active Members" },
-    { number: "50K+", label: "Daily Connections" },
-    { number: "100+", label: "Communities" },
-    { number: "99.9%", label: "Uptime" }
+    { number: "15K+", label: "Local Connections" },
+    { number: "100K+", label: "Proximity Matches" },
+    { number: "50+", label: "Cities Covered" },
+    { number: "2.3M", label: "Messages Sent" }
   ];
 
   useEffect(() => {
@@ -92,7 +92,7 @@ const LandingPage: React.FC = () => {
               className="flex items-center space-x-2"
             >
               <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
-                <Smile className="w-6 h-6" />
+                <MapPin className="w-6 h-6" />
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                 SparkVibe
@@ -102,8 +102,8 @@ const LandingPage: React.FC = () => {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-white/80 hover:text-white transition-colors">Features</a>
-              <a href="#testimonials" className="text-white/80 hover:text-white transition-colors">Testimonials</a>
-              <a href="#stats" className="text-white/80 hover:text-white transition-colors">Stats</a>
+              <a href="#testimonials" className="text-white/80 hover:text-white transition-colors">Stories</a>
+              <a href="#stats" className="text-white/80 hover:text-white transition-colors">Impact</a>
               <a href="#about" className="text-white/80 hover:text-white transition-colors">About</a>
               <div className="flex items-center space-x-4">
                 <Link 
@@ -116,7 +116,7 @@ const LandingPage: React.FC = () => {
                   to="/signup" 
                   className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all"
                 >
-                  Get Started
+                  Find Your Vibe
                 </Link>
               </div>
             </div>
@@ -142,8 +142,8 @@ const LandingPage: React.FC = () => {
               >
                 <div className="flex flex-col space-y-4">
                   <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Features</a>
-                  <a href="#testimonials" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Testimonials</a>
-                  <a href="#stats" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Stats</a>
+                  <a href="#testimonials" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Stories</a>
+                  <a href="#stats" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">Impact</a>
                   <a href="#about" onClick={() => setIsMenuOpen(false)} className="text-white/80 hover:text-white transition-colors">About</a>
                   <Link 
                     to="/login" 
@@ -157,7 +157,7 @@ const LandingPage: React.FC = () => {
                     onClick={() => setIsMenuOpen(false)}
                     className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all text-center"
                   >
-                    Get Started
+                    Find Your Vibe
                   </Link>
                 </div>
               </motion.div>
@@ -169,32 +169,80 @@ const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <section className="min-h-screen flex items-center justify-center pt-20 px-4 relative">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(139,92,246,0.1),transparent)]" />
+        
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-4 h-4 bg-purple-400 rounded-full animate-pulse"></div>
+          <div className="absolute top-1/3 right-1/3 w-3 h-3 bg-blue-400 rounded-full animate-pulse delay-1000"></div>
+          <div className="absolute bottom-1/4 left-1/3 w-5 h-5 bg-pink-400 rounded-full animate-pulse delay-2000"></div>
+          <div className="absolute top-1/2 right-1/4 w-2 h-2 bg-cyan-400 rounded-full animate-pulse delay-3000"></div>
+        </div>
+
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
           className="text-center max-w-4xl mx-auto z-10"
         >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+            className="mb-8"
+          >
+            <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-xl rounded-full border border-white/20">
+              <MapPin className="w-5 h-5 text-purple-400" />
+              <span className="text-white/90">Location-based social discovery</span>
+            </div>
+          </motion.div>
+
           <h1 className="text-5xl md:text-7xl font-extrabold mb-6 bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent leading-tight">
-            Ignite Your Social Spark
+            Find Your Vibe
+            <br />
+            <span className="text-4xl md:text-5xl">Right Around You</span>
           </h1>
+          
           <p className="text-xl md:text-2xl text-white/80 mb-10 max-w-2xl mx-auto">
-            Connect authentically, share your vibe, and discover vibrant communities that resonate with your soul.
+            Connect with like-minded people in your area. Share your mood, discover your tribe, and spark real connections nearby.
           </p>
+          
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link 
               to="/signup" 
-              className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all transform hover:scale-105"
+              className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all transform hover:scale-105 flex items-center gap-2"
             >
-              Join Now - It's Free!
+              <MapPin className="w-5 h-5" />
+              Start Connecting Now
             </Link>
             <Link 
               to="/login" 
               className="px-8 py-4 border-2 border-purple-500 rounded-full font-bold text-lg hover:bg-purple-500/10 transition-all transform hover:scale-105"
             >
-              Sign In
+              I Already Have an Account
             </Link>
           </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.2 }}
+            className="mt-12"
+          >
+            <div className="flex items-center justify-center gap-8 text-white/60 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span>Real-time location</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                <span>Instant matching</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                <span>Secure & private</span>
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
       </section>
 
@@ -209,7 +257,7 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
           >
-            Why Choose SparkVibe?
+            How SparkVibe Works
           </motion.h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
@@ -235,8 +283,8 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 px-4">
+      {/* How It Works Section */}
+      <section className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
           <motion.h2 
             initial={{ opacity: 0, y: 50 }}
@@ -245,7 +293,66 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
           >
-            What Our Users Say
+            Three Simple Steps
+          </motion.h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="text-center"
+            >
+              <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-white">1</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-white">Share Your Vibe</h3>
+              <p className="text-white/70">Set your current mood and let others nearby know what energy you're bringing to the world.</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-center"
+            >
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-white">2</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-white">Discover Nearby</h3>
+              <p className="text-white/70">Explore our interactive map to find people with compatible vibes in your area.</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="text-center"
+            >
+              <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-white">3</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-white">Connect & Chat</h3>
+              <p className="text-white/70">Send connection requests and start meaningful conversations with people around you.</p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-20 px-4 bg-black/20">
+        <div className="max-w-7xl mx-auto">
+          <motion.h2 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
+          >
+            Real Stories from Real People
           </motion.h2>
           <div className="relative max-w-3xl mx-auto">
             <AnimatePresence mode="wait">
@@ -285,7 +392,7 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Stats Section */}
-      <section id="stats" className="py-20 px-4 bg-black/20 relative">
+      <section id="stats" className="py-20 px-4 relative">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(139,92,246,0.05),transparent)]" />
         <div className="max-w-7xl mx-auto relative z-10">
           <motion.h2 
@@ -295,7 +402,7 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
           >
-            Our Growing Community
+            Connecting Communities Worldwide
           </motion.h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
@@ -318,7 +425,7 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-20 px-4">
+      <section id="about" className="py-20 px-4 bg-black/20">
         <div className="max-w-4xl mx-auto text-center">
           <motion.h2 
             initial={{ opacity: 0, y: 50 }}
@@ -327,7 +434,7 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="text-4xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
           >
-            About SparkVibe
+            The Future of Local Connection
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, y: 50 }}
@@ -336,12 +443,32 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-xl text-white/80 mb-12"
           >
-            SparkVibe is more than a social platform – it's a space where authentic connections flourish. Built with passion in 2025, we empower users to express their true selves, build meaningful relationships, and discover content that inspires.
+            SparkVibe bridges the gap between digital connection and real-world proximity. We believe the best relationships start with people who are actually around you, sharing your space and your energy. Join the movement that's bringing authentic human connection back to your neighborhood.
           </motion.p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="p-6 bg-white/5 rounded-xl border border-white/10">
+              <Heart className="w-8 h-8 text-red-400 mx-auto mb-3" />
+              <h3 className="font-semibold text-white mb-2">Authentic</h3>
+              <p className="text-white/70 text-sm">Real people, real locations, real connections.</p>
+            </div>
+            <div className="p-6 bg-white/5 rounded-xl border border-white/10">
+              <MapPin className="w-8 h-8 text-blue-400 mx-auto mb-3" />
+              <h3 className="font-semibold text-white mb-2">Proximity-Based</h3>
+              <p className="text-white/70 text-sm">Connect with people who are actually nearby.</p>
+            </div>
+            <div className="p-6 bg-white/5 rounded-xl border border-white/10">
+              <Zap className="w-8 h-8 text-yellow-400 mx-auto mb-3" />
+              <h3 className="font-semibold text-white mb-2">Instant</h3>
+              <p className="text-white/70 text-sm">No waiting, no algorithms - just immediate connection.</p>
+            </div>
+          </div>
+
           <Link 
             to="/signup" 
-            className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all transform hover:scale-105"
+            className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all transform hover:scale-105 inline-flex items-center gap-2"
           >
+            <MapPin className="w-5 h-5" />
             Start Your Journey
           </Link>
         </div>
@@ -351,13 +478,14 @@ const LandingPage: React.FC = () => {
       <footer className="py-8 px-4 border-t border-white/10 bg-black/20">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between text-white/60 text-sm">
           <div className="flex items-center space-x-2 mb-4 md:mb-0">
-            <Smile className="w-5 h-5 text-purple-400" />
-            <span>SparkVibe © 2025</span>
+            <MapPin className="w-5 h-5 text-purple-400" />
+            <span>SparkVibe © 2025 - Connecting communities worldwide</span>
           </div>
           <div className="flex space-x-6">
             <a href="#" className="hover:text-white transition-colors">Privacy</a>
             <a href="#" className="hover:text-white transition-colors">Terms</a>
             <a href="#" className="hover:text-white transition-colors">Contact</a>
+            <a href="#" className="hover:text-white transition-colors">Support</a>
           </div>
         </div>
       </footer>

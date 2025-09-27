@@ -1,301 +1,153 @@
-// src/App.tsx - Fixed version with proper routing and loading states
-import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { User } from '@supabase/supabase-js';
+// src/App.tsx - Flexible routing that works with your existing structure
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
+import { User } from '@supabase/supabase-js';
 
-// Components
+// Core components that should exist
 import LandingPage from './components/LandingPage';
-import LoginPage from './components/LoginPage';
-import SignUpPage from './components/SignUpPage';
-import MainDashboard from './components/MainDashboard';
+import SecureVibeMap from './components/map/SecureVibeMap';
 import LoadingSpinner from './components/LoadingSpinner';
 
-// Import types from your types file
-import { Profile } from './types';
+// Conditional imports with fallbacks
+let Login: React.ComponentType<any>;
+let Dashboard: React.ComponentType<any>;
 
-type InsertProfile = {
-  id: string;
-  user_id: string;
-  username: string;
-  full_name: string;
-  bio?: string | null;
-  avatar_url?: string | null;
-  location?: string | null;
-  city?: string | null;
-  created_at?: string;
-  updated_at?: string | null;
-  vibe_score?: number;
-  is_online?: boolean;
-  last_active?: string;
-};
-
-const AppContent: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [authInitialized, setAuthInitialized] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const mountedRef = useRef(true);
-  const authProcessingRef = useRef(false);
-
-  const fetchOrCreateProfile = async (user: User): Promise<Profile | null> => {
-    if (authProcessingRef.current) return null;
-    authProcessingRef.current = true;
-
+try {
+  Login = require('./components/Login').default;
+} catch {
+  try {
+    Login = require('./components/auth/Login').default;
+  } catch {
     try {
-      console.log('🔄 Fetching profile for user:', user.id);
-
-      // First, try to fetch existing profile
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          user_id,
-          username,
-          full_name,
-          bio,
-          avatar_url,
-          vibe_score,
-          is_online,
-          created_at,
-          updated_at,
-          location,
-          city,
-          last_active
-        `)
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingProfile && mountedRef.current) {
-        // Profile exists, update online status
-        const updatedProfile = { ...existingProfile, is_online: true };
-        
-        // Update online status in database
-        await supabase
-          .from('profiles')
-          .update({ is_online: true, last_active: new Date().toISOString() })
-          .eq('user_id', user.id);
-
-        console.log('✅ Using existing profile:', updatedProfile);
-        setProfile(updatedProfile);
-        return updatedProfile;
-      }
-
-      // Only create if profile doesn't exist (no rows returned)
-      if (fetchError?.code === 'PGRST116' && mountedRef.current) {
-        console.log('📝 Creating new profile...');
-        
-        const newProfile: InsertProfile = {
-          id: user.id,
-          user_id: user.id,
-          username: user.user_metadata?.preferred_username ||
-                   user.user_metadata?.name?.toLowerCase().replace(/\s+/g, '') ||
-                   user.email?.split('@')[0] ||
-                   `user_${user.id.slice(0, 8)}`,
-          full_name: user.user_metadata?.full_name || 
-                    user.user_metadata?.name || 
-                    'New User',
-          avatar_url: user.user_metadata?.avatar_url || null,
-          bio: null,
-          location: null,
-          city: null,
-          created_at: new Date().toISOString(),
-          updated_at: null,
-          vibe_score: 0,
-          is_online: true,
-          last_active: new Date().toISOString()
-        };
-
-        const { data: createdProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([newProfile])
-          .select(`
-            id,
-            user_id,
-            username,
-            full_name,
-            bio,
-            avatar_url,
-            vibe_score,
-            is_online,
-            created_at,
-            updated_at,
-            location,
-            city,
-            last_active
-          `)
-          .single();
-
-        if (createError) {
-          console.error('❌ Error creating profile:', createError);
-          throw createError;
-        }
-
-        if (mountedRef.current) {
-          console.log('✅ Profile created successfully:', createdProfile);
-          setProfile(createdProfile);
-          return createdProfile;
-        }
-      } else if (fetchError) {
-        console.error('❌ Error fetching profile:', fetchError);
-        throw fetchError;
-      }
-
-      return null;
-    } catch (error: any) {
-      console.error('❌ Profile fetch/create failed:', error);
-      if (mountedRef.current) {
-        setError('Failed to load user profile. Please try again.');
-      }
-      return null;
-    } finally {
-      authProcessingRef.current = false;
+      Login = require('./components/LoginScreen').default;
+    } catch {
+      Login = () => (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center">
+            <h2 className="text-2xl font-bold text-white mb-4">Login Coming Soon</h2>
+            <p className="text-white/70">Please create the Login component</p>
+          </div>
+        </div>
+      );
     }
-  };
-
-  useEffect(() => {
-    mountedRef.current = true;
-    let authSubscription: any = null;
-
-    const initializeAuth = async () => {
-      if (authInitialized || authProcessingRef.current) return;
-      
-      try {
-        console.log('🔄 Initializing authentication...');
-        setLoading(true);
-        setError(null);
-        authProcessingRef.current = true;
-
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('❌ Session error:', sessionError);
-          if (mountedRef.current) {
-            setError('Authentication failed. Please try again.');
-            setUser(null);
-            setProfile(null);
-          }
-          return;
-        }
-
-        if (mountedRef.current) {
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            console.log('✅ User session found, fetching profile...');
-            await fetchOrCreateProfile(session.user);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Auth initialization failed:', error);
-        if (mountedRef.current) {
-          setError('Failed to initialize authentication');
-          setUser(null);
-          setProfile(null);
-        }
-      } finally {
-        if (mountedRef.current) {
-          setLoading(false);
-          setAuthInitialized(true);
-          authProcessingRef.current = false;
-        }
-      }
-    };
-
-    // Initialize auth
-    initializeAuth();
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mountedRef.current || authProcessingRef.current) return;
-        
-        console.log('🔄 Auth state changed:', event);
-        
-        if (event === 'SIGNED_IN' && session?.user && !user) {
-          authProcessingRef.current = true;
-          setUser(session.user);
-          setError(null);
-          await fetchOrCreateProfile(session.user);
-          authProcessingRef.current = false;
-        } else if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out');
-          setProfile(null);
-          setUser(null);
-          if (!['/login', '/signup', '/'].includes(location.pathname)) {
-            navigate('/');
-          }
-        }
-      }
-    );
-
-    authSubscription = subscription;
-
-    return () => {
-      mountedRef.current = false;
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
-    };
-  }, []); // Empty dependency array to prevent infinite loops
-
-  const handleRetry = () => {
-    setError(null);
-    setAuthInitialized(false);
-    setLoading(true);
-    authProcessingRef.current = false;
-  };
-
-  if (loading || !authInitialized) {
-    return <LoadingSpinner />;
   }
+}
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 flex items-center justify-center text-white p-4">
-        <div className="text-center max-w-md">
-          <h1 className="text-2xl font-bold mb-4">Connection Error</h1>
-          <p className="text-white/80 mb-6">{error}</p>
-          <div className="space-y-3">
-            <button
-              onClick={handleRetry}
-              className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+try {
+  Dashboard = require('./components/Dashboard').default;
+} catch {
+  try {
+    Dashboard = require('./components/MainDashboard').default;
+  } catch {
+    Dashboard = () => (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-white mb-8">EchoVibe Dashboard</h1>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <a
+              href="/map"
+              className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:scale-105 transition-all duration-300 block"
             >
-              Try Again
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              Go Home
-            </button>
+              <h3 className="text-xl font-bold text-white mb-2">🗺️ Secure Vibe Map</h3>
+              <p className="text-white/70">Discover nearby vibes with enhanced security</p>
+            </a>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-bold text-white mb-2">💬 Chat (Coming Soon)</h3>
+              <p className="text-white/70">Connect with other users</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-bold text-white mb-2">👤 Profile (Coming Soon)</h3>
+              <p className="text-white/70">Manage your profile</p>
+            </div>
           </div>
         </div>
       </div>
     );
   }
+}
+
+// Placeholder components for missing pages
+const PlaceholderPage: React.FC<{ title: string; description: string }> = ({ title, description }) => (
+  <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+    <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center max-w-md">
+      <h2 className="text-2xl font-bold text-white mb-4">{title}</h2>
+      <p className="text-white/70 mb-6">{description}</p>
+      <a 
+        href="/dashboard"
+        className="inline-block px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all"
+      >
+        Back to Dashboard
+      </a>
+    </div>
+  </div>
+);
+
+const ProfilePage = () => <PlaceholderPage title="Profile Coming Soon" description="Your profile page will be available soon" />;
+const ChatPage = () => <PlaceholderPage title="Chat Coming Soon" description="Chat functionality will be available soon" />;
+const NotificationsPage = () => <PlaceholderPage title="Notifications Coming Soon" description="Notification center will be available soon" />;
+const SettingsPage = () => <PlaceholderPage title="Settings Coming Soon" description="Settings page will be available soon" />;
+
+import './App.css';
+
+const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check initial auth state
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+        } else {
+          setUser(session?.user ?? null);
+        }
+      } catch (error) {
+        console.error('Session check failed:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route
-        path="/dashboard/*"
-        element={user ? <MainDashboard user={user} /> : <LoginPage />}
-      />
-      <Route
-        path="/*"
-        element={!user ? <LandingPage /> : <MainDashboard user={user} />}
-      />
-    </Routes>
+    <BrowserRouter>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
+        
+        {/* Protected routes */}
+        <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
+        <Route path="/map" element={user ? <SecureVibeMap /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/:userId?" element={user ? <ProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/chat/:chatId?" element={user ? <ChatPage /> : <Navigate to="/login" replace />} />
+        <Route path="/notifications" element={user ? <NotificationsPage /> : <Navigate to="/login" replace />} />
+        <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
+        
+        {/* Catch all route */}
+        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 };
-
-const App: React.FC = () => (
-  <AppContent />
-);
 
 export default App;
