@@ -1,6 +1,6 @@
 // src/App.tsx - Flexible routing that works with your existing structure
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
 
@@ -129,7 +129,6 @@ const App: React.FC = () => {
   }
 
   return (
-    <BrowserRouter>
       <Routes>
         {/* Public routes */}
         <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
@@ -146,7 +145,6 @@ const App: React.FC = () => {
         {/* Catch all route */}
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
       </Routes>
-    </BrowserRouter>
   );
 };
 
