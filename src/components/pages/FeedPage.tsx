@@ -81,28 +81,30 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
 
         // Fetch posts
-        const { data: postsData, error: postsError } = await supabase
-          .from('vibe_echoes')
-          .select(`
-            id,
-            user_id,
-            content,
-            media_url,
-            media_type,
-            mood,
-            activity,
-            location,
-            city,
-            duration,
-            created_at,
-            expires_at,
-            likes_count,
-            responses_count,
-            is_active
-          `)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(20);
+// Replace your current posts query with:
+// Fetch posts with correct column selection
+const { data: postsData, error: postsError } = await supabase
+  .from('vibe_echoes')
+  .select(`
+    id,
+    user_id,
+    content,
+    media_url,
+    media_type,
+    mood,
+    activity,
+    location,
+    city,
+    duration,
+    created_at,
+    expires_at,
+    likes_count,
+    responses_count,
+    is_active
+  `)
+  .eq('is_active', true)
+  .order('created_at', { ascending: false })
+  .limit(20);
 
         if (postsError) {
           throw postsError;
