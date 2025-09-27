@@ -70,7 +70,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
     }
   }, [user]);
 
-  // Fetch posts with likes
+  // Fetch posts with likes from vibe_echoes table
   const fetchPosts = useCallback(async () => {
     if (!mountedRef.current) return;
     
@@ -78,16 +78,13 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
       console.log('🔄 Starting to fetch posts...');
       
       const { data, error } = await supabase
-        .from('vibeechoes')
+        .from('vibe_echoes')
         .select(`
           *,
-          profiles:user_id (
+          profiles!vibe_echoes_user_id_fkey (
             full_name,
             username,
             avatar_url
-          ),
-          vibeecho_likes!left (
-            user_id
           )
         `)
         .order('created_at', { ascending: false })
@@ -101,10 +98,29 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
       console.log('📝 Found posts:', data?.length || 0);
 
       if (mountedRef.current && data) {
-        const postsWithLikes = data.map(post => ({
-          ...post,
-          user_has_liked: post.vibeecho_likes?.some((like: any) => like.user_id === user.id) || false
-        }));
+        // Fetch likes for each post separately to avoid 404 errors
+        const postsWithLikes = await Promise.all(
+          data.map(async (post) => {
+            try {
+              const { data: likes } = await supabase
+                .from('likes')
+                .select('user_id')
+                .eq('post_id', post.id);
+              
+              return {
+                ...post,
+                user_has_liked: likes?.some((like: any) => like.user_id === user.id) || false
+              };
+            } catch (likeError) {
+              console.error('Error fetching likes for post:', post.id, likeError);
+              return {
+                ...post,
+                user_has_liked: false
+              };
+            }
+          })
+        );
+        
         setPosts(postsWithLikes);
         console.log('✅ Posts loaded successfully');
       }
@@ -153,12 +169,13 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
       console.log('📤 Creating new post...');
       
       const { error } = await supabase
-        .from('vibeechoes')
+        .from('vibe_echoes')
         .insert([
           {
             content: newPost.trim(),
             user_id: user.id,
             mood: selectedMood,
+            profile_id: userProfile?.id,
             created_at: new Date().toISOString()
           }
         ]);
@@ -192,14 +209,14 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
       if (post.user_has_liked) {
         // Unlike
         await supabase
-          .from('vibeecho_likes')
+          .from('likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', user.id);
       } else {
         // Like
         await supabase
-          .from('vibeecho_likes')
+          .from('likes')
           .insert([{ post_id: postId, user_id: user.id }]);
       }
 
@@ -225,7 +242,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
     
     try {
       const { error } = await supabase
-        .from('vibeechoes')
+        .from('vibe_echoes')
         .delete()
         .eq('id', postId)
         .eq('user_id', user.id);

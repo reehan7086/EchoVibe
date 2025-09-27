@@ -96,7 +96,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', user.id)
+          .eq('user_id', user.id)  // Changed from 'id' to 'user_id'
           .single();
 
         if (error && error.code !== 'PGRST116') {
@@ -117,12 +117,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
           await supabase
             .from('profiles')
             .update({ is_online: true, last_active: new Date().toISOString() })
-            .eq('id', user.id);
+            .eq('user_id', user.id);  // Changed from 'id' to 'user_id'
         } else {
           // Create profile if it doesn't exist
           const newProfile = {
-            id: user.id,
-            user_id: user.id,
+            user_id: user.id,  // Make sure user_id is set
             full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
             username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
             avatar_url: user.user_metadata?.avatar_url,
@@ -158,7 +157,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
       supabase
         .from('profiles')
         .update({ is_online: false })
-        .eq('id', user.id);
+        .eq('user_id', user.id);  // Changed from 'id' to 'user_id'
     };
   }, [user]);
 
@@ -169,7 +168,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         await supabase
           .from('profiles')
           .update({ is_online: false })
-          .eq('id', user.id);
+          .eq('user_id', user.id);  // Changed from 'id' to 'user_id'
       }
       
       await supabase.auth.signOut();
