@@ -8,7 +8,6 @@ export interface Profile {
   full_name: string;
   bio?: string;
   avatar_url?: string;
-  location?: any;
   city?: string;
   vibe_score?: number;
   is_online?: boolean;
@@ -18,7 +17,10 @@ export interface Profile {
   viral_score?: number;
   created_at: string;
   updated_at: string;
+  mood?: string; // added
+  location?: { lat: number; lng: number }; // stricter typing
 }
+
 
 export interface VibeEcho {
   id: string;

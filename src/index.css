@@ -326,18 +326,27 @@ html {
   overflow-y: auto;
 }
 
-/* tailwindcss default pulse can be used, or custom */
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.6;
+/* Rotate avatars slowly */
+.vibe-marker {
+  animation: rotate 5s linear infinite, blink 1.5s infinite;
+  border-radius: 50%;
+  border: 2px solid #ff4081;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
   }
-  50% {
-    transform: scale(1.5);
-    opacity: 0.3;
+  to {
+    transform: rotate(360deg);
   }
 }
 
-.animate-pulse {
-  animation: pulse 2s infinite;
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
