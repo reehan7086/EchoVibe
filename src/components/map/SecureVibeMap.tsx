@@ -1,22 +1,29 @@
-// src/components/map/SecureVibeMap.tsx - Enhanced with beautiful UI and features
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
-import L from "leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import L, { LatLngTuple, HeatLayer } from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.heat";
 import { supabase } from "../../lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   MessageCircle, UserPlus, X, Shield, AlertTriangle, RefreshCw, 
-  MapPin, Navigation, Users, Settings, Heart, Star, Coffee,
-  Music, Camera, Gamepad2, BookOpen, Dumbbell, Palette
+  MapPin, Navigation, Users, Settings, Star, Send
 } from "lucide-react";
+
+// Privacy settings interface
+interface PrivacySettings {
+  show_bio: boolean;
+  show_age: boolean;
+  show_full_name: boolean;
+  min_reputation_to_view: number;
+}
 
 interface SecureProfile {
   user_id: string;
   username: string;
   full_name: string;
-  gender: "male" | "female" | "other";
-  age?: number;
+  gender: string;
+  age: number;
   bio?: string;
   avatar_url?: string;
   current_mood?: string;
@@ -28,8 +35,8 @@ interface SecureProfile {
   last_active: string;
   location: { lat: number; lng: number };
   distance_km: number;
-  privacy_settings?: any;
-  security_settings?: any;
+  privacy_settings: PrivacySettings;
+  movement_speed: number;
 }
 
 interface CurrentUserProfile {
@@ -40,6 +47,17 @@ interface CurrentUserProfile {
   avatar_url?: string;
   bio?: string;
   current_mood?: string;
+  privacy_settings: PrivacySettings;
+  reputation_score: number; // Made non-optional due to schema default
+}
+
+interface EphemeralMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  expires_at: string;
+  location: { lat: number; lng: number };
 }
 
 const MOOD_OPTIONS = [
@@ -53,30 +71,19 @@ const MOOD_OPTIONS = [
   { emoji: "🎵", label: "Musical", color: "#20B2AA" },
 ];
 
-const ACTIVITY_ICONS = {
-  coffee: Coffee,
-  music: Music,
-  camera: Camera,
-  gaming: Gamepad2,
-  reading: BookOpen,
-  fitness: Dumbbell,
-  art: Palette,
-};
-
-// Enhanced marker creation with profile pictures and mood indicators
-const createEnhancedMarker = (profile: SecureProfile, isCurrentUser = false) => {
+// Enhanced marker with warning indicator
+const createEnhancedMarker = (profile: SecureProfile, isCurrentUser = false, hasWarning = false) => {
   const genderColors = {
-    female: "#EC4899",
-    male: "#3B82F6", 
-    other: "#8B5CF6"
+    public: "#EC4899",
+    private: "#3B82F6",
+    friends: "#8B5CF6"
   };
   
-  const borderColor = genderColors[profile.gender] || genderColors.other;
+  const borderColor = genderColors[profile.gender as keyof typeof genderColors] || genderColors.friends;
   const moodColor = MOOD_OPTIONS.find(m => m.emoji === profile.current_mood)?.color || "#FFD700";
   
   const html = `
     <div class="relative group">
-      <!-- Pulse animation for current user -->
       ${isCurrentUser ? `
         <div class="absolute inset-0 rounded-full border-4 animate-ping" 
              style="border-color: #10B981; animation-duration: 2s;"></div>
@@ -84,37 +91,33 @@ const createEnhancedMarker = (profile: SecureProfile, isCurrentUser = false) => 
              style="background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, transparent 70%); animation: pulse 2s infinite;"></div>
       ` : ''}
       
-      <!-- Main marker -->
       <div class="w-16 h-16 rounded-full border-4 shadow-xl overflow-hidden relative transform transition-all duration-300 group-hover:scale-110"
            style="border-color: ${borderColor}; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
         ${profile.avatar_url 
-          ? `<img src="${profile.avatar_url}" class="w-full h-full object-cover" />`
+          ? `<img src="${profile.avatar_url}" class="w-full h-full object-cover ${hasWarning ? 'filter blur-sm' : ''}" />`
           : `<div class="w-full h-full flex items-center justify-center text-2xl font-bold text-white"
-               style="background: linear-gradient(135deg, ${borderColor}, ${borderColor}cc);">
+               style="background: linear-gradient(135deg, ${borderColor}, ${borderColor}cc); ${hasWarning ? 'filter: blur(4px);' : ''}">
                ${profile.full_name?.[0]?.toUpperCase() || '?'}
              </div>`
         }
-        
-        <!-- Online indicator -->
         ${profile.is_online ? `
           <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
         ` : ''}
-        
-        <!-- Verified badge -->
         ${profile.is_verified ? `
           <div class="absolute top-0 right-0 w-5 h-5 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
             <span class="text-white text-xs">✓</span>
           </div>
         ` : ''}
+        ${hasWarning ? `
+          <div class="absolute top-0 left-0 w-5 h-5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center">
+            <span class="text-white text-xs">!</span>
+          </div>
+        ` : ''}
       </div>
-      
-      <!-- Mood indicator -->
       <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 px-2 py-1 rounded-full text-xs font-bold shadow-lg"
            style="background: linear-gradient(135deg, ${moodColor}, ${moodColor}dd); color: white;">
         ${profile.current_mood || '😊'}
       </div>
-      
-      <!-- Interaction radius indicator when in range -->
       <div class="absolute inset-0 rounded-full border-2 border-dashed opacity-30 animate-pulse"
            style="border-color: ${borderColor}; transform: scale(1.5);"></div>
     </div>
@@ -128,6 +131,44 @@ const createEnhancedMarker = (profile: SecureProfile, isCurrentUser = false) => 
   });
 };
 
+// Heatmap component
+const HeatmapLayer: React.FC<{ profiles: SecureProfile[] }> = ({ profiles }) => {
+  const map = useMap();
+  const [heatmap, setHeatmap] = useState<HeatLayer | null>(null);
+
+  useEffect(() => {
+    if (!profiles.length) return;
+
+    const points: [number, number, number][] = profiles.map(p => [
+      p.location.lat,
+      p.location.lng,
+      MOOD_OPTIONS.find(m => m.emoji === p.current_mood) ? 1 : 0.5
+    ]);
+
+    if (heatmap) map.removeLayer(heatmap);
+
+    const newHeatmap = L.heatLayer(points, {
+      radius: 25,
+      blur: 15,
+      maxZoom: 17,
+      gradient: {
+        0.4: '#FFD700',
+        0.6: '#1E90FF',
+        0.8: '#FF69B4',
+        1.0: '#FF6347'
+      }
+    }).addTo(map);
+
+    setHeatmap(newHeatmap);
+
+    return () => {
+      if (newHeatmap) map.removeLayer(newHeatmap);
+    };
+  }, [profiles, map]);
+
+  return null;
+};
+
 const SecureVibeMap: React.FC = () => {
   const [userLocation, setUserLocation] = useState<[number, number]>([25.276987, 55.296249]);
   const [profiles, setProfiles] = useState<SecureProfile[]>([]);
@@ -135,11 +176,14 @@ const SecureVibeMap: React.FC = () => {
   const [currentUserProfile, setCurrentUserProfile] = useState<CurrentUserProfile | null>(null);
   const [selectedUser, setSelectedUser] = useState<SecureProfile | null>(null);
   const [interactionRadius, setInteractionRadius] = useState(5);
-  const [reportModal, setReportModal] = useState<{ user: SecureProfile; isOpen: boolean } | null>(null);
   const [showMoodSelector, setShowMoodSelector] = useState(false);
   const [selectedMood, setSelectedMood] = useState("😊");
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [ephemeralMessages, setEphemeralMessages] = useState<EphemeralMessage[]>([]);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [guardianAlerts, setGuardianAlerts] = useState<string[]>([]);
+  const [messageInput, setMessageInput] = useState<string>("");
   const mapRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -167,12 +211,16 @@ const SecureVibeMap: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, user_id, username, full_name, avatar_url, bio, current_mood, privacy_settings, reputation_score')
         .eq('user_id', userId)
         .single();
       
+      if (error) throw error;
       if (data) {
-        setCurrentUserProfile(data);
+        setCurrentUserProfile({
+          ...data,
+          reputation_score: data.reputation_score ?? 50 // Fallback to schema default
+        });
         setSelectedMood(data.current_mood || "😊");
       }
     } catch (error) {
@@ -180,7 +228,7 @@ const SecureVibeMap: React.FC = () => {
     }
   };
 
-  // Request location permission with user gesture
+  // Request location permission
   const requestLocationPermission = useCallback(async () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by this browser");
@@ -200,19 +248,16 @@ const SecureVibeMap: React.FC = () => {
       setUserLocation([latitude, longitude]);
       setLocationPermissionGranted(true);
       
-      // Center map on user location
       if (mapRef.current) {
         mapRef.current.setView([latitude, longitude], 14);
       }
 
-      // Update location in database
       await supabase.rpc('update_user_location', {
         new_lat: latitude,
         new_lng: longitude,
         location_name: 'Current Location'
       });
 
-      // Fetch nearby users after location is set
       fetchNearbyUsers(latitude, longitude);
     } catch (error) {
       console.error("Error getting location:", error);
@@ -240,27 +285,89 @@ const SecureVibeMap: React.FC = () => {
           user_id: u.user_id,
           username: u.username || 'Unknown',
           full_name: u.full_name || 'Anonymous User',
-          gender: u.gender || "other",
-          age: u.age || 25,
+          gender: u.gender,
+          age: u.age,
           bio: u.bio || '',
           avatar_url: u.avatar_url,
           current_mood: u.current_mood || "😊",
           mood_message: u.mood_message || "Just vibing!",
           is_online: u.is_online || false,
           is_verified: u.is_verified || false,
-          reputation_score: u.reputation_score || 50,
+          reputation_score: u.reputation_score ?? 50,
           is_visible: true,
           last_active: u.last_active || new Date().toISOString(),
           location: { lat: u.lat || 25.276987, lng: u.lng || 55.296249 },
           distance_km: u.distance_km || 0,
-          privacy_settings: u.privacy_settings || {},
-          security_settings: u.security_settings || {},
+          privacy_settings: u.privacy_settings || {
+            show_bio: true,
+            show_age: true,
+            show_full_name: true,
+            min_reputation_to_view: 0
+          },
+          movement_speed: u.movement_speed || 0,
         }));
         setProfiles(profilesData);
+        checkGuardianAlerts(profilesData);
       }
     } catch (err) {
       console.error("Error fetching nearby users:", err);
     }
+  };
+
+  // Fetch ephemeral messages
+  const fetchEphemeralMessages = async () => {
+    if (!currentUserId) return;
+    try {
+      const { data, error } = await supabase
+        .from('ephemeral_messages')
+        .select('*')
+        .eq('receiver_id', currentUserId)
+        .gt('expires_at', new Date().toISOString());
+      
+      if (error) throw error;
+      setEphemeralMessages(data || []);
+    } catch (err) {
+      console.error("Error fetching ephemeral messages:", err);
+    }
+  };
+
+  // Send ephemeral message
+  const sendEphemeralMessage = async (target: SecureProfile, message: string) => {
+    if (!message.trim()) {
+      alert("Please enter a message");
+      return;
+    }
+    try {
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from('ephemeral_messages')
+        .insert({
+          sender_id: currentUserId,
+          receiver_id: target.user_id,
+          message,
+          expires_at: expiresAt,
+          location: { lat: userLocation[0], lng: userLocation[1] }
+        });
+      
+      if (error) throw error;
+      alert(`Message sent to ${target.full_name}! It will disappear soon.`);
+      setMessageInput("");
+      setSelectedUser(null);
+    } catch (err) {
+      console.error("Error sending ephemeral message:", err);
+      alert("Failed to send message");
+    }
+  };
+
+  // Guardian AI to detect rapid movements
+  const checkGuardianAlerts = (profiles: SecureProfile[]) => {
+    const alerts: string[] = [];
+    profiles.forEach(p => {
+      if (p.movement_speed && p.movement_speed > 50) {
+        alerts.push(p.user_id);
+      }
+    });
+    setGuardianAlerts(alerts);
   };
 
   // Update user mood
@@ -308,10 +415,38 @@ const SecureVibeMap: React.FC = () => {
   };
 
   const handleStartChat = async (target: SecureProfile) => {
-    // Implementation for starting chat
     alert(`Starting chat with ${target.full_name}... (Feature coming soon!)`);
     setSelectedUser(null);
   };
+
+  const handleBlockUser = async (target: SecureProfile) => {
+    try {
+      const { error } = await supabase.rpc("block_user", {
+        target_user_id: target.user_id,
+      });
+      if (error) throw error;
+      alert(`${target.full_name} blocked.`);
+      setSelectedUser(null);
+      fetchNearbyUsers();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to block user");
+    }
+  };
+
+  // Subscribe to ephemeral message updates
+  useEffect(() => {
+    if (!currentUserId) return;
+    const subscription = supabase
+      .channel('ephemeral_messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ephemeral_messages', filter: `receiver_id=eq.${currentUserId}` }, payload => {
+        setEphemeralMessages(prev => [...prev, payload.new as EphemeralMessage]);
+      })
+      .subscribe();
+    
+    fetchEphemeralMessages();
+    return () => { supabase.removeChannel(subscription); };
+  }, [currentUserId]);
 
   if (loading) {
     return (
@@ -326,7 +461,6 @@ const SecureVibeMap: React.FC = () => {
 
   return (
     <div className="w-full h-full relative overflow-hidden">
-      {/* Map Container */}
       <MapContainer 
         center={userLocation} 
         zoom={14} 
@@ -338,24 +472,26 @@ const SecureVibeMap: React.FC = () => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        
-        {/* User's location marker */}
-        {locationPermissionGranted && (
+        {showHeatmap && <HeatmapLayer profiles={profilesInRange} />}
+        {locationPermissionGranted && currentUserProfile && (
           <>
             <Marker position={userLocation} icon={createEnhancedMarker({
               user_id: currentUserId || '',
-              username: currentUserProfile?.username || 'You',
-              full_name: currentUserProfile?.full_name || 'You',
-              gender: 'other',
-              avatar_url: currentUserProfile?.avatar_url,
+              username: currentUserProfile.username,
+              full_name: currentUserProfile.full_name,
+              gender: 'friends',
+              age: currentUserProfile.reputation_score, // Using reputation_score as age
+              avatar_url: currentUserProfile.avatar_url,
               current_mood: selectedMood,
               is_online: true,
               is_verified: true,
-              reputation_score: 100,
+              reputation_score: currentUserProfile.reputation_score,
               is_visible: true,
               last_active: new Date().toISOString(),
               location: { lat: userLocation[0], lng: userLocation[1] },
               distance_km: 0,
+              privacy_settings: currentUserProfile.privacy_settings,
+              movement_speed: 0
             }, true)}>
               <Popup>
                 <div className="font-bold text-center">
@@ -367,8 +503,6 @@ const SecureVibeMap: React.FC = () => {
                 </div>
               </Popup>
             </Marker>
-            
-            {/* Interaction radius circle */}
             <Circle
               center={userLocation}
               radius={interactionRadius * 1000}
@@ -382,75 +516,122 @@ const SecureVibeMap: React.FC = () => {
             />
           </>
         )}
-
-        {/* Other users markers */}
-        {profilesInRange.map((profile) => (
-          <Marker
-            key={profile.user_id}
-            position={[profile.location.lat, profile.location.lng]}
-            icon={createEnhancedMarker(profile)}
-            eventHandlers={{ click: () => setSelectedUser(profile) }}
-          >
-            <Popup>
-              <div className="max-w-xs">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-purple-400">
-                    {profile.avatar_url ? (
-                      <img src={profile.avatar_url} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-white font-bold">
-                        {profile.full_name[0]?.toUpperCase()}
+        {profilesInRange.map((profile) => {
+          const hasMessage = ephemeralMessages.find(m => m.sender_id === profile.user_id);
+          return (
+            <Marker
+              key={profile.user_id}
+              position={[profile.location.lat, profile.location.lng]}
+              icon={createEnhancedMarker(profile, false, guardianAlerts.includes(profile.user_id))}
+              eventHandlers={{ click: () => setSelectedUser(profile) }}
+            >
+              <Popup>
+                <div className="max-w-xs">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-purple-400">
+                      {profile.avatar_url && (
+                        (currentUserProfile?.reputation_score ?? 0) >= profile.privacy_settings.min_reputation_to_view ? (
+                          <img src={profile.avatar_url} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-white font-bold filter blur-sm">
+                            {profile.full_name[0]?.toUpperCase()}
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-bold text-gray-800">
+                        {(currentUserProfile?.privacy_settings.show_full_name ?? true) && 
+                         (currentUserProfile?.reputation_score ?? 0) >= profile.privacy_settings.min_reputation_to_view 
+                          ? profile.full_name 
+                          : 'Anonymous'}
                       </div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-800">{profile.full_name}</div>
-                    <div className="text-sm text-gray-600">@{profile.username}</div>
-                    <div className="flex items-center gap-1 text-xs">
-                      <span className={`w-2 h-2 rounded-full ${profile.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                      {profile.is_online ? 'Online' : 'Offline'}
-                      {profile.is_verified && <span className="text-blue-500">✓</span>}
+                      <div className="text-sm text-gray-600">@{profile.username}</div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className={`w-2 h-2 rounded-full ${profile.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                        {profile.is_online ? 'Online' : 'Offline'}
+                        {profile.is_verified && <span className="text-blue-500">✓</span>}
+                        {guardianAlerts.includes(profile.user_id) && (
+                          <AlertTriangle className="w-4 h-4 text-red-500 ml-1" />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="mb-3">
-                  <div className="text-sm font-medium text-gray-700">Current Vibe:</div>
-                  <div className="text-lg">{profile.current_mood} {profile.mood_message}</div>
-                </div>
-                
-                {profile.bio && (
                   <div className="mb-3">
-                    <div className="text-sm text-gray-600">{profile.bio}</div>
+                    <div className="text-sm font-medium text-gray-700">Current Vibe:</div>
+                    <div className="text-lg">{profile.current_mood} {profile.mood_message}</div>
                   </div>
-                )}
-                
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                  <span>{profile.distance_km.toFixed(1)} km away</span>
-                  <span>Rep: {profile.reputation_score}</span>
+                  {(currentUserProfile?.privacy_settings.show_bio ?? true) && 
+                   (currentUserProfile?.reputation_score ?? 0) >= profile.privacy_settings.min_reputation_to_view && 
+                   profile.bio && (
+                    <div className="mb-3">
+                      <div className="text-sm text-gray-600">{profile.bio}</div>
+                    </div>
+                  )}
+                  {(currentUserProfile?.privacy_settings.show_age ?? true) && 
+                   (currentUserProfile?.reputation_score ?? 0) >= profile.privacy_settings.min_reputation_to_view && 
+                   profile.age && (
+                    <div className="mb-3">
+                      <div className="text-sm text-gray-600">Vibe Score: {profile.age}</div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                    <span>{profile.distance_km.toFixed(1)} km away</span>
+                    <span>Rep: {profile.reputation_score}</span>
+                  </div>
+                  {hasMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-3 p-2 bg-blue-100 rounded-lg text-sm"
+                    >
+                      <div className="font-medium">Message from @{profile.username}:</div>
+                      <div>{hasMessage.message}</div>
+                    </motion.div>
+                  )}
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      placeholder="Send a quick message..."
+                      className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button 
+                      onClick={() => handleSendFriendRequest(profile)}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <UserPlus size={14} /> Connect
+                    </button>
+                    <button 
+                      onClick={() => handleStartChat(profile)}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <MessageCircle size={14} /> Chat
+                    </button>
+                    <button
+                      onClick={() => sendEphemeralMessage(profile, messageInput || "Hey, let's vibe together!")}
+                      className="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <Send size={14} /> Send Bubble
+                    </button>
+                    {guardianAlerts.includes(profile.user_id) && (
+                      <button
+                        onClick={() => handleBlockUser(profile)}
+                        className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <Shield size={14} /> Block
+                      </button>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleSendFriendRequest(profile)}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <UserPlus size={14} /> Connect
-                  </button>
-                  <button 
-                    onClick={() => handleStartChat(profile)}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <MessageCircle size={14} /> Chat
-                  </button>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
-
-      {/* Location permission prompt */}
       {!locationPermissionGranted && (
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <motion.div
@@ -478,10 +659,7 @@ const SecureVibeMap: React.FC = () => {
           </motion.div>
         </div>
       )}
-
-      {/* Control Panel */}
       <div className="absolute top-4 right-4 flex flex-col gap-3 z-40">
-        {/* Mood Selector */}
         <div className="relative">
           <button
             onClick={() => setShowMoodSelector(!showMoodSelector)}
@@ -489,7 +667,6 @@ const SecureVibeMap: React.FC = () => {
           >
             {selectedMood}
           </button>
-          
           <AnimatePresence>
             {showMoodSelector && (
               <motion.div
@@ -514,16 +691,18 @@ const SecureVibeMap: React.FC = () => {
             )}
           </AnimatePresence>
         </div>
-
-        {/* Refresh Button */}
+        <button
+          onClick={() => setShowHeatmap(!showHeatmap)}
+          className="w-14 h-14 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full flex items-center justify-center hover:bg-white/20 transition-all shadow-lg"
+        >
+          <Star className="w-6 h-6 text-white" />
+        </button>
         <button
           onClick={() => fetchNearbyUsers()}
           className="w-14 h-14 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full flex items-center justify-center hover:bg-white/20 transition-all shadow-lg"
         >
           <RefreshCw className="w-6 h-6 text-white" />
         </button>
-
-        {/* Settings Button */}
         <button
           onClick={() => setShowSettings(true)}
           className="w-14 h-14 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full flex items-center justify-center hover:bg-white/20 transition-all shadow-lg"
@@ -531,8 +710,6 @@ const SecureVibeMap: React.FC = () => {
           <Settings className="w-6 h-6 text-white" />
         </button>
       </div>
-
-      {/* Stats Panel */}
       <div className="absolute bottom-4 left-4 z-40">
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 text-white">
           <div className="flex items-center gap-4">
@@ -548,11 +725,13 @@ const SecureVibeMap: React.FC = () => {
               <div className="text-2xl font-bold text-yellow-400">{interactionRadius}</div>
               <div className="text-xs text-white/60">km Range</div>
             </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-400">{guardianAlerts.length}</div>
+              <div className="text-xs text-white/60">Alerts</div>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Map Settings Modal */}
       <AnimatePresence>
         {showSettings && (
           <motion.div
@@ -578,7 +757,6 @@ const SecureVibeMap: React.FC = () => {
                   <X className="w-5 h-5 text-white" />
                 </button>
               </div>
-
               <div className="space-y-4">
                 <div>
                   <label className="block text-white/80 text-sm font-medium mb-2">
@@ -593,7 +771,6 @@ const SecureVibeMap: React.FC = () => {
                     className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
-                
                 <div className="pt-4 border-t border-white/10">
                   <button
                     onClick={requestLocationPermission}
