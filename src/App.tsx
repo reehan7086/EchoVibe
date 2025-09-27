@@ -1,5 +1,5 @@
-// src/App.tsx - Fixed version with proper error handling and routing
-import React, { useState, useEffect } from 'react';
+// src/App.tsx - Fixed version with better error handling and loading states
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -35,10 +35,11 @@ const AppContent: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const fetchOrCreateProfile = async (user: User): Promise<Profile | null> => {
+  const fetchOrCreateProfile = useCallback(async (user: User): Promise<Profile | null> => {
     try {
       console.log('🔄 Fetching profile for user:', user.id);
 
@@ -57,7 +58,8 @@ const AppContent: React.FC = () => {
           created_at,
           updated_at,
           location,
-          city
+          city,
+          last_active
         `)
         .eq('user_id', user.id)
         .single();
@@ -108,7 +110,8 @@ const AppContent: React.FC = () => {
             created_at,
             updated_at,
             location,
-            city
+            city,
+            last_active
           `)
           .single();
 
@@ -129,68 +132,61 @@ const AppContent: React.FC = () => {
       setError('Failed to load user profile. Please try again.');
       return null;
     }
-  };
+  }, []);
+
+  const initializeAuth = useCallback(async () => {
+    try {
+      console.log('🔄 Initializing authentication...');
+      setLoading(true);
+      setError(null);
+
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error('❌ Session error:', sessionError);
+        setError('Authentication failed. Please try again.');
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        console.log('✅ User session found, fetching profile...');
+        await fetchOrCreateProfile(session.user);
+      }
+    } catch (error) {
+      console.error('❌ Auth initialization failed:', error);
+      setError('Failed to initialize authentication');
+      setUser(null);
+      setProfile(null);
+    } finally {
+      setLoading(false);
+      setInitialized(true);
+    }
+  }, [fetchOrCreateProfile]);
 
   useEffect(() => {
-    let mounted = true;
-
-    const initializeAuth = async () => {
-      try {
-        console.log('🔄 Initializing authentication...');
-        setLoading(true);
-        setError(null);
-
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('❌ Session error:', sessionError);
-          if (mounted) {
-            setError('Authentication failed. Please try again.');
-            setUser(null);
-            setProfile(null);
-          }
-          return;
-        }
-
-        if (mounted) {
-          setUser(session?.user ?? null);
-        }
-
-        if (session?.user && mounted) {
-          console.log('✅ User session found, fetching profile...');
-          await fetchOrCreateProfile(session.user);
-        }
-      } catch (error) {
-        console.error('❌ Auth initialization failed:', error);
-        if (mounted) {
-          setError('Failed to initialize authentication');
-          setUser(null);
-          setProfile(null);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
+    if (!initialized) {
+      initializeAuth();
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event);
         
-        if (mounted) {
-          setUser(session?.user ?? null);
-          setError(null);
-        }
+        setUser(session?.user ?? null);
+        setError(null);
 
-        if (event === 'SIGNED_IN' && session?.user && mounted) {
+        if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in, fetching profile...');
+          setLoading(true);
           await fetchOrCreateProfile(session.user);
+          setLoading(false);
         }
 
-        if (event === 'SIGNED_OUT' && mounted) {
+        if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setProfile(null);
           if (!['/login', '/signup', '/'].includes(location.pathname)) {
@@ -201,17 +197,17 @@ const AppContent: React.FC = () => {
     );
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, [initialized, initializeAuth, fetchOrCreateProfile, navigate, location.pathname]);
 
   const handleRetry = () => {
     setError(null);
-    window.location.reload();
+    setInitialized(false);
+    setLoading(true);
   };
 
-  if (loading) {
+  if (loading && !initialized) {
     return <LoadingSpinner />;
   }
 

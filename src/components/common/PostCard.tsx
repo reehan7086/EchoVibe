@@ -8,6 +8,7 @@ interface PostCardProps {
   post: VibeEcho & { profiles?: Profile; user_has_liked?: boolean };
   currentUser: User;
   onLike?: (postId: string) => void;
+  onComment?: (postId: string) => void; // Add this line
   onDelete?: (postId: string) => void;
 }
 
