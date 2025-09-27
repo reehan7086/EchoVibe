@@ -14,6 +14,10 @@ export type Profile = {
   vibe_score: number;
   is_online: boolean;
   last_active?: string;
+
+  // 🔥 Added for vibe-cards logic
+  cards_shared?: number;   // total cards user shared
+  viral_score?: number;    // calculated viral reach metric
 };
 
 export type VibeEcho = {
@@ -35,6 +39,10 @@ export type VibeEcho = {
   profile_id?: string | null;
   user_has_liked?: boolean;
   profiles?: Profile;
+
+  // 🔥 Added for PostCard references
+  vibe_card_id?: string;   // link to vibe_card
+  card_shares?: number;    // total times this card was shared
 };
 
 export type Comment = {
@@ -142,6 +150,33 @@ export type Post = {
   content?: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type VibeCard = {
+  id: string;
+  user_id: string;
+  post_id: string;
+  card_data: {
+    adventure_summary: string;
+    mood_boost: string;
+    brain_bite: string;
+    habit_nudge: string;
+    vibe_points: number;
+    streak_count: number;
+    template_theme: 'cosmic' | 'nature' | 'retro' | 'minimal';
+  };
+  generated_at: string;
+  shared_count: number;
+  view_count: number;
+  is_active: boolean;
+};
+
+export type CardShare = {
+  id: string;
+  card_id: string;
+  user_id: string;
+  platform: string;
+  shared_at: string;
 };
 
 // Database types for Supabase
