@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import LoadingSpinner from './LoadingSpinner';
 
 interface Notification {
   id: string;

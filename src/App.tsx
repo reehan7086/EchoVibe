@@ -5,17 +5,24 @@ import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
 
 // Core components
-import LandingPage from './components/LandingPage';
+import LandingPage from './components/pages/LandingPage';
 import SecureVibeMap from './components/map/SecureVibeMap';
-import LoadingSpinner from './components/LoadingSpinner';
+import LoadingSpinner from './components/pages/LoadingSpinner';
 import Login from './components/auth/Login';
-import Signup from './components/SignUpPage';
-import Dashboard from './components/Dashboard'; // expects 'user' prop
+import Signup from './components/pages/SignUpPage';
+import Dashboard from './components/pages/Dashboard'; // Dashboard expects 'user' prop
 
-// Placeholder components
+// Styles
 import './App.css';
 
-const PlaceholderPage: React.FC<{ title: string; description: string; icon: string }> = ({ title, description, icon }) => (
+// Generic placeholder page component
+interface PlaceholderPageProps {
+  title: string;
+  description: string;
+  icon: string;
+}
+
+const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ title, description, icon }) => (
   <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
     <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center max-w-md">
       <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
@@ -23,7 +30,7 @@ const PlaceholderPage: React.FC<{ title: string; description: string; icon: stri
       </div>
       <h2 className="text-2xl font-bold text-white mb-4">{title}</h2>
       <p className="text-white/70 mb-6">{description}</p>
-      <a 
+      <a
         href="/dashboard"
         className="inline-block px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all"
       >
@@ -33,23 +40,25 @@ const PlaceholderPage: React.FC<{ title: string; description: string; icon: stri
   </div>
 );
 
-const ProfilePage = () => <PlaceholderPage title="Profile" description="Your profile page is coming soon with enhanced features" icon="👤" />;
-const ChatPage = () => <PlaceholderPage title="Secure Chat" description="End-to-end encrypted chat functionality coming soon" icon="💬" />;
-const NotificationsPage = () => <PlaceholderPage title="Notifications" description="Smart notification center launching soon" icon="🔔" />;
-const SettingsPage = () => <PlaceholderPage title="Settings" description="Advanced settings and preferences coming soon" icon="⚙️" />;
+// Individual placeholder pages
+const ProfilePage: React.FC = () => <PlaceholderPage title="Profile" description="Your profile page is coming soon with enhanced features" icon="👤" />;
+const ChatPage: React.FC = () => <PlaceholderPage title="Secure Chat" description="End-to-end encrypted chat functionality coming soon" icon="💬" />;
+const NotificationsPage: React.FC = () => <PlaceholderPage title="Notifications" description="Smart notification center launching soon" icon="🔔" />;
+const SettingsPage: React.FC = () => <PlaceholderPage title="Settings" description="Advanced settings and preferences coming soon" icon="⚙️" />;
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Get initial session
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) console.error('Error getting session:', error);
         setUser(session?.user ?? null);
-      } catch (error) {
-        console.error('Session check failed:', error);
+      } catch (err) {
+        console.error('Session check failed:', err);
       } finally {
         setLoading(false);
       }
@@ -57,6 +66,7 @@ const App: React.FC = () => {
 
     getInitialSession();
 
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -65,11 +75,13 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-      <LoadingSpinner />
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -79,7 +91,7 @@ const App: React.FC = () => {
       <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/dashboard" replace />} />
 
       {/* Protected routes */}
-      <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/login" replace />} />
+      <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
       <Route path="/map" element={user ? <SecureVibeMap /> : <Navigate to="/login" replace />} />
       <Route path="/profile/:userId?" element={user ? <ProfilePage /> : <Navigate to="/login" replace />} />
       <Route path="/chat/:chatId?" element={user ? <ChatPage /> : <Navigate to="/login" replace />} />

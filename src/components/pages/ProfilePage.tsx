@@ -1,23 +1,60 @@
-// src/pages/ProfilePage.tsx
-import React from 'react';
-import { Link } from 'react-router-dom';
+// src/components/ProfilePage.tsx
+import React, { useState, useEffect } from 'react';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 
-const ProfilePage: React.FC = () => {
+interface ProfileProps {
+  user: User | null;
+}
+
+const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
+  const [profile, setProfile] = useState<any>({ full_name: '', age: '', gender: '' });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      if (data) setProfile(data);
+    };
+    fetchProfile();
+  }, [user]);
+
+  const updateProfile = async () => {
+    if (!user) return;
+    await supabase.from('profiles').upsert({ id: user.id, ...profile });
+    alert('Profile updated!');
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <div className="w-full max-w-md bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl">
-          👤
-        </div>
-        <h1 className="text-2xl font-bold text-white mb-2">Profile</h1>
-        <p className="text-white/70 mb-4">Your profile page is coming soon!</p>
-        <Link 
-          to="/dashboard" 
-          className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg inline-block hover:shadow-lg transition-all"
-        >
-          Back to Dashboard
-        </Link>
-      </div>
+    <div className="max-w-md mx-auto p-4 space-y-4">
+      <h2 className="text-xl font-bold">Profile</h2>
+      <input
+        type="text"
+        placeholder="Full Name"
+        value={profile.full_name}
+        onChange={e => setProfile({ ...profile, full_name: e.target.value })}
+        className="w-full border rounded px-2 py-1"
+      />
+      <input
+        type="number"
+        placeholder="Age"
+        value={profile.age}
+        onChange={e => setProfile({ ...profile, age: e.target.value })}
+        className="w-full border rounded px-2 py-1"
+      />
+      <select
+        value={profile.gender}
+        onChange={e => setProfile({ ...profile, gender: e.target.value })}
+        className="w-full border rounded px-2 py-1"
+      >
+        <option value="">Select Gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="other">Other</option>
+      </select>
+      <button onClick={updateProfile} className="bg-blue-500 text-white px-4 py-1 rounded">
+        Save Profile
+      </button>
     </div>
   );
 };
