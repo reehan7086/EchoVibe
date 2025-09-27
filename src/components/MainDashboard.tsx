@@ -1,4 +1,4 @@
-// src/components/MainDashboard.tsx - FIXED VERSION
+// src/components/MainDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -27,8 +27,10 @@ interface MainDashboardProps {
   user: User;
 }
 
+// Match schema: profiles(id PK, user_id FK)
 interface UserProfile {
-  id: string;
+  id: string;           // profile row id
+  user_id: string;      // auth.users.id
   full_name: string;
   username: string;
   avatar_url?: string;
@@ -58,7 +60,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
     
     return {
       id: userProfile.id,
-      user_id: userProfile.id,
+      user_id: userProfile.user_id,  // ✅ fixed
       username: userProfile.username,
       full_name: userProfile.full_name,
       bio: '',
@@ -96,7 +98,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_id', user.id)  // Changed from 'id' to 'user_id'
+          .eq('user_id', user.id)  // ✅ schema uses user_id
           .single();
 
         if (error && error.code !== 'PGRST116') {
@@ -107,6 +109,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         if (data) {
           setUserProfile({
             id: data.id,
+            user_id: data.user_id,  // ✅ include user_id
             full_name: data.full_name,
             username: data.username,
             avatar_url: data.avatar_url,
@@ -117,11 +120,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
           await supabase
             .from('profiles')
             .update({ is_online: true, last_active: new Date().toISOString() })
-            .eq('user_id', user.id);  // Changed from 'id' to 'user_id'
+            .eq('user_id', user.id);
         } else {
           // Create profile if it doesn't exist
           const newProfile = {
-            user_id: user.id,  // Make sure user_id is set
+            user_id: user.id,
             full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
             username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
             avatar_url: user.user_metadata?.avatar_url,
@@ -138,6 +141,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
           if (!insertError && insertedProfile) {
             setUserProfile({
               id: insertedProfile.id,
+              user_id: insertedProfile.user_id, // ✅ fixed
               full_name: insertedProfile.full_name,
               username: insertedProfile.username,
               avatar_url: insertedProfile.avatar_url,
@@ -157,7 +161,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
       supabase
         .from('profiles')
         .update({ is_online: false })
-        .eq('user_id', user.id);  // Changed from 'id' to 'user_id'
+        .eq('user_id', user.id);  // ✅ schema fixed
     };
   }, [user]);
 
@@ -168,7 +172,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
         await supabase
           .from('profiles')
           .update({ is_online: false })
-          .eq('user_id', user.id);  // Changed from 'id' to 'user_id'
+          .eq('user_id', user.id);  // ✅ schema fixed
       }
       
       await supabase.auth.signOut();
@@ -199,168 +203,51 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
       <div className="max-w-7xl mx-auto lg:grid lg:grid-cols-12 lg:gap-8 h-screen">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-white/10 backdrop-blur-xl border-b border-white/10 p-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-            SparkVibe
-          </h1>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 text-white hover:bg-white/10 rounded-lg"
-            aria-label="Toggle mobile menu"
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {/* Sidebar Navigation */}
-        <nav className={`lg:col-span-3 xl:col-span-2 ${
-          isMobileMenuOpen ? 'block' : 'hidden'
-        } lg:block bg-white/5 backdrop-blur-xl border-r border-white/10 p-6 overflow-y-auto`}>
-          {/* Logo */}
-          <div className="hidden lg:block mb-8">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-              SparkVibe
-            </h1>
-          </div>
-
-          {/* User Profile */}
-          <div className="mb-8 p-4 bg-white/5 rounded-xl">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
-                  {userProfile?.avatar_url ? (
-                    <img
-                      src={userProfile.avatar_url}
-                      alt="Your avatar"
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    userProfile?.full_name?.[0]?.toUpperCase() || 
-                    user?.email?.[0]?.toUpperCase() || 'U'
-                  )}
-                </div>
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${
-                  userProfile?.is_online ? 'bg-green-400' : 'bg-gray-400'
-                }`}></div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-white truncate">
-                  {userProfile?.full_name || user?.user_metadata?.full_name || 'User'}
-                </h3>
-                <p className="text-sm text-white/60 truncate">
-                  @{userProfile?.username || 'user'}
-                </p>
-              </div>
+        {/* Sidebar for desktop */}
+        <div className="hidden lg:block lg:col-span-2 bg-black bg-opacity-20 backdrop-blur-lg p-4">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center space-x-2 mb-8">
+              <Users className="w-6 h-6 text-white" />
+              <span className="text-white font-bold text-lg">SparkVibe</span>
             </div>
-            <div className="text-xs text-white/60">
-              <div className="flex justify-between items-center">
-                <span>Vibe Score</span>
-                <span className="font-bold text-purple-400">{vibeScore}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Status</span>
-                <span className={`capitalize font-medium ${
-                  userProfile?.is_online ? 'text-green-400' : 'text-gray-400'
-                }`}>
-                  {userProfile?.is_online ? 'Online' : 'Offline'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation Items */}
-          <div className="space-y-2 mb-8">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
+            <nav className="flex-1 space-y-2">
+              {navItems.map(item => (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                    activeTab === item.id
-                      ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg shadow-purple-500/25'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center space-x-2 px-4 py-2 rounded-xl transition-all ${
+                    activeTab === item.id 
+                      ? 'bg-purple-600 text-white' 
+                      : 'text-gray-300 hover:bg-white/10'
                   }`}
                 >
-                  <Icon size={20} />
-                  <span className="font-medium">{item.label}</span>
+                  <item.icon className="w-5 h-5" />
+                  <span>{item.label}</span>
                 </button>
-              );
-            })}
+              ))}
+            </nav>
+            <div className="mt-auto">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-300 hover:bg-white/10"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
+        </div>
 
-          {/* Sign Out Button */}
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+        {/* Mobile Header */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 bg-black bg-opacity-30 backdrop-blur-lg z-50 p-4 flex justify-between items-center">
+          <span className="text-white font-bold">SparkVibe</span>
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="text-white"
           >
-            <LogOut size={20} />
-            <span className="font-medium">Sign Out</span>
+            {isMobileMenuOpen ? <X /> : <Menu />}
           </button>
-        </nav>
-
-        {/* Main Content */}
-        <main className="lg:col-span-9 xl:col-span-7 p-4 lg:p-6 overflow-y-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              {renderActiveTab()}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-
-        {/* Right Sidebar - Profile Summary */}
-        <aside className="hidden xl:block xl:col-span-3 p-6">
-          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 sticky top-6">
-            <h2 className="font-semibold text-white mb-4">Profile Summary</h2>
-            
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold">
-                {userProfile?.avatar_url ? (
-                  <img
-                    src={userProfile.avatar_url}
-                    alt="Your avatar"
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  userProfile?.full_name?.[0]?.toUpperCase() || 'U'
-                )}
-              </div>
-              <div>
-                <h3 className="font-medium text-white">
-                  {userProfile?.full_name || 'User'}
-                </h3>
-                <p className="text-sm text-white/60">
-                  @{userProfile?.username || 'user'}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-white/60">Vibe Score</span>
-                <span className="font-bold text-purple-400">{vibeScore}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/60">Status</span>
-                <span className={`capitalize font-medium ${
-                  userProfile?.is_online ? 'text-green-400' : 'text-gray-400'
-                }`}>
-                  {userProfile?.is_online ? 'Online' : 'Offline'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </aside>
+        </div>
 
         {/* Mobile Menu Overlay */}
         <AnimatePresence>
@@ -369,11 +256,89 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ user }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="lg:hidden fixed inset-0 bg-black/50 z-40"
-              onClick={() => setIsMobileMenuOpen(false)}
-            />
+              className="lg:hidden fixed inset-0 bg-black bg-opacity-70 backdrop-blur-lg z-40"
+            >
+              <div className="flex flex-col h-full p-8">
+                <div className="flex-1 space-y-4">
+                  {navItems.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-3 px-6 py-3 rounded-2xl text-lg ${
+                        activeTab === item.id 
+                          ? 'bg-purple-600 text-white' 
+                          : 'text-gray-300 hover:bg-white/10'
+                      }`}
+                    >
+                      <item.icon className="w-6 h-6" />
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-auto">
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full flex items-center space-x-3 px-6 py-3 rounded-2xl text-lg text-gray-300 hover:bg-white/10"
+                  >
+                    <LogOut className="w-6 h-6" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Main Content */}
+        <div className="col-span-12 lg:col-span-7 pt-16 lg:pt-0">
+          <div className="h-screen overflow-y-auto p-4 lg:p-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {renderActiveTab()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="hidden lg:block lg:col-span-3 bg-black bg-opacity-20 backdrop-blur-lg p-6">
+          <div className="space-y-6">
+            {userProfile && (
+              <div className="bg-white/10 rounded-2xl p-4 text-white">
+                <div className="flex items-center space-x-4">
+                  {userProfile.avatar_url ? (
+                    <img 
+                      src={userProfile.avatar_url} 
+                      alt={userProfile.full_name} 
+                      className="w-12 h-12 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center">
+                      <UserIcon className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="font-semibold">{userProfile.full_name}</h3>
+                    <p className="text-sm text-gray-300">@{userProfile.username}</p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <p className="text-sm text-gray-300">Vibe Score</p>
+                  <p className="text-2xl font-bold text-purple-400">{vibeScore}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
