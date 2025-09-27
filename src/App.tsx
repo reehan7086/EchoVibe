@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
+import ErrorBoundary from './components/ErrorBoundary';
+
 
 // Core components
 import LandingPage from './components/LandingPage';
@@ -174,6 +176,7 @@ const App: React.FC = () => {
   }
 
   return (
+    <ErrorBoundary>
     <Routes>
       {/* Public routes */}
       <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
@@ -192,6 +195,7 @@ const App: React.FC = () => {
       {/* Catch all route */}
       <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
     </Routes>
+    </ErrorBoundary>
   );
 };
 
