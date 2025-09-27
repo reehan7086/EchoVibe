@@ -233,6 +233,35 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
 
                 {!isEmailLogin ? (
                   <div className="space-y-4">
+                    <div className="mb-4">
+                      <div className="flex items-start gap-2 mb-2">
+                        <input
+                          type="checkbox"
+                          id="terms"
+                          checked={termsAccepted}
+                          onChange={(e) => setTermsAccepted(e.target.checked)}
+                          className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          disabled={loading}
+                        />
+                        <label htmlFor="terms" className="text-white/60 text-sm">
+                          I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
+                        </label>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="privacy"
+                          checked={privacyAccepted}
+                          onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                          className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          disabled={loading}
+                        />
+                        <label htmlFor="privacy" className="text-white/60 text-sm">
+                          I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
+                        </label>
+                      </div>
+                    </div>
+
                     <button
                       onClick={handleGoogleLogin}
                       disabled={loading || !termsAccepted || !privacyAccepted}
@@ -330,6 +359,35 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                         </button>
                       </div>
 
+                      <div className="mt-4">
+                        <div className="flex items-start gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            id="terms"
+                            checked={termsAccepted}
+                            onChange={(e) => setTermsAccepted(e.target.checked)}
+                            className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                            disabled={loading}
+                          />
+                          <label htmlFor="terms" className="text-white/60 text-sm">
+                            I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
+                          </label>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            id="privacy"
+                            checked={privacyAccepted}
+                            onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                            className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                            disabled={loading}
+                          />
+                          <label htmlFor="privacy" className="text-white/60 text-sm">
+                            I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
+                          </label>
+                        </div>
+                      </div>
+
                       <button
                         type="submit"
                         disabled={loading || !termsAccepted || !privacyAccepted}
@@ -366,35 +424,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                       <Shield className="w-4 h-4 text-green-400" />
                       <span>Secure Authentication</span>
                     </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                      disabled={loading}
-                    />
-                    <label htmlFor="terms" className="text-white/60 text-sm">
-                      I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="privacy"
-                      checked={privacyAccepted}
-                      onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                      disabled={loading}
-                    />
-                    <label htmlFor="privacy" className="text-white/60 text-sm">
-                      I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
-                    </label>
                   </div>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -236,6 +237,35 @@ const SignUpPage: React.FC = () => {
                 )}
 
                 <div className="space-y-6">
+                  <div className="mb-4">
+                    <div className="flex items-start gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id="terms"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        disabled={loading}
+                      />
+                      <label htmlFor="terms" className="text-white/60 text-sm">
+                        I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
+                      </label>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id="privacy"
+                        checked={privacyAccepted}
+                        onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                        className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        disabled={loading}
+                      />
+                      <label htmlFor="privacy" className="text-white/60 text-sm">
+                        I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
+                      </label>
+                    </div>
+                  </div>
+
                   <button
                     onClick={handleGoogleSignUp}
                     disabled={loading || !termsAccepted || !privacyAccepted}
@@ -400,32 +430,16 @@ const SignUpPage: React.FC = () => {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-white/20 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                      disabled={loading}
-                    />
-                    <label htmlFor="terms" className="text-white/60 text-sm">
-                      I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="privacy"
-                      checked={privacyAccepted}
-                      onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                      disabled={loading}
-                    />
-                    <label htmlFor="privacy" className="text-white/60 text-sm">
-                      I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
-                    </label>
-                  </div>
+                  <p className="text-white/40 text-xs">
+                    By creating an account, you agree to our{' '}
+                    <Link to="/terms" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
+                      Terms of Service
+                    </Link>{' '}
+                    and{' '}
+                    <Link to="/privacy" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
+                      Privacy Policy
+                    </Link>
+                  </p>
                 </div>
               </div>
             </div>
