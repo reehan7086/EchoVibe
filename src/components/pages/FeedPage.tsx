@@ -11,7 +11,7 @@ interface FeedPageProps {
   user: User;
 }
 
-const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
+export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
   const [posts, setPosts] = useState<(VibeEcho & { profile?: any; user_has_liked?: boolean })[]>([]);
   const [newPost, setNewPost] = useState('');
   const [selectedMood, setSelectedMood] = useState('happy');
@@ -28,7 +28,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
 
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
 
-  // Fetch user profile
+  // ------------------- USER PROFILE -------------------
   const fetchUserProfile = useCallback(async () => {
     try {
       const { data: profile, error } = await supabase
@@ -65,7 +65,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
     }
   }, [user]);
 
-  // Fetch posts
+  // ------------------- POSTS -------------------
   const fetchPosts = useCallback(async () => {
     if (!mountedRef.current) return;
     setLoading(true);
@@ -77,51 +77,46 @@ const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (error) {
-        console.error('Error fetching posts:', error);
-        return;
-      }
+      if (error) throw error;
 
-      if (postsData && mountedRef.current) {
-        const postsWithProfiles = await Promise.all(postsData.map(async post => {
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', post.user_id)
-              .single();
+      if (!postsData) return;
 
-            const { data: likes } = await supabase
-              .from('likes')
-              .select('user_id')
-              .eq('post_id', post.id);
+      // Fetch all profiles at once to avoid sequential calls
+      const userIds = Array.from(new Set(postsData.map(p => p.user_id)));
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('user_id', userIds);
 
-            return {
-              ...post,
-              profile: profile || null,
-              user_has_liked: likes?.some(like => like.user_id === user.id) || false
-            };
-          } catch (innerErr) {
-            console.error('Error fetching profile/likes for post', post.id, innerErr);
-            return { ...post, profile: null, user_has_liked: false };
-          }
-        }));
+      // Fetch likes for all posts at once
+      const postIds = postsData.map(p => p.id);
+      const { data: likes } = await supabase
+        .from('likes')
+        .select('post_id,user_id')
+        .in('post_id', postIds);
 
-        setPosts(postsWithProfiles);
-      }
+      const postsWithExtra = postsData.map(post => {
+        const profile = profiles?.find(p => p.user_id === post.user_id) || null;
+        const userLikes = likes?.filter(l => l.post_id === post.id).map(l => l.user_id) || [];
+        return { ...post, profile, user_has_liked: userLikes.includes(user.id) };
+      });
+
+      setPosts(postsWithExtra);
     } catch (err) {
-      console.error('Unexpected error fetching posts:', err);
+      console.error('Error fetching posts:', err);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   }, [user.id]);
 
+  // ------------------- INITIALIZE -------------------
   useEffect(() => {
     fetchUserProfile();
     fetchPosts();
     return () => { mountedRef.current = false; };
   }, [fetchUserProfile, fetchPosts]);
 
+  // ------------------- TEXTAREA -------------------
   const handleTextareaResize = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -140,13 +135,15 @@ const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
 
     setUploading(true);
     try {
-      const { error } = await supabase.from('vibe_echoes').insert([{
-        content: newPost.trim(),
-        user_id: user.id,
-        mood: selectedMood,
-        profile_id: userProfile?.id,
-        created_at: new Date().toISOString()
-      }]);
+      const { error } = await supabase
+        .from('vibe_echoes')
+        .insert([{
+          content: newPost.trim(),
+          user_id: user.id,
+          mood: selectedMood,
+          profile_id: userProfile?.id,
+          created_at: new Date().toISOString()
+        }]);
       if (error) throw error;
 
       setNewPost('');
@@ -155,111 +152,135 @@ const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
       fetchPosts();
     } catch (error) {
       console.error('Error creating post:', error);
-      alert('Failed to create post. Please try again.');
-    } finally { setUploading(false); }
+      alert('Failed to create post.');
+    } finally {
+      setUploading(false);
+    }
   };
 
+  // ------------------- LIKES -------------------
   const handleLike = async (postId: string) => {
     try {
       const post = posts.find(p => p.id === postId);
       if (!post) return;
-
       if (post.user_has_liked) {
         await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', user.id);
       } else {
         await supabase.from('likes').insert([{ post_id: postId, user_id: user.id }]);
       }
-
       fetchPosts();
-    } catch (error) { console.error('Error handling like:', error); }
+    } catch (err) { console.error(err); }
   };
 
+  // ------------------- COMMENTS -------------------
   const handleComment = (postId: string) => {
     setSelectedPostId(postId);
     setShowCommentModal(true);
     fetchComments(postId);
   };
 
-  const handleShare = (postId: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`);
-    alert('Post link copied to clipboard!');
+  const fetchComments = async (postId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      setComments(data || []);
+    } catch (err) { console.error(err); }
   };
 
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() || !selectedPostId) return;
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .insert([{ content: newComment.trim(), post_id: selectedPostId, user_id: user.id }]);
+      if (error) throw error;
+      setNewComment('');
+      fetchComments(selectedPostId);
+    } catch (err) { console.error(err); }
+  };
+
+  // ------------------- DELETE -------------------
   const handleDeletePost = async (postId: string) => {
     if (!confirm('Are you sure you want to delete this post?')) return;
     try {
       const { error } = await supabase.from('vibe_echoes').delete().eq('id', postId).eq('user_id', user.id);
       if (error) throw error;
       fetchPosts();
-    } catch (error) { console.error('Error deleting post:', error); }
+    } catch (err) { console.error(err); }
   };
 
-  const fetchComments = async (postId: string) => {
-    try {
-      const { data, error } = await supabase.from('comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
-      if (error) throw error;
-      setComments(data || []);
-    } catch (error) { console.error('Error fetching comments:', error); }
-  };
-
-  const handleSubmitComment = async () => {
-    if (!newComment.trim() || !selectedPostId) return;
-    try {
-      const { error } = await supabase.from('comments').insert([{ content: newComment.trim(), post_id: selectedPostId, user_id: user.id }]);
-      if (error) throw error;
-      setNewComment('');
-      fetchComments(selectedPostId);
-    } catch (error) { console.error('Error submitting comment:', error); }
-  };
-
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div></div>;
+  // ------------------- RENDER -------------------
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
 
   return (
     <motion.main initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Post Creation Form */}
+      {/* POST FORM */}
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
         <form onSubmit={handlePost} className="space-y-4">
           <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-lg flex-shrink-0">
-              {userProfile?.avatar_url ? <img src={userProfile.avatar_url} alt="avatar" className="w-full h-full rounded-full object-cover"/> : userProfile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            {/* Avatar + Online Dot */}
+            <div className="relative w-12 h-12 flex-shrink-0">
+              {userProfile?.avatar_url ? (
+                <img src={userProfile.avatar_url} alt="avatar" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                <div className="w-full h-full rounded-full bg-gray-600 flex items-center justify-center text-lg font-bold text-white">
+                  {userProfile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+                </div>
+              )}
+              {/* Online green dot */}
+              {userProfile?.is_online && (
+                <span className="absolute bottom-0 right-0 block w-3 h-3 bg-green-500 rounded-full border border-gray-900"></span>
+              )}
             </div>
-            <div className="flex-1 space-y-4">
+
+            {/* Textarea + Mood */}
+            <div className="flex-1 space-y-3">
               <textarea
                 ref={textareaRef}
                 value={newPost}
                 onChange={handleTextChange}
-                placeholder="how are you feeling now"
-                className="w-full bg-transparent text-white placeholder-white/60 resize-none focus:outline-none text-lg min-h-[80px] max-h-[200px] rounded-md p-2 border border-white/20"
+                placeholder="How are you feeling now?"
+                className="w-full bg-transparent text-white placeholder-white/60 resize-none focus:outline-none text-lg min-h-[80px] max-h-[200px] p-2 border border-white/20 rounded-lg"
                 maxLength={280}
                 rows={1}
               />
-              {/* Mood Selector */}
-              <div className="space-y-2">
-                <p className="text-sm text-white/70">Current mood:</p>
-                <div className="flex gap-2 flex-wrap">
-                  {moods.map(mood => (
-                    <button
-                      key={mood}
-                      type="button"
-                      onClick={() => setSelectedMood(mood)}
-                      className={`px-3 py-2 rounded-full text-sm transition-all cursor-pointer ${
-                        selectedMood === mood ? 'bg-purple-500 text-white shadow-lg' : 'bg-white/10 text-white/70 hover:bg-white/20'
-                      }`}
-                    >
-                      <Smile size={14} className="inline mr-1"/>
-                      {mood}
-                    </button>
-                  ))}
-                </div>
+
+              <div className="flex gap-2 flex-wrap">
+                {moods.map(mood => (
+                  <button
+                    key={mood}
+                    type="button"
+                    onClick={() => setSelectedMood(mood)}
+                    className={`px-3 py-1 rounded-full text-sm transition-all ${
+                      selectedMood === mood
+                        ? 'bg-purple-500 text-white shadow-lg'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                    }`}
+                  >
+                    <Smile size={14} className="inline mr-1" />
+                    {mood}
+                  </button>
+                ))}
               </div>
-              {/* Post Button */}
+
               <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={!newPost.trim() || uploading}
                   className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {uploading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Send size={16}/>} Post
+                  {uploading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Send size={16} />}
+                  {uploading ? 'Posting...' : 'Post'}
                 </button>
               </div>
             </div>
@@ -267,22 +288,25 @@ const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
         </form>
       </div>
 
-      {/* Posts Feed */}
+      {/* POSTS */}
       <div className="space-y-4">
-        {posts.length > 0 ? posts.map(post => (
-          <PostCard
-            key={post.id}
-            post={post}
-            onLike={handleLike}
-            onComment={handleComment}
-            onShare={handleShare}
-            onDelete={post.user_id === user.id ? handleDeletePost : undefined}
-            currentUser={user}
-          />
-        )) : <div className="text-center py-12"><p className="text-white/60 text-lg">No posts yet. Share something!</p></div>}
+        {posts.length > 0 ? (
+          posts.map(post => (
+            <PostCard
+              key={post.id}
+              post={post}
+              onLike={handleLike}
+              onComment={handleComment}
+              onDelete={post.user_id === user.id ? handleDeletePost : undefined}
+              currentUser={user}
+            />
+          ))
+        ) : (
+          <div className="text-center py-12 text-white/60 text-lg">No posts yet. Share something!</div>
+        )}
       </div>
 
-      {/* Comment Modal */}
+      {/* COMMENT MODAL */}
       <CommentModal
         isOpen={showCommentModal}
         onClose={() => setShowCommentModal(false)}
