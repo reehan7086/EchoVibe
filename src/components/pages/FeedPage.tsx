@@ -29,9 +29,30 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
   const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userProfiles, setUserProfiles] = useState<Profile[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
+
+  // Helper function to create safe profile
+  const createSafeProfile = (profileData: any): Profile | undefined => {
+    if (!profileData) return undefined;
+    
+    return {
+      id: profileData.id,
+      username: profileData.username || '',
+      full_name: profileData.full_name || '',
+      bio: profileData.bio,
+      avatar_url: profileData.avatar_url,
+      location: profileData.location,
+      city: profileData.city,
+      created_at: profileData.created_at,
+      updated_at: profileData.updated_at,
+      vibe_score: profileData.vibe_score || 0,
+      is_online: profileData.is_online || false,
+      last_active: profileData.last_active
+    };
+  };
 
   // Fetch posts with proper error handling
   useEffect(() => {
@@ -98,16 +119,24 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
               id,
               username,
               full_name,
+              bio,
               avatar_url,
-              vibe_score
+              location,
+              city,
+              created_at,
+              updated_at,
+              vibe_score,
+              is_online,
+              last_active
             `)
             .in('id', userIds);
 
           if (!profilesError && profilesData) {
+            setUserProfiles(profilesData as Profile[]);
             enrichedPosts = postsData.map(post => ({
               ...post,
               user_has_liked: likedPostIds.has(post.id),
-              profiles: profilesData.find(profile => profile.id === post.user_id) || null
+              profiles: createSafeProfile(profilesData.find(profile => profile.id === post.user_id))
             }));
           }
         }
@@ -138,14 +167,14 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             // Fetch profile for new post
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('id, username, full_name, avatar_url, vibe_score')
+              .select('id, username, full_name, avatar_url, vibe_score, bio, location, city, created_at, updated_at, is_online, last_active')
               .eq('id', payload.new.user_id)
               .single();
 
             const newPost: VibeEcho = {
               ...payload.new as any,
               user_has_liked: false,
-              profiles: profileData || null
+              profiles: createSafeProfile(profileData)
             };
 
             setPosts(prev => [newPost, ...prev]);
@@ -252,7 +281,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       const newPostWithProfile: VibeEcho = {
         ...data,
         user_has_liked: false,
-        profiles: profile || null
+        profiles: createSafeProfile(profile)
       };
 
       setPosts(prev => [newPostWithProfile, ...prev]);
@@ -336,7 +365,15 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             id,
             username,
             full_name,
-            avatar_url
+            bio,
+            avatar_url,
+            location,
+            city,
+            created_at,
+            updated_at,
+            vibe_score,
+            is_online,
+            last_active
           )
         `)
         .eq('chat_id', chatId)
@@ -347,7 +384,17 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         return;
       }
 
-      setComments(prev => ({ ...prev, [postId]: data || [] }));
+      setComments(prev => ({
+        ...prev,
+        [postId]: data.map((comment: any) => ({
+          id: comment.id,
+          chat_id: comment.chat_id || postId,
+          sender_id: comment.sender_id,
+          content: comment.content,
+          created_at: comment.created_at,
+          profiles: createSafeProfile(comment.profiles)
+        } as Comment))
+      }));
     } catch (error) {
       console.error('Error loading comments:', error);
     }
@@ -398,7 +445,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
       const newCommentWithProfile: Comment = {
         ...data,
-        profiles: profile || null
+        profiles: createSafeProfile(profile)
       };
 
       setComments(prev => ({

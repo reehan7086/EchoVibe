@@ -11,29 +11,23 @@ import SignUpPage from './components/SignUpPage';
 import MainDashboard from './components/MainDashboard';
 import LoadingSpinner from './components/LoadingSpinner';
 
-// Fixed types
-type Profile = {
-  id: string;
-  username: string;
-  full_name: string;
-  bio?: string;
-  avatar_url?: string;
-  vibe_score: number;
-  is_online: boolean;
-  created_at: string;
-  updated_at?: string;
-  location?: string;
-  city?: string;
-};
+// Import types from your types file
+import { Profile } from './types';
 
 type InsertProfile = {
   id: string;
+  user_id: string;
   username: string;
   full_name: string;
-  bio?: string;
-  avatar_url?: string;
+  bio?: string | null;
+  avatar_url?: string | null;
+  location?: string | null;
+  city?: string | null;
+  created_at?: string;
+  updated_at?: string | null;
   vibe_score?: number;
   is_online?: boolean;
+  last_active?: string;
 };
 
 const AppContent: React.FC = () => {
@@ -43,6 +37,97 @@ const AppContent: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const fetchOrCreateProfile = async (user: User): Promise<Profile | null> => {
+    try {
+      console.log('🔄 Fetching profile for user:', user.id);
+
+      // First, try to fetch existing profile
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          username,
+          full_name,
+          bio,
+          avatar_url,
+          vibe_score,
+          is_online,
+          created_at,
+          updated_at,
+          location,
+          city
+        `)
+        .eq('user_id', user.id)
+        .single();
+
+      if (existingProfile) {
+        // Profile exists, use it
+        console.log('✅ Using existing profile:', existingProfile);
+        setProfile(existingProfile);
+        return existingProfile;
+      }
+
+      // Only create if profile doesn't exist (no rows returned)
+      if (fetchError?.code === 'PGRST116') {
+        console.log('📝 Creating new profile...');
+        
+        const newProfile: InsertProfile = {
+          id: user.id,
+          user_id: user.id,
+          username: user.user_metadata?.preferred_username ||
+                   user.user_metadata?.name?.toLowerCase().replace(/\s+/g, '') ||
+                   user.email?.split('@')[0] ||
+                   `user_${user.id.slice(0, 8)}`,
+          full_name: user.user_metadata?.full_name || 
+                    user.user_metadata?.name || 
+                    'New User',
+          avatar_url: user.user_metadata?.avatar_url || null,
+          bio: null,
+          location: null,
+          city: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+          vibe_score: 0,
+          is_online: true
+        };
+
+        const { data: createdProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([newProfile])
+          .select(`
+            id,
+            username,
+            full_name,
+            bio,
+            avatar_url,
+            vibe_score,
+            is_online,
+            created_at,
+            updated_at,
+            location,
+            city
+          `)
+          .single();
+
+        if (createError) {
+          console.error('❌ Error creating profile:', createError);
+          throw createError;
+        }
+
+        console.log('✅ Profile created successfully:', createdProfile);
+        setProfile(createdProfile);
+        return createdProfile;
+      } else {
+        console.error('❌ Error fetching profile:', fetchError);
+        throw fetchError;
+      }
+    } catch (error: any) {
+      console.error('❌ Profile fetch/create failed:', error);
+      setError('Failed to load user profile. Please try again.');
+      return null;
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -56,7 +141,7 @@ const AppContent: React.FC = () => {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
-          console.error('Session error:', sessionError);
+          console.error('❌ Session error:', sessionError);
           if (mounted) {
             setError('Authentication failed. Please try again.');
             setUser(null);
@@ -74,7 +159,7 @@ const AppContent: React.FC = () => {
           await fetchOrCreateProfile(session.user);
         }
       } catch (error) {
-        console.error('Auth initialization failed:', error);
+        console.error('❌ Auth initialization failed:', error);
         if (mounted) {
           setError('Failed to initialize authentication');
           setUser(null);
@@ -118,88 +203,6 @@ const AppContent: React.FC = () => {
       subscription.unsubscribe();
     };
   }, [navigate, location.pathname]);
-
-  const fetchOrCreateProfile = async (user: User) => {
-    try {
-      console.log('🔄 Fetching profile for user:', user.id);
-
-      // First, try to fetch existing profile
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          username,
-          full_name,
-          bio,
-          avatar_url,
-          vibe_score,
-          is_online,
-          created_at,
-          updated_at,
-          location,
-          city
-        `)
-        .eq('id', user.id)
-        .single();
-
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error fetching profile:', fetchError);
-        throw fetchError;
-      }
-
-      if (existingProfile) {
-        console.log('✅ Profile found:', existingProfile);
-        setProfile(existingProfile);
-        return;
-      }
-
-      // Profile doesn't exist, create one
-      console.log('📝 Creating new profile...');
-      const newProfile: InsertProfile = {
-        id: user.id,
-        username: user.user_metadata?.preferred_username ||
-                 user.user_metadata?.name?.toLowerCase().replace(/\s+/g, '') ||
-                 user.email?.split('@')[0] ||
-                 `user_${user.id.slice(0, 8)}`,
-        full_name: user.user_metadata?.full_name || 
-                  user.user_metadata?.name || 
-                  'New User',
-        avatar_url: user.user_metadata?.avatar_url || null,
-        vibe_score: 0,
-        is_online: true
-      };
-
-      const { data: createdProfile, error: createError } = await supabase
-        .from('profiles')
-        .insert([newProfile])
-        .select(`
-          id,
-          username,
-          full_name,
-          bio,
-          avatar_url,
-          vibe_score,
-          is_online,
-          created_at,
-          updated_at,
-          location,
-          city
-        `)
-        .single();
-
-      if (createError) {
-        console.error('Error creating profile:', createError);
-        throw createError;
-      }
-
-      console.log('✅ Profile created:', createdProfile);
-      setProfile(createdProfile);
-
-    } catch (err: any) {
-      console.error('Error fetching/creating profile:', err);
-      setError(`Profile error: ${err.message || 'Unknown error'}`);
-    }
-  };
 
   const handleRetry = () => {
     setError(null);
@@ -252,7 +255,7 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <AppContent />
+    <AppContent />
 );
 
 export default App;
