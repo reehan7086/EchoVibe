@@ -1,136 +1,438 @@
+// src/components/pages/SignUpPage.tsx - Fixed with proper profile creation
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { motion } from 'framer-motion';
+import { 
+  Mail, Lock, Eye, EyeOff, User, Chrome, AlertCircle, CheckCircle, 
+  Zap, ArrowRight, Shield, MapPin 
+} from 'lucide-react';
+import { generateUsername } from '../../utils';
 
 const SignUpPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    fullName: '',
+    username: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1); // 1: Basic Info, 2: Account Creation
   const navigate = useNavigate();
 
-  const handleSignUp = async () => {
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
+  // Handle input changes
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Auto-generate username from full name
+    if (field === 'fullName' && value) {
+      setFormData(prev => ({
+        ...prev,
+        username: generateUsername(value)
+      }));
     }
+    
+    // Clear errors when user types
+    if (error) setError(null);
+  };
+
+  // Validate form data
+  const validateForm = () => {
+    if (!formData.fullName.trim()) {
+      setError('Full name is required');
+      return false;
+    }
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+    if (!formData.username.trim()) {
+      setError('Username is required');
+      return false;
+    }
+    return true;
+  };
+
+  // Handle email signup
+  const handleEmailSignUp = async () => {
+    if (!validateForm()) return;
+
     setLoading(true);
+    setError(null);
+
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email.trim(),
+        password: formData.password,
         options: {
           data: {
-            full_name: fullName,
-            preferred_username: email.split('@')[0]
+            full_name: formData.fullName.trim(),
+            username: formData.username.trim(),
+            preferred_username: formData.username.trim()
           }
         }
       });
-      if (error) throw new Error(error.message);
-      alert('Check your email for verification link!');
-      navigate('/login');
-    } catch (err) {
-      setError('Failed to create account. Please try again.');
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // The trigger should create the profile automatically, but let's ensure it exists
+        // Wait a moment for the trigger to fire
+        setTimeout(async () => {
+          try {
+            // Check if profile was created by trigger
+            const { data: existingProfile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('user_id', authData.user!.id)
+              .single();
+
+            // If no profile exists, create one manually
+            if (!existingProfile) {
+              await supabase
+                .from('profiles')
+                .insert({
+                  id: authData.user!.id,
+                  user_id: authData.user!.id,
+                  username: formData.username.trim(),
+                  full_name: formData.fullName.trim(),
+                  bio: '',
+                  privacy_level: 'public',
+                  vibe_score: 50,
+                  is_verified: false,
+                  is_online: false,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+            }
+          } catch (profileError) {
+            console.error('Profile creation error:', profileError);
+          }
+        }, 1000);
+
+        // Redirect to login with success message
+        navigate('/login?success=true&message=' + encodeURIComponent('Account created successfully! Please check your email to verify your account.'));
+      }
+    } catch (err: any) {
       console.error('SignUp error:', err);
+      setError(err.message || 'Failed to create account. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle Google signup
   const handleGoogleSignUp = async () => {
     setLoading(true);
+    setError(null);
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
-      if (error) throw new Error(error.message);
-    } catch (err) {
-      setError('Google sign up failed. Please try again.');
+
+      if (error) throw error;
+    } catch (err: any) {
       console.error('Google signup error:', err);
+      setError(err.message || 'Google sign up failed. Please try again.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 flex items-center justify-center">
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-6 text-center text-white">Sign Up for SparkVibe</h2>
-        {error && <p className="text-red-400 mb-4">{error}</p>}
-        <div className="space-y-4">
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="Full Name"
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-            disabled={loading}
-          />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-            disabled={loading}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-            disabled={loading}
-          />
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm Password"
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-400"
-            disabled={loading}
-          />
-          <button
-            onClick={handleSignUp}
-            disabled={loading}
-            className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white"
-          >
-            {loading ? 'Creating Account...' : 'Sign Up'}
-          </button>
-          
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/20"></div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
+          {/* Left Side - Marketing Content */}
+          <div className="hidden lg:block space-y-8">
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-white">SparkVibe</h1>
+                  <p className="text-white/60">Secure Social Discovery</p>
+                </div>
+              </div>
+              
+              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
+                Join Your Local
+                <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  {' '}Community
+                </span>
+              </h2>
+              <p className="text-lg text-white/80 leading-relaxed">
+                Connect with like-minded people nearby. Share your vibe, discover local communities, and build authentic relationships.
+              </p>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-slate-900 text-white/60">Or continue with</span>
+
+            {/* Features */}
+            <div className="grid grid-cols-1 gap-4">
+              {[
+                { icon: MapPin, title: 'Location-Based Discovery', desc: 'Find people and communities in your area' },
+                { icon: Shield, title: 'Privacy First', desc: 'Control your visibility and data sharing' },
+                { icon: Zap, title: 'Instant Connections', desc: 'Real-time matching with nearby users' }
+              ].map((feature, index) => {
+                const Icon = feature.icon;
+                return (
+                  <div key={index} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                    <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-6 h-6 text-purple-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-white font-semibold">{feature.title}</h3>
+                      <p className="text-white/60 text-sm">{feature.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-          
-          <button
-            onClick={handleGoogleSignUp}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Continue with Google
-          </button>
+
+          {/* Right Side - Signup Form */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-full max-w-md">
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 shadow-2xl">
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <User className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Create Your Account</h3>
+                  <p className="text-white/70">Join the SparkVibe community</p>
+                </div>
+
+                {error && (
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-6 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-300 flex-shrink-0" />
+                    <p className="text-red-300 text-sm">{error}</p>
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  {/* Google Signup */}
+                  <button
+                    onClick={handleGoogleSignUp}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-medium py-4 px-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
+                    ) : (
+                      <Chrome className="w-5 h-5" />
+                    )}
+                    {loading ? 'Creating account...' : 'Continue with Google'}
+                  </button>
+
+                  {/* Divider */}
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/20"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="bg-slate-900 px-4 text-white/60">or create with email</span>
+                    </div>
+                  </div>
+
+                  {/* Email Signup Form */}
+                  <div className="space-y-4">
+                    {/* Full Name */}
+                    <div>
+                      <label htmlFor="fullName" className="block text-white/80 text-sm font-medium mb-2">
+                        Full Name
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
+                        <input
+                          id="fullName"
+                          type="text"
+                          value={formData.fullName}
+                          onChange={(e) => handleInputChange('fullName', e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
+                          placeholder="Enter your full name"
+                          required
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Username */}
+                    <div>
+                      <label htmlFor="username" className="block text-white/80 text-sm font-medium mb-2">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40">@</span>
+                        <input
+                          id="username"
+                          type="text"
+                          value={formData.username}
+                          onChange={(e) => handleInputChange('username', e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                          className="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
+                          placeholder="your_username"
+                          required
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label htmlFor="email" className="block text-white/80 text-sm font-medium mb-2">
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
+                        <input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => handleInputChange('email', e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
+                          placeholder="Enter your email"
+                          required
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <label htmlFor="password" className="block text-white/80 text-sm font-medium mb-2">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
+                        <input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={formData.password}
+                          onChange={(e) => handleInputChange('password', e.target.value)}
+                          className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
+                          placeholder="Create a password"
+                          required
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
+                          disabled={loading}
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-white/80 text-sm font-medium mb-2">
+                        Confirm Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
+                        <input
+                          id="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={formData.confirmPassword}
+                          onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                          className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
+                          placeholder="Confirm your password"
+                          required
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
+                          disabled={loading}
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Create Account Button */}
+                    <button
+                      onClick={handleEmailSignUp}
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                    >
+                      {loading ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          Create Account
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Login Link */}
+                <div className="mt-6 text-center">
+                  <p className="text-white/60 text-sm">
+                    Already have an account?{' '}
+                    <Link 
+                      to="/login" 
+                      className="text-purple-400 hover:text-purple-300 font-medium transition-colors hover:underline"
+                    >
+                      Sign in here
+                    </Link>
+                  </p>
+                </div>
+
+                {/* Terms */}
+                <div className="mt-8 pt-6 border-t border-white/20 text-center">
+                  <p className="text-white/40 text-xs">
+                    By creating an account, you agree to our{' '}
+                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
+                      Terms of Service
+                    </a>{' '}
+                    and{' '}
+                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
+                      Privacy Policy
+                    </a>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <p className="text-white/60 text-center mt-4">
-          Already have an account?{' '}
-          <Link to="/login" className="text-purple-400 hover:underline">
-            Log In
-          </Link>
-        </p>
       </div>
     </div>
   );
