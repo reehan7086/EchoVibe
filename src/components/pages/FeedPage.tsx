@@ -372,13 +372,19 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         currentUser={user}
       />
 
-      <VibeCardGenerator
-        isOpen={showCardGenerator}
-        onClose={() => setShowCardGenerator(false)}
-        post={selectedPostForCard!}
-        user={user}
-        profile={profile ? { ...profile, cards_shared: profile.cards_shared ?? 0 } : undefined}
-      />
+{selectedPostForCard && (
+  <VibeCardGenerator
+    isOpen={showCardGenerator}
+    onClose={() => setShowCardGenerator(false)}
+    post={selectedPostForCard}
+    user={user}
+    profile={profile ? {
+      ...profile,
+      cards_shared: profile.cards_shared ?? 0,
+      viral_score: Number(profile.viral_score) || 0,
+    } : undefined}
+  />
+)}
     </motion.div>
   );
 };

@@ -3,7 +3,14 @@ import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, Share2, Sparkles, TrendingUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { VibeEcho, Profile } from '../../types';
+import { VibeEcho } from '../../types';
+
+interface Profile {
+  vibe_score: number;
+  cards_shared: number;
+  viral_score: number;
+  [key: string]: any; // for other fields
+}
 
 interface VibeCardGeneratorProps {
   isOpen: boolean;
@@ -46,8 +53,8 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
     minimal: { name: 'Minimal', bg: 'from-gray-900 via-slate-800 to-gray-900', accent: 'text-blue-300' }
   };
 
-  // Auto-select template based on mood
   useEffect(() => {
+    if (!post) return; // guard against null
     const moodToTemplate: Record<string, CardTemplate> = {
       happy: 'cosmic',
       excited: 'retro',
@@ -57,12 +64,11 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
       creative: 'cosmic'
     };
     setSelectedTemplate(moodToTemplate[post.mood] || 'cosmic');
-  }, [post.mood]);
-
+  }, [post]);
+ 
   const generateCardData = async () => {
     setGenerating(true);
     try {
-      // Simulate card generation (replace with actual API call)
       const mockCardData: CardData = {
         adventure_summary: `You shared "${post.content.slice(0, 50)}..." in ${post.mood} mood`,
         mood_boost: `Feeling ${post.mood}! Your vibe is contagious!`,
@@ -76,7 +82,6 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
       setCardData(mockCardData);
       setCurrentStep('card');
       
-      // Generate canvas image
       setTimeout(() => {
         generateCardImage(mockCardData);
       }, 500);
@@ -98,7 +103,6 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
     canvas.width = 400;
     canvas.height = 600;
 
-    // Background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, 600);
     switch (data.template_theme) {
       case 'cosmic':
@@ -126,7 +130,6 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 400, 600);
 
-    // Add content
     ctx.fillStyle = 'white';
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'center';
@@ -134,25 +137,21 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
 
     ctx.font = '16px Arial';
     ctx.fillStyle = '#e5e7eb';
-    
-    // Adventure summary
+
     ctx.fillText('Adventure:', 200, 100);
     const lines = wrapText(ctx, data.adventure_summary, 350);
     lines.forEach((line, i) => {
       ctx.fillText(line, 200, 130 + i * 20);
     });
 
-    // Mood boost
     ctx.fillStyle = '#fbbf24';
     ctx.fillText(data.mood_boost, 200, 220);
 
-    // Stats
     ctx.fillStyle = 'white';
     ctx.font = 'bold 20px Arial';
     ctx.fillText(`${data.vibe_points} Points`, 200, 280);
     ctx.fillText(`${data.streak_count} Day Streak`, 200, 310);
 
-    // Brain bite
     ctx.font = '14px Arial';
     ctx.fillStyle = '#a78bfa';
     const brainLines = wrapText(ctx, data.brain_bite, 350);
@@ -160,7 +159,6 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
       ctx.fillText(line, 200, 360 + i * 18);
     });
 
-    // Convert to image
     const imageData = canvas.toDataURL('image/png');
     setCardImage(imageData);
   };
@@ -188,25 +186,22 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
     if (!cardData || !cardImage) return;
 
     try {
-      // Track share
       await supabase.from('card_shares').insert([{
-        card_id: cardData.adventure_summary, // Temporary ID
+        card_id: cardData.adventure_summary,
         user_id: user.id,
         platform
       }]);
 
-      // Update profile stats
       if (profile) {
         await supabase
           .from('profiles')
           .update({ 
-            cards_shared: (profile.cards_shared || 0) + 1,
-            viral_score: (profile.viral_score || 0) + 0.1
+            cards_shared: Number(profile.cards_shared || 0) + 1,
+            viral_score: Number(profile.viral_score || 0) + 0.1
           })
           .eq('user_id', user.id);
       }
 
-      // Web Share API or fallback
       if (navigator.share && platform === 'native') {
         await navigator.share({
           title: 'Check out my EchoVibe Card!',
@@ -214,14 +209,12 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
           url: window.location.origin
         });
       } else {
-        // Open platform-specific sharing
         const shareUrls: Record<string, string> = {
           twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out my EchoVibe Card! ' + cardData.adventure_summary)}&url=${window.location.origin}`,
           facebook: `https://www.facebook.com/sharer/sharer.php?u=${window.location.origin}`,
-          instagram: 'instagram://camera', // Opens Instagram camera
+          instagram: 'instagram://camera',
           tiktok: 'https://www.tiktok.com/upload'
         };
-
         if (shareUrls[platform]) {
           window.open(shareUrls[platform], '_blank');
         }
@@ -235,7 +228,6 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
 
   const downloadCard = () => {
     if (!cardImage) return;
-
     const link = document.createElement('a');
     link.download = `echovibe-card-${Date.now()}.png`;
     link.href = cardImage;
