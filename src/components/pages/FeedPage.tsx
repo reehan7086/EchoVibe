@@ -32,10 +32,15 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
   const [showCardGenerator, setShowCardGenerator] = useState(false);
   const [selectedPostForCard, setSelectedPostForCard] = useState<VibeEcho | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  console.log('🔍 FeedPage state:', { loading, postsCount: posts.length, user: user?.id });
+  console.log('🔍 FeedPage state:', { 
+    loading, 
+    postsCount: posts.length, 
+    userExists: !!user,
+    userId: user?.id 
+  });
 
   if (loading) {
-    console.log('🔄 Still loading...');
+    console.log('🔄 Still loading...', { loading, postsCount: posts.length });
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
@@ -76,20 +81,31 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     let isMounted = true;
 
     const fetchPosts = async () => {
+      let isMounted = true;
+    
       try {
+        console.log('🔄 Starting to fetch posts...');
         setLoading(true);
         setError(null);
     
         if (!user) {
+          console.log('❌ No user, skipping fetch');
           setPosts([]);
-          setLoading(false); // ← ADD THIS
+          setLoading(false);
           return;
         }
     
-        const { data: likesData } = await supabase
+        console.log('👤 Fetching posts for user:', user.id);
+    
+        const { data: likesData, error: likesError } = await supabase
           .from('likes')
           .select('post_id')
           .eq('user_id', user.id);
+    
+        if (likesError) {
+          console.error('❌ Likes fetch error:', likesError);
+          throw likesError;
+        }
     
         const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
     
@@ -100,16 +116,27 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
           .order('created_at', { ascending: false })
           .limit(20);
     
-        if (postsError) throw postsError;
+        if (postsError) {
+          console.error('❌ Posts fetch error:', postsError);
+          throw postsError;
+        }
+    
+        console.log('📝 Found posts:', postsData?.length || 0);
     
         let enrichedPosts = postsData || [];
     
         if (postsData && postsData.length > 0) {
           const userIds = [...new Set(postsData.map((post) => post.user_id))];
-          const { data: profilesData } = await supabase
+          console.log('👥 Fetching profiles for user IDs:', userIds);
+    
+          const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('*')
             .in('user_id', userIds);
+    
+          if (profilesError) {
+            console.error('❌ Profiles fetch error:', profilesError);
+          }
     
           if (profilesData && isMounted) {
             setUserProfiles(profilesData as Profile[]);
@@ -123,13 +150,17 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     
         if (isMounted) {
           setPosts(enrichedPosts);
-          setLoading(false); // ← ADD THIS to ensure loading is set to false
+          console.log('✅ Posts loaded successfully');
         }
       } catch (err: any) {
-        console.error(err);
+        console.error('❌ Error in fetchPosts:', err);
         if (isMounted) {
           setError('Failed to load posts. Please try again.');
-          setLoading(false); // ← ADD THIS in error case too
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          console.log('🏁 Loading set to false');
         }
       }
     };
