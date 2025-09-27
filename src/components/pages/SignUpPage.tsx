@@ -177,8 +177,8 @@ const SignUpPage: React.FC = () => {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
           {/* Left Side - Marketing Content */}
-          <div className="hidden lg:block space-y-8">
-            <div>
+          <div className="hidden lg:flex flex-col justify-center space-y-8 px-4 lg:px-0">
+          <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                   <Zap className="w-6 h-6 text-white" />
