@@ -1,4 +1,4 @@
-// src/components/pages/FeedPage.tsx - FIXED VERSION
+// src/components/pages/FeedPage.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -6,14 +6,14 @@ import { VibeEcho, User, Comment } from '../../types';
 import PostCard from '../common/PostCard';
 import CommentModal from '../common/CommentModal';
 import MediaUpload from '../common/MediaUpload';
-import { Image as ImageIcon, Smile, Send } from 'lucide-react';
+import { Smile, Send } from 'lucide-react';
 
 interface FeedPageProps {
   user: User;
 }
 
 export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
-  const [posts, setPosts] = useState<VibeEcho[]>([]);
+  const [posts, setPosts] = useState<(VibeEcho & { profile?: any; user_has_liked?: boolean })[]>([]);
   const [newPost, setNewPost] = useState('');
   const [selectedMood, setSelectedMood] = useState('happy');
   const [uploading, setUploading] = useState(false);
@@ -23,128 +23,102 @@ export const FeedPage: React.FC<FeedPageProps> = ({ user }) => {
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
-  
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mountedRef = useRef(true);
 
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
 
   // Fetch user profile
-// Fetch user profile
-const fetchUserProfile = useCallback(async () => {
-  try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id) // ✅ FIXED: use user_id instead of id
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching profile:', error);
-      return;
-    }
-
-    if (profile) {
-      setUserProfile(profile);
-    } else {
-      // Create profile if it doesn't exist
-      const { data: newProfile, error: insertError } = await supabase
+  const fetchUserProfile = useCallback(async () => {
+    try {
+      const { data: profile, error } = await supabase
         .from('profiles')
-        .insert([{
-          user_id: user.id, // ✅ ensure user_id is set
-          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-          username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
-          avatar_url: user.user_metadata?.avatar_url,
-          status: 'online'
-        }])
-        .select()
+        .select('*')
+        .eq('user_id', user.id)
         .single();
 
-      if (!insertError && newProfile) {
-        setUserProfile(newProfile);
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+        return;
       }
+
+      if (profile) {
+        setUserProfile(profile);
+      } else {
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert([{
+            user_id: user.id,
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
+            avatar_url: user.user_metadata?.avatar_url,
+            is_online: true,
+            last_active: new Date().toISOString()
+          }])
+          .select()
+          .single();
+
+        if (!insertError && newProfile) setUserProfile(newProfile);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
     }
-  } catch (error) {
-    console.error('Error in fetchUserProfile:', error);
-  }
-}, [user]);
+  }, [user]);
 
-
-  // Fetch posts with likes from vibe_echoes table
+  // Fetch posts
   const fetchPosts = useCallback(async () => {
     if (!mountedRef.current) return;
-    
+
     try {
-      console.log('🔄 Starting to fetch posts...');
-      
-      const { data, error } = await supabase
+      const { data: postsData, error } = await supabase
         .from('vibe_echoes')
-        .select(`
-          *,
-          profiles!vibe_echoes_user_id_fkey (
-            full_name,
-            username,
-            avatar_url
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (error) {
-        console.error('Error fetching posts:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('📝 Found posts:', data?.length || 0);
+      if (postsData && mountedRef.current) {
+        const postsWithProfiles = await Promise.all(postsData.map(async (post) => {
+          // Fetch profile for each post
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', post.user_id)
+            .single();
 
-      if (mountedRef.current && data) {
-        // Fetch likes for each post separately to avoid 404 errors
-        const postsWithLikes = await Promise.all(
-          data.map(async (post) => {
-            try {
-              const { data: likes } = await supabase
-                .from('likes')
-                .select('user_id')
-                .eq('post_id', post.id);
-              
-              return {
-                ...post,
-                user_has_liked: likes?.some((like: any) => like.user_id === user.id) || false
-              };
-            } catch (likeError) {
-              console.error('Error fetching likes for post:', post.id, likeError);
-              return {
-                ...post,
-                user_has_liked: false
-              };
-            }
-          })
-        );
-        
-        setPosts(postsWithLikes);
-        console.log('✅ Posts loaded successfully');
+          // Fetch likes
+          const { data: likes } = await supabase
+            .from('likes')
+            .select('user_id')
+            .eq('post_id', post.id);
+
+          return {
+            ...post,
+            profile: profile || null,
+            user_has_liked: likes?.some((like: any) => like.user_id === user.id) || false
+          };
+        }));
+
+        setPosts(postsWithProfiles);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-        console.log('🏁 Loading set to false');
-      }
+      if (mountedRef.current) setLoading(false);
     }
   }, [user.id]);
 
-  // Initialize on mount
   useEffect(() => {
     fetchUserProfile();
     fetchPosts();
-    
+
     return () => {
       mountedRef.current = false;
     };
   }, [fetchUserProfile, fetchPosts]);
 
-  // Auto-resize textarea
   const handleTextareaResize = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -152,46 +126,33 @@ const fetchUserProfile = useCallback(async () => {
     }
   };
 
-  // Handle text change with auto-resize
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewPost(e.target.value);
     handleTextareaResize();
   };
 
-  // Handle post creation
   const handlePost = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    
     if (!newPost.trim() || uploading) return;
-    
+
     setUploading(true);
     try {
-      console.log('📤 Creating new post...');
-      
       const { error } = await supabase
         .from('vibe_echoes')
-        .insert([
-          {
-            content: newPost.trim(),
-            user_id: user.id,
-            mood: selectedMood,
-            profile_id: userProfile?.id,
-            created_at: new Date().toISOString()
-          }
-        ]);
-
+        .insert([{
+          content: newPost.trim(),
+          user_id: user.id,
+          mood: selectedMood,
+          profile_id: userProfile?.id,
+          created_at: new Date().toISOString()
+        }]);
       if (error) throw error;
 
       setNewPost('');
       setSelectedMood('happy');
-      
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-      
-      fetchPosts(); // Refresh posts
-      console.log('✅ Post created successfully');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
+      fetchPosts();
     } catch (error) {
       console.error('Error creating post:', error);
       alert('Failed to create post. Please try again.');
@@ -200,27 +161,18 @@ const fetchUserProfile = useCallback(async () => {
     }
   };
 
-  // Handle like
   const handleLike = async (postId: string) => {
     try {
       const post = posts.find(p => p.id === postId);
       if (!post) return;
 
       if (post.user_has_liked) {
-        // Unlike
-        await supabase
-          .from('likes')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', user.id);
+        await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', user.id);
       } else {
-        // Like
-        await supabase
-          .from('likes')
-          .insert([{ post_id: postId, user_id: user.id }]);
+        await supabase.from('likes').insert([{ post_id: postId, user_id: user.id }]);
       }
 
-      fetchPosts(); // Refresh posts
+      fetchPosts();
     } catch (error) {
       console.error('Error handling like:', error);
     }
@@ -239,14 +191,9 @@ const fetchUserProfile = useCallback(async () => {
 
   const handleDeletePost = async (postId: string) => {
     if (!confirm('Are you sure you want to delete this post?')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('vibe_echoes')
-        .delete()
-        .eq('id', postId)
-        .eq('user_id', user.id);
 
+    try {
+      const { error } = await supabase.from('vibe_echoes').delete().eq('id', postId).eq('user_id', user.id);
       if (error) throw error;
       fetchPosts();
     } catch (error) {
@@ -258,17 +205,9 @@ const fetchUserProfile = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('comments')
-        .select(`
-          *,
-          profiles:user_id (
-            full_name,
-            username,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
-
       if (error) throw error;
       setComments(data || []);
     } catch (error) {
@@ -282,14 +221,7 @@ const fetchUserProfile = useCallback(async () => {
     try {
       const { error } = await supabase
         .from('comments')
-        .insert([
-          {
-            content: newComment.trim(),
-            post_id: selectedPostId,
-            user_id: user.id
-          }
-        ]);
-
+        .insert([{ content: newComment.trim(), post_id: selectedPostId, user_id: user.id }]);
       if (error) throw error;
 
       setNewComment('');
@@ -301,7 +233,7 @@ const fetchUserProfile = useCallback(async () => {
 
   const handleFileSelect = async (file: File, type: 'image' | 'video') => {
     console.log('File selected:', file, type);
-    // Implement file upload logic here
+    // implement your file upload logic here
   };
 
   if (loading) {
@@ -313,25 +245,16 @@ const fetchUserProfile = useCallback(async () => {
   }
 
   return (
-    <motion.main
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
+    <motion.main initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Post Creation Form */}
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
         <form onSubmit={handlePost} className="space-y-4">
           <div className="flex gap-4">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center font-bold text-lg flex-shrink-0">
               {userProfile?.avatar_url ? (
-                <img
-                  src={userProfile.avatar_url}
-                  alt="Your avatar"
-                  className="w-full h-full rounded-full object-cover"
-                />
+                <img src={userProfile.avatar_url} alt="avatar" className="w-full h-full rounded-full object-cover" />
               ) : (
-                userProfile?.full_name?.[0]?.toUpperCase() || 
-                user?.email?.[0]?.toUpperCase() || 'U'
+                userProfile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'
               )}
             </div>
             <div className="flex-1 space-y-4">
@@ -345,12 +268,11 @@ const fetchUserProfile = useCallback(async () => {
                 rows={1}
                 style={{ overflow: 'hidden' }}
               />
-              
               {/* Mood Selector */}
               <div className="space-y-2">
                 <p className="text-sm text-white/70">Current mood:</p>
                 <div className="flex gap-2 flex-wrap">
-                  {moods.map((mood) => (
+                  {moods.map(mood => (
                     <button
                       key={mood}
                       type="button"
@@ -367,14 +289,11 @@ const fetchUserProfile = useCallback(async () => {
                   ))}
                 </div>
               </div>
-
               {/* Actions */}
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <MediaUpload onFileSelect={handleFileSelect} uploading={uploading} />
-                  <span className="text-sm text-white/40">
-                    {newPost.length}/280
-                  </span>
+                  <span className="text-sm text-white/40">{newPost.length}/280</span>
                 </div>
                 <button
                   type="submit"
@@ -383,8 +302,7 @@ const fetchUserProfile = useCallback(async () => {
                 >
                   {uploading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Posting...
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Posting...
                     </>
                   ) : (
                     <>
@@ -402,14 +320,14 @@ const fetchUserProfile = useCallback(async () => {
       {/* Posts Feed */}
       <div className="space-y-4">
         {posts.length > 0 ? (
-          posts.map((post) => (
+          posts.map(post => (
             <PostCard
               key={post.id}
               post={post}
               onLike={handleLike}
               onComment={handleComment}
               onShare={handleShare}
-              onDelete={post.user_id === user?.id ? handleDeletePost : undefined}
+              onDelete={post.user_id === user.id ? handleDeletePost : undefined}
               currentUser={user}
             />
           ))
