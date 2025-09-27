@@ -10,7 +10,7 @@ import SecureVibeMap from './components/map/SecureVibeMap';
 import LoadingSpinner from './components/LoadingSpinner';
 import Login from './components/auth/Login';
 import Signup from './components/SignUpPage'; // fixed path
-import Dashboard from './components/MainDashboard'; // make sure MainDashboard.tsx exists and expects 'user' prop
+import Dashboard from './components/Dashboard'; // make sure Dashboard.tsx exists and expects 'user' prop
 
 // Placeholder components
 const PlaceholderPage: React.FC<{ title: string; description: string; icon: string }> = ({ title, description, icon }) => (
