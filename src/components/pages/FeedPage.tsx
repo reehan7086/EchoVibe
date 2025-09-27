@@ -32,6 +32,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
   const [showCardGenerator, setShowCardGenerator] = useState(false);
   const [selectedPostForCard, setSelectedPostForCard] = useState<VibeEcho | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   console.log('🔍 FeedPage state:', { 
     loading, 
     postsCount: posts.length, 
@@ -39,15 +40,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     userId: user?.id 
   });
 
-  if (loading) {
-    console.log('🔄 Still loading...', { loading, postsCount: posts.length });
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
-        <span className="ml-2">Loading posts...</span>
-      </div>
-    );
-  }
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
 
   const createSafeProfile = (profileData: any): Profile | undefined => {
@@ -81,63 +73,63 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     let isMounted = true;
 
     const fetchPosts = async () => {
-      let isMounted = true;
-    
       try {
         console.log('🔄 Starting to fetch posts...');
         setLoading(true);
         setError(null);
-    
+
         if (!user) {
           console.log('❌ No user, skipping fetch');
-          setPosts([]);
-          setLoading(false);
+          if (isMounted) {
+            setPosts([]);
+            setLoading(false);
+          }
           return;
         }
-    
+
         console.log('👤 Fetching posts for user:', user.id);
-    
+
         const { data: likesData, error: likesError } = await supabase
           .from('likes')
           .select('post_id')
           .eq('user_id', user.id);
-    
+
         if (likesError) {
           console.error('❌ Likes fetch error:', likesError);
           throw likesError;
         }
-    
+
         const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
-    
+
         const { data: postsData, error: postsError } = await supabase
           .from('vibe_echoes')
           .select('*')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(20);
-    
+
         if (postsError) {
           console.error('❌ Posts fetch error:', postsError);
           throw postsError;
         }
-    
+
         console.log('📝 Found posts:', postsData?.length || 0);
-    
+
         let enrichedPosts = postsData || [];
-    
+
         if (postsData && postsData.length > 0) {
           const userIds = [...new Set(postsData.map((post) => post.user_id))];
           console.log('👥 Fetching profiles for user IDs:', userIds);
-    
+
           const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('*')
             .in('user_id', userIds);
-    
+
           if (profilesError) {
             console.error('❌ Profiles fetch error:', profilesError);
           }
-    
+
           if (profilesData && isMounted) {
             setUserProfiles(profilesData as Profile[]);
             enrichedPosts = postsData.map((post) => ({
@@ -147,7 +139,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             }));
           }
         }
-    
+
         if (isMounted) {
           setPosts(enrichedPosts);
           console.log('✅ Posts loaded successfully');
@@ -300,18 +292,31 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     }
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
-    </div>
-  );
+  // Show loading spinner while loading
+  if (loading) {
+    console.log('🔄 Still loading...', { loading, postsCount: posts.length });
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+        <span className="ml-2">Loading posts...</span>
+      </div>
+    );
+  }
 
-  if (error) return (
-    <div className="text-center py-8">
-      <p className="text-red-400 mb-4">{error}</p>
-      <button onClick={() => window.location.reload()} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white">Retry</button>
-    </div>
-  );
+  // Show error state
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-400 mb-4">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -360,7 +365,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
           <div className="flex items-center gap-3">
             <span className="text-sm text-white/60">{characterCount}/280</span>
             <button onClick={handlePost} disabled={!newPost.trim() || characterCount > 280 || uploading}
-              className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 font-semibold text-white">
+              className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed">
               {uploading ? 'Uploading...' : 'Post'}
             </button>
           </div>

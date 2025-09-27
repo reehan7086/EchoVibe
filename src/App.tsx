@@ -47,6 +47,7 @@ const AppContent: React.FC = () => {
         .from('profiles')
         .select(`
           id,
+          user_id,
           username,
           full_name,
           bio,
@@ -97,6 +98,7 @@ const AppContent: React.FC = () => {
           .insert([newProfile])
           .select(`
             id,
+            user_id,
             username,
             full_name,
             bio,
@@ -246,6 +248,7 @@ const AppContent: React.FC = () => {
       />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
+      {/* Fixed: Added wildcard to allow nested routes */}
       <Route
         path="/dashboard/*"
         element={user ? <MainDashboard user={user} profile={profile} /> : <LoginPage />}
