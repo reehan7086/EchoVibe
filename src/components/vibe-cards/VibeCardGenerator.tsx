@@ -133,7 +133,7 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
     ctx.fillStyle = 'white';
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('EchoVibe Card', 200, 50);
+    ctx.fillText('SparkVibe Card', 200, 50);
 
     ctx.font = '16px Arial';
     ctx.fillStyle = '#e5e7eb';
@@ -204,13 +204,13 @@ const VibeCardGenerator: React.FC<VibeCardGeneratorProps> = ({
 
       if (navigator.share && platform === 'native') {
         await navigator.share({
-          title: 'Check out my EchoVibe Card!',
+          title: 'Check out my SparkVibe Card!',
           text: cardData.adventure_summary,
           url: window.location.origin
         });
       } else {
         const shareUrls: Record<string, string> = {
-          twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out my EchoVibe Card! ' + cardData.adventure_summary)}&url=${window.location.origin}`,
+          twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out my SparkVibe Card! ' + cardData.adventure_summary)}&url=${window.location.origin}`,
           facebook: `https://www.facebook.com/sharer/sharer.php?u=${window.location.origin}`,
           instagram: 'instagram://camera',
           tiktok: 'https://www.tiktok.com/upload'

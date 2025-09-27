@@ -277,17 +277,17 @@ html {
   }
 }
 
-/* Additional EchoVibe specific optimizations */
-.post-textarea {
-  font-size: 16px !important;
+/* Additional SparkVibe specific optimizations */
+/* Fix for textarea focus issues */
+.post-textarea, textarea {
   border: none !important;
   outline: none !important;
-  background: transparent !important;
-  resize: none !important;
+  box-shadow: none !important;
   -webkit-appearance: none !important;
+  background: transparent !important;
 }
 
-.post-textarea:focus {
+.post-textarea:focus, textarea:focus {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;

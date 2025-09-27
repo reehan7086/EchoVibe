@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import { MessageSquare, Send, X, Plus } from 'lucide-react';
@@ -19,72 +19,139 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [searchUsers, setSearchUsers] = useState<Profile[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const mountedRef = useRef(true);
+  const subscriptionRef = useRef<any>(null);
 
   useEffect(() => {
-    fetchChats();
+    mountedRef.current = true;
     
-    const subscription = supabase
-      .channel('chats')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chats' }, async (payload: any) => {
-        if (user && (payload.new.user1_id === user.id || payload.new.user2_id === user.id)) {
+    const initializeMessagesPage = async () => {
+      if (!user?.id || !mountedRef.current) return;
+      
+      try {
+        await fetchChats();
+        setupRealtimeSubscription();
+      } catch (error) {
+        console.error('Error initializing messages page:', error);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeMessagesPage();
+
+    return () => {
+      mountedRef.current = false;
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+    };
+  }, [user?.id]);
+
+  const setupRealtimeSubscription = () => {
+    if (!user?.id || subscriptionRef.current) return;
+
+    subscriptionRef.current = supabase
+      .channel('messages_and_chats')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'chats' 
+      }, async (payload: any) => {
+        if (!mountedRef.current) return;
+        
+        if (payload.new.user1_id === user.id || payload.new.user2_id === user.id) {
           const otherUserId = payload.new.user1_id === user.id ? payload.new.user2_id : payload.new.user1_id;
           
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', otherUserId)
-            .single();
-            
-          if (!error) {
-            setChats((prev) => [
-              { 
-                ...payload.new, 
-                other_user: profileData || { 
-                  username: 'Unknown', 
-                  full_name: 'Unknown User', 
-                  avatar_url: null 
-                } as any as Profile
-              } as Chat,
-              ...prev,
-            ]);
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', otherUserId)
+              .single();
+              
+            if (mountedRef.current) {
+              setChats((prev) => [
+                { 
+                  ...payload.new,
+                  match_id: payload.new.match_id || 'default', // Ensure match_id is present
+                  other_user: profileData || { 
+                    id: '',
+                    user_id: otherUserId,
+                    username: 'Unknown', 
+                    full_name: 'Unknown User', 
+                    avatar_url: null,
+                    created_at: new Date().toISOString(),
+                    vibe_score: 0,
+                    is_online: false
+                  } as Profile
+                } as Chat,
+                ...prev,
+              ]);
+            }
+          } catch (error) {
+            console.error('Error fetching profile for new chat:', error);
           }
         }
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload: any) => {
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages' 
+      }, async (payload: any) => {
+        if (!mountedRef.current) return;
+        
         if (selectedChatId === payload.new.chat_id) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', payload.new.sender_id)
-            .single();
-            
-          setMessages((prev) => [...prev, { 
-            ...payload.new, 
-            profiles: profileData || { username: 'Unknown', full_name: 'Unknown User', avatar_url: null } as any as Profile
-          } as Message]);
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', payload.new.sender_id)
+              .single();
+              
+            if (mountedRef.current) {
+              setMessages((prev) => [...prev, { 
+                ...payload.new, 
+                profiles: profileData || { 
+                  id: '',
+                  user_id: payload.new.sender_id,
+                  username: 'Unknown', 
+                  full_name: 'Unknown User', 
+                  avatar_url: null,
+                  created_at: new Date().toISOString(),
+                  vibe_score: 0,
+                  is_online: false
+                } as Profile
+              } as Message]);
+            }
+          } catch (error) {
+            console.error('Error fetching profile for new message:', error);
+          }
         }
         
         // Update last message in chat
-        setChats((prev) => prev.map(chat => 
-          chat.id === payload.new.chat_id 
-            ? { ...chat, last_message: payload.new.content, last_message_at: payload.new.created_at }
-            : chat
-        ));
+        if (mountedRef.current) {
+          setChats((prev) => prev.map(chat => 
+            chat.id === payload.new.chat_id 
+              ? { ...chat, last_message: payload.new.content, last_message_at: payload.new.created_at }
+              : chat
+          ));
+        }
       })
       .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [user, selectedChatId]);
+  };
 
   const fetchChats = async () => {
+    if (!user?.id || !mountedRef.current) return;
+
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('chats')
         .select(`
           id,
+          match_id,
           user1_id,
           user2_id,
           created_at,
@@ -94,43 +161,75 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .order('last_message_at', { ascending: false });
 
-      if (error) throw new Error(`Error fetching chats: ${error.message}`);
+      if (error) {
+        console.error('Error fetching chats:', error);
+        throw error;
+      }
+
+      if (!mountedRef.current) return;
 
       const chatsWithProfiles = await Promise.all(
         (data || []).map(async (chat) => {
           const otherUserId = chat.user1_id === user.id ? chat.user2_id : chat.user1_id;
           
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', otherUserId)
-            .single();
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', otherUserId)
+              .single();
 
-          if (profileError) {
+            return {
+              ...chat,
+              match_id: chat.match_id || 'default', // Ensure match_id is present
+              other_user: profileData || { 
+                id: '',
+                user_id: otherUserId,
+                username: 'Unknown', 
+                full_name: 'Unknown User', 
+                avatar_url: null,
+                created_at: new Date().toISOString(),
+                vibe_score: 0,
+                is_online: false
+              } as Profile,
+            };
+          } catch (profileError) {
             console.error('Error fetching profile for chat:', profileError);
+            return {
+              ...chat,
+              match_id: chat.match_id || 'default', // Ensure match_id is present
+              other_user: { 
+                id: '',
+                user_id: otherUserId,
+                username: 'Unknown', 
+                full_name: 'Unknown User', 
+                avatar_url: null,
+                created_at: new Date().toISOString(),
+                vibe_score: 0,
+                is_online: false
+              } as Profile,
+            };
           }
-
-          return {
-            ...chat,
-            other_user: profileData || { 
-              username: 'Unknown', 
-              full_name: 'Unknown User', 
-              avatar_url: null 
-            } as any as Profile,
-          };
         })
       );
 
-      setChats(chatsWithProfiles);
+      if (mountedRef.current) {
+        setChats(chatsWithProfiles);
+      }
     } catch (error) {
       console.error('Error fetching chats:', error);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const handleSelectChat = async (chatId: string) => {
+    if (!mountedRef.current) return;
+    
     setSelectedChatId(chatId);
+    
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -138,21 +237,30 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
       
-      if (error) throw new Error(`Error fetching messages: ${error.message}`);
-      setMessages(data || []);
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
+      
+      if (mountedRef.current) {
+        setMessages(data || []);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedChatId) return;
+    if (!newMessage.trim() || !selectedChatId || !mountedRef.current) return;
+    
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
     
     try {
       const message = {
         chat_id: selectedChatId,
         sender_id: user.id,
-        content: newMessage.trim(),
+        content: messageContent,
       };
       
       const { data, error } = await supabase
@@ -161,26 +269,30 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .select('*, profiles(*)')
         .single();
       
-      if (error) throw new Error(`Error sending message: ${error.message}`);
+      if (error) {
+        console.error('Error sending message:', error);
+        throw error;
+      }
       
-      setMessages([...messages, data as Message]);
-      setNewMessage('');
-
+      // Update chat's last message
       await supabase
         .from('chats')
         .update({
-          last_message: newMessage.trim(),
+          last_message: messageContent,
           last_message_at: new Date().toISOString(),
         })
         .eq('id', selectedChatId);
+
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Failed to send message.');
+      // Restore message on error
+      setNewMessage(messageContent);
+      alert('Failed to send message. Please try again.');
     }
   };
 
   const searchForUsers = async () => {
-    if (!userSearchQuery.trim()) {
+    if (!userSearchQuery.trim() || !mountedRef.current) {
       setSearchUsers([]);
       return;
     }
@@ -193,14 +305,22 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .or(`username.ilike.%${userSearchQuery}%,full_name.ilike.%${userSearchQuery}%`)
         .limit(10);
       
-      if (error) throw new Error(`Error searching users: ${error.message}`);
-      setSearchUsers(data || []);
+      if (error) {
+        console.error('Error searching users:', error);
+        throw error;
+      }
+      
+      if (mountedRef.current) {
+        setSearchUsers(data || []);
+      }
     } catch (error) {
       console.error('Error searching users:', error);
     }
   };
 
   const startNewChat = async (otherUserId: string) => {
+    if (!mountedRef.current) return;
+    
     try {
       // Check if chat already exists
       const { data: existingChat } = await supabase
@@ -209,7 +329,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .or(`and(user1_id.eq.${user.id},user2_id.eq.${otherUserId}),and(user1_id.eq.${otherUserId},user2_id.eq.${user.id})`)
         .single();
       
-      if (existingChat) {
+      if (existingChat && mountedRef.current) {
         setSelectedChatId(existingChat.id);
         setShowNewChatModal(false);
         return;
@@ -222,14 +342,19 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .select('id')
         .single();
       
-      if (error) throw new Error(`Error creating chat: ${error.message}`);
+      if (error) {
+        console.error('Error creating chat:', error);
+        throw error;
+      }
       
-      setSelectedChatId(data.id);
-      setShowNewChatModal(false);
-      fetchChats(); // Refresh chat list
+      if (mountedRef.current) {
+        setSelectedChatId(data.id);
+        setShowNewChatModal(false);
+        await fetchChats(); // Refresh chat list
+      }
     } catch (error) {
       console.error('Error starting new chat:', error);
-      alert('Failed to start new chat.');
+      alert('Failed to start new chat. Please try again.');
     }
   };
 
@@ -239,6 +364,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+        <span className="ml-2">Loading messages...</span>
       </div>
     );
   }
@@ -286,7 +412,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
                           className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
-                        chat.other_user?.full_name?.[0] || 'U'
+                        chat.other_user?.full_name?.[0]?.toUpperCase() || 'U'
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -334,7 +460,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : (
-                    selectedChat?.other_user?.full_name?.[0] || 'U'
+                    selectedChat?.other_user?.full_name?.[0]?.toUpperCase() || 'U'
                   )}
                 </div>
                 <h3 className="font-semibold text-white">{selectedChat?.other_user?.full_name || 'Chat'}</h3>
@@ -417,26 +543,26 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
                 className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:border-purple-400 mb-4"
               />
               <div className="max-h-60 overflow-y-auto space-y-2">
-                {searchUsers.map((user) => (
+                {searchUsers.map((searchUser) => (
                   <div
-                    key={user.id}
-                    onClick={() => startNewChat(user.user_id)}
+                    key={searchUser.id}
+                    onClick={() => startNewChat(searchUser.user_id)}
                     className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-lg cursor-pointer transition-all"
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-sm font-bold">
-                      {user.avatar_url ? (
+                      {searchUser.avatar_url ? (
                         <img
-                          src={user.avatar_url}
-                          alt={user.full_name || 'User'}
+                          src={searchUser.avatar_url}
+                          alt={searchUser.full_name || 'User'}
                           className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
-                        user.full_name?.[0] || 'U'
+                        searchUser.full_name?.[0]?.toUpperCase() || 'U'
                       )}
                     </div>
                     <div>
-                      <h4 className="font-medium text-white">{user.full_name}</h4>
-                      <p className="text-sm text-white/60">@{user.username}</p>
+                      <h4 className="font-medium text-white">{searchUser.full_name}</h4>
+                      <p className="text-sm text-white/60">@{searchUser.username}</p>
                     </div>
                   </div>
                 ))}

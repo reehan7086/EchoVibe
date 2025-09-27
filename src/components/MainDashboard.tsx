@@ -57,6 +57,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
   useEffect(() => {
     const pathToTab: Record<string, string> = {
       '/dashboard': 'feed',
+      '/dashboard/': 'feed',
       '/dashboard/search': 'search', 
       '/dashboard/messages': 'messages',
       '/dashboard/communities': 'communities',
@@ -250,7 +251,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
             <Menu className="w-6 h-6" />
           </button>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-            EchoVibe
+            SparkVibe
           </h1>
           <NotificationBell
             notifications={notifications}
@@ -292,7 +293,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
         {/* Main content */}
         <section className="lg:col-span-6">
           <Routes>
-            <Route path="" element={<FeedPage user={user} profile={profile} />} />
+            {/* Fixed: Use relative paths for nested routes */}
+            <Route index element={<FeedPage user={user} profile={profile} />} />
             <Route path="search" element={<SearchPage user={user} profile={profile} />} />
             <Route path="messages" element={<MessagesPage user={user} />} />
             <Route path="communities" element={<CommunitiesPage user={user} />} />
@@ -357,7 +359,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
             >
               <div className="p-4">
                 <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-xl font-bold text-white">EchoVibe</h2>
+                  <h2 className="text-xl font-bold text-white">SparkVibe</h2>
                   <button
                     onClick={() => setSideMenuOpen(false)}
                     className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-all"

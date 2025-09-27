@@ -1,5 +1,5 @@
-// src/App.tsx - Fixed version with better error handling and loading states
-import React, { useState, useEffect, useCallback } from 'react';
+// src/App.tsx - Fixed version with proper routing and loading states
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -35,11 +35,16 @@ const AppContent: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const mountedRef = useRef(true);
+  const authProcessingRef = useRef(false);
 
-  const fetchOrCreateProfile = useCallback(async (user: User): Promise<Profile | null> => {
+  const fetchOrCreateProfile = async (user: User): Promise<Profile | null> => {
+    if (authProcessingRef.current) return null;
+    authProcessingRef.current = true;
+
     try {
       console.log('🔄 Fetching profile for user:', user.id);
 
@@ -64,15 +69,23 @@ const AppContent: React.FC = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (existingProfile) {
-        // Profile exists, use it
-        console.log('✅ Using existing profile:', existingProfile);
-        setProfile(existingProfile);
-        return existingProfile;
+      if (existingProfile && mountedRef.current) {
+        // Profile exists, update online status
+        const updatedProfile = { ...existingProfile, is_online: true };
+        
+        // Update online status in database
+        await supabase
+          .from('profiles')
+          .update({ is_online: true, last_active: new Date().toISOString() })
+          .eq('user_id', user.id);
+
+        console.log('✅ Using existing profile:', updatedProfile);
+        setProfile(updatedProfile);
+        return updatedProfile;
       }
 
       // Only create if profile doesn't exist (no rows returned)
-      if (fetchError?.code === 'PGRST116') {
+      if (fetchError?.code === 'PGRST116' && mountedRef.current) {
         console.log('📝 Creating new profile...');
         
         const newProfile: InsertProfile = {
@@ -92,7 +105,8 @@ const AppContent: React.FC = () => {
           created_at: new Date().toISOString(),
           updated_at: null,
           vibe_score: 0,
-          is_online: true
+          is_online: true,
+          last_active: new Date().toISOString()
         };
 
         const { data: createdProfile, error: createError } = await supabase
@@ -120,75 +134,97 @@ const AppContent: React.FC = () => {
           throw createError;
         }
 
-        console.log('✅ Profile created successfully:', createdProfile);
-        setProfile(createdProfile);
-        return createdProfile;
-      } else {
+        if (mountedRef.current) {
+          console.log('✅ Profile created successfully:', createdProfile);
+          setProfile(createdProfile);
+          return createdProfile;
+        }
+      } else if (fetchError) {
         console.error('❌ Error fetching profile:', fetchError);
         throw fetchError;
       }
+
+      return null;
     } catch (error: any) {
       console.error('❌ Profile fetch/create failed:', error);
-      setError('Failed to load user profile. Please try again.');
+      if (mountedRef.current) {
+        setError('Failed to load user profile. Please try again.');
+      }
       return null;
-    }
-  }, []);
-
-  const initializeAuth = useCallback(async () => {
-    try {
-      console.log('🔄 Initializing authentication...');
-      setLoading(true);
-      setError(null);
-
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError) {
-        console.error('❌ Session error:', sessionError);
-        setError('Authentication failed. Please try again.');
-        setUser(null);
-        setProfile(null);
-        return;
-      }
-
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        console.log('✅ User session found, fetching profile...');
-        await fetchOrCreateProfile(session.user);
-      }
-    } catch (error) {
-      console.error('❌ Auth initialization failed:', error);
-      setError('Failed to initialize authentication');
-      setUser(null);
-      setProfile(null);
     } finally {
-      setLoading(false);
-      setInitialized(true);
+      authProcessingRef.current = false;
     }
-  }, [fetchOrCreateProfile]);
+  };
 
   useEffect(() => {
-    if (!initialized) {
-      initializeAuth();
-    }
+    mountedRef.current = true;
+    let authSubscription: any = null;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state changed:', event);
-        
-        setUser(session?.user ?? null);
+    const initializeAuth = async () => {
+      if (authInitialized || authProcessingRef.current) return;
+      
+      try {
+        console.log('🔄 Initializing authentication...');
+        setLoading(true);
         setError(null);
+        authProcessingRef.current = true;
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ User signed in, fetching profile...');
-          setLoading(true);
-          await fetchOrCreateProfile(session.user);
-          setLoading(false);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          if (mountedRef.current) {
+            setError('Authentication failed. Please try again.');
+            setUser(null);
+            setProfile(null);
+          }
+          return;
         }
 
-        if (event === 'SIGNED_OUT') {
+        if (mountedRef.current) {
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            console.log('✅ User session found, fetching profile...');
+            await fetchOrCreateProfile(session.user);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Auth initialization failed:', error);
+        if (mountedRef.current) {
+          setError('Failed to initialize authentication');
+          setUser(null);
+          setProfile(null);
+        }
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+          setAuthInitialized(true);
+          authProcessingRef.current = false;
+        }
+      }
+    };
+
+    // Initialize auth
+    initializeAuth();
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mountedRef.current || authProcessingRef.current) return;
+        
+        console.log('🔄 Auth state changed:', event);
+        
+        if (event === 'SIGNED_IN' && session?.user && !user) {
+          authProcessingRef.current = true;
+          setUser(session.user);
+          setError(null);
+          await fetchOrCreateProfile(session.user);
+          authProcessingRef.current = false;
+        } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setProfile(null);
+          setUser(null);
           if (!['/login', '/signup', '/'].includes(location.pathname)) {
             navigate('/');
           }
@@ -196,18 +232,24 @@ const AppContent: React.FC = () => {
       }
     );
 
+    authSubscription = subscription;
+
     return () => {
-      subscription.unsubscribe();
+      mountedRef.current = false;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
-  }, [initialized, initializeAuth, fetchOrCreateProfile, navigate, location.pathname]);
+  }, []); // Empty dependency array to prevent infinite loops
 
   const handleRetry = () => {
     setError(null);
-    setInitialized(false);
+    setAuthInitialized(false);
     setLoading(true);
+    authProcessingRef.current = false;
   };
 
-  if (loading && !initialized) {
+  if (loading || !authInitialized) {
     return <LoadingSpinner />;
   }
 
@@ -245,7 +287,7 @@ const AppContent: React.FC = () => {
         element={user ? <MainDashboard user={user} profile={profile} /> : <LoginPage />}
       />
       <Route
-        path="/"
+        path="/*"
         element={!user ? <LandingPage /> : <MainDashboard user={user} profile={profile} />}
       />
     </Routes>
@@ -253,7 +295,7 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-    <AppContent />
+  <AppContent />
 );
 
 export default App;
