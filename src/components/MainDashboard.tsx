@@ -88,7 +88,20 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ user, profile }) => {
                 content: payload.new.content,
                 created_at: payload.new.created_at,
                 is_read: payload.new.is_read,
-                related_user_profile: profileData || undefined,
+                related_user_profile: profileData ? {
+                  id: payload.new.related_user_id || '',
+                  username: profileData.username || '',
+                  full_name: profileData.full_name || '',
+                  bio: null,
+                  avatar_url: profileData.avatar_url,
+                  location: null,
+                  city: null,
+                  created_at: new Date().toISOString(),
+                  updated_at: null,
+                  vibe_score: 0,
+                  is_online: false,
+                  last_active: undefined
+                } as Profile : undefined,
               };
   
               setNotifications(prev => [newNotification, ...prev]);

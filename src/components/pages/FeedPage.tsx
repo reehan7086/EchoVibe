@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Smile, MoreHorizontal } from 'lucide-react';
+import { Smile } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { VibeEcho, Profile, Comment } from '../../types';
-import { formatDate, getCurrentUser } from '../../utils';
+import { formatDate } from '../../utils';
 import sanitizeHtml from 'sanitize-html';
 
 // Import shared components
@@ -28,45 +28,96 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const moods = ['happy', 'excited', 'peaceful', 'thoughtful', 'grateful', 'creative'];
 
-  // Fetch posts
+  // Fetch posts with proper error handling
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         setLoading(true);
-        const currentUser = await getCurrentUser();
-        if (!currentUser) {
+        setError(null);
+
+        if (!user) {
           setPosts([]);
           return;
         }
 
-        // Fixed: Use 'likes' table and 'post_id' column
+        console.log('🔄 Fetching posts...');
+
+        // Get user's likes first
         const { data: likesData, error: likesError } = await supabase
           .from('likes')
           .select('post_id')
-          .eq('user_id', currentUser.id);
-        
-        if (likesError) throw new Error(`Error fetching likes: ${likesError.message}`);
-        const likedPostIds = new Set(likesData?.map((like: any) => like.post_id) || []);
-        
-        const { data, error } = await supabase
+          .eq('user_id', user.id);
+
+        if (likesError) {
+          console.error('Error fetching likes:', likesError);
+        }
+
+        const likedPostIds = new Set(likesData?.map((like) => like.post_id) || []);
+
+        // Fetch posts
+        const { data: postsData, error: postsError } = await supabase
           .from('vibe_echoes')
-          .select('*, profiles(username, full_name, avatar_url)')
+          .select(`
+            id,
+            user_id,
+            content,
+            media_url,
+            media_type,
+            mood,
+            activity,
+            location,
+            city,
+            duration,
+            created_at,
+            expires_at,
+            likes_count,
+            responses_count,
+            is_active
+          `)
           .eq('is_active', true)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw new Error(`Error fetching posts: ${error.message}`);
-        setPosts(
-          (data || []).map((post: any) => ({
-            ...post,
-            user_has_liked: likedPostIds.has(post.id),
-          }))
-        );
-      } catch (error) {
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (postsError) {
+          throw postsError;
+        }
+
+        // Fetch profiles for posts
+        let enrichedPosts = postsData || [];
+        if (postsData && postsData.length > 0) {
+          const userIds = [...new Set(postsData.map(post => post.user_id))];
+          
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select(`
+              id,
+              username,
+              full_name,
+              avatar_url,
+              vibe_score
+            `)
+            .in('id', userIds);
+
+          if (!profilesError && profilesData) {
+            enrichedPosts = postsData.map(post => ({
+              ...post,
+              user_has_liked: likedPostIds.has(post.id),
+              profiles: profilesData.find(profile => profile.id === post.user_id) || null
+            }));
+          }
+        }
+
+        console.log('✅ Posts fetched successfully:', enrichedPosts.length);
+        setPosts(enrichedPosts);
+
+      } catch (error: any) {
         console.error('Error fetching posts:', error);
+        setError('Failed to load posts. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -74,17 +125,32 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
     fetchPosts();
 
+    // Subscribe to new posts
     const subscription = supabase
-      .channel('vibe_echoes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vibe_echoes' }, async (payload: any) => {
-        if (payload.new && typeof payload.new === 'object') {
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('username, full_name, avatar_url')
-            .eq('user_id', payload.new.user_id)
-            .single();
-          if (!error) {
-            setPosts((prev) => [{ ...payload.new, profiles: profileData, user_has_liked: false } as VibeEcho, ...prev]);
+      .channel('vibe_echoes_feed')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'vibe_echoes' 
+      }, async (payload) => {
+        if (payload.new && payload.new.is_active) {
+          try {
+            // Fetch profile for new post
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('id, username, full_name, avatar_url, vibe_score')
+              .eq('id', payload.new.user_id)
+              .single();
+
+            const newPost: VibeEcho = {
+              ...payload.new as any,
+              user_has_liked: false,
+              profiles: profileData || null
+            };
+
+            setPosts(prev => [newPost, ...prev]);
+          } catch (error) {
+            console.error('Error processing new post:', error);
           }
         }
       })
@@ -93,12 +159,14 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [user]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setNewPost(text);
     setCharacterCount(text.length);
+    
+    // Auto-resize textarea
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = `${textarea.scrollHeight}px`;
@@ -106,16 +174,23 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
   const handleFileSelect = async (file: File, type: 'image' | 'video') => {
     if (!user) return;
+    
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
       const { error: uploadError } = await supabase.storage
         .from('media')
         .upload(fileName, file);
-      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
-      setNewPost((prev) => `${prev}\n[Media: ${publicUrl}]`);
+        
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(fileName);
+      
+      setNewPost(prev => `${prev}\n[Media: ${publicUrl}]`);
     } catch (error) {
       console.error('Upload failed:', error);
       alert('Failed to upload media.');
@@ -126,44 +201,73 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
   const handlePost = async () => {
     if (!newPost.trim() || characterCount > 280 || !user || uploading) {
-      if (!user) alert('Please log in to post.');
       return;
     }
+
     try {
-      const sanitizedPost = sanitizeHtml(newPost.trim(), { allowedTags: [], allowedAttributes: {} });
+      const sanitizedPost = sanitizeHtml(newPost.trim(), { 
+        allowedTags: [], 
+        allowedAttributes: {} 
+      });
+      
       const mediaMatch = sanitizedPost.match(/\[Media: (.*?)\]/);
-      const post = {
+      
+      const postData = {
         user_id: user.id,
-        content: mediaMatch ? sanitizedPost.replace(mediaMatch[0], '') : sanitizedPost,
+        content: mediaMatch ? sanitizedPost.replace(mediaMatch[0], '').trim() : sanitizedPost,
         mood: selectedMood,
         media_url: mediaMatch ? mediaMatch[1] : null,
-        media_type: mediaMatch ? (mediaMatch[1].endsWith('.mp4') ? 'video' : 'image') : 'text',
+        media_type: mediaMatch ? (mediaMatch[1].includes('.mp4') ? 'video' : 'image') : 'text',
         likes_count: 0,
         responses_count: 0,
         is_active: true,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
       };
-      
+
       const { data, error } = await supabase
         .from('vibe_echoes')
-        .insert([post])
-        .select('*, profiles(username, full_name, avatar_url)')
+        .insert([postData])
+        .select(`
+          id,
+          user_id,
+          content,
+          media_url,
+          media_type,
+          mood,
+          activity,
+          location,
+          city,
+          duration,
+          created_at,
+          expires_at,
+          likes_count,
+          responses_count,
+          is_active
+        `)
         .single();
-      
-      if (error) throw new Error(`Error posting: ${error.message}`);
-      
-      if (data && typeof data === 'object') {
-        setPosts([{ ...data, user_has_liked: false } as VibeEcho, ...posts]);
-      }
-      
+
+      if (error) throw error;
+
+      // Add the post to the feed immediately
+      const newPostWithProfile: VibeEcho = {
+        ...data,
+        user_has_liked: false,
+        profiles: profile || null
+      };
+
+      setPosts(prev => [newPostWithProfile, ...prev]);
+
+      // Reset form
       setNewPost('');
       setCharacterCount(0);
       setSelectedMood('happy');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Error posting:', error);
-      alert('Failed to post.');
+      alert('Failed to post. Please try again.');
     }
   };
 
@@ -172,25 +276,36 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       alert('Please log in to like posts.');
       return;
     }
-    const post = posts.find((p) => p.id === postId);
+
+    const post = posts.find(p => p.id === postId);
     if (!post) return;
-    
+
     try {
       if (post.user_has_liked) {
-        const { error } = await supabase
+        // Unlike
+        await supabase
           .from('likes')
           .delete()
           .match({ post_id: postId, user_id: user.id });
-        if (error) throw new Error(`Error unliking: ${error.message}`);
-        setPosts(posts.map((p) => (p.id === postId ? { ...p, likes_count: p.likes_count - 1, user_has_liked: false } : p)));
+
+        setPosts(posts.map(p => 
+          p.id === postId 
+            ? { ...p, likes_count: Math.max(0, p.likes_count - 1), user_has_liked: false }
+            : p
+        ));
       } else {
-        const { error } = await supabase
+        // Like
+        await supabase
           .from('likes')
           .insert([{ post_id: postId, user_id: user.id }]);
-        if (error) throw new Error(`Error liking: ${error.message}`);
-        setPosts(posts.map((p) => (p.id === postId ? { ...p, likes_count: p.likes_count + 1, user_has_liked: true } : p)));
+
+        setPosts(posts.map(p => 
+          p.id === postId 
+            ? { ...p, likes_count: p.likes_count + 1, user_has_liked: true }
+            : p
+        ));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating like:', error);
       alert('Failed to update like.');
     }
@@ -201,76 +316,107 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       alert('Please log in to comment.');
       return;
     }
+    
     setSelectedPost(postId);
     setShowCommentModal(true);
+    
+    // Load comments for this post
     try {
       const chatId = `post_${postId}`;
       
-      const { data: chatData, error: chatError } = await supabase
-        .from('chats')
-        .select('id')
-        .eq('id', chatId)
-        .maybeSingle();
-        
-      if (chatError && chatError.code !== 'PGRST116') {
-        throw new Error(`Error fetching chat: ${chatError.message}`);
-      }
-      
-      if (!chatData) {
-        const { error: createError } = await supabase
-          .from('chats')
-          .insert([{ 
-            id: chatId,
-            user1_id: user.id, 
-            user2_id: posts.find(p => p.id === postId)?.user_id || user.id 
-          }]);
-        if (createError) throw new Error(`Error creating chat: ${createError.message}`);
-      }
-
       const { data, error } = await supabase
         .from('messages')
-        .select('*, profiles(username, full_name, avatar_url)')
+        .select(`
+          id,
+          chat_id,
+          sender_id,
+          content,
+          created_at,
+          profiles:sender_id (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
-        
-      if (error) throw new Error(`Error fetching comments: ${error.message}`);
-      setComments((prev) => ({ ...prev, [postId]: data || [] }));
+
+      if (error) {
+        console.error('Error fetching comments:', error);
+        return;
+      }
+
+      setComments(prev => ({ ...prev, [postId]: data || [] }));
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error('Error loading comments:', error);
     }
   };
 
   const submitComment = async () => {
     if (!newComment.trim() || !selectedPost || !user) return;
+
     try {
-      const sanitizedComment = sanitizeHtml(newComment.trim(), { allowedTags: [], allowedAttributes: {} });
+      const sanitizedComment = sanitizeHtml(newComment.trim(), {
+        allowedTags: [],
+        allowedAttributes: {}
+      });
+
       const chatId = `post_${selectedPost}`;
-      
-      const comment = {
-        chat_id: chatId,
-        sender_id: user.id,
-        content: sanitizedComment,
-      };
-      
+
+      // Ensure chat exists
+      const { error: chatError } = await supabase
+        .from('chats')
+        .upsert({
+          id: chatId,
+          user1_id: user.id,
+          user2_id: posts.find(p => p.id === selectedPost)?.user_id || user.id
+        });
+
+      if (chatError) {
+        console.error('Error creating chat:', chatError);
+      }
+
+      // Insert comment
       const { data, error } = await supabase
         .from('messages')
-        .insert([comment])
-        .select('*, profiles(username, full_name, avatar_url)')
+        .insert([{
+          chat_id: chatId,
+          sender_id: user.id,
+          content: sanitizedComment
+        }])
+        .select(`
+          id,
+          chat_id,
+          sender_id,
+          content,
+          created_at
+        `)
         .single();
-      
-      if (error) throw new Error(`Error posting comment: ${error.message}`);
-      
-      if (data && typeof data === 'object') {
-        setComments((prev) => ({
-          ...prev,
-          [selectedPost]: [...(prev[selectedPost] || []), data as Comment],
-        }));
-        setPosts(posts.map((p) => (p.id === selectedPost ? { ...p, responses_count: p.responses_count + 1 } : p)));
-      }
-      
+
+      if (error) throw error;
+
+      const newCommentWithProfile: Comment = {
+        ...data,
+        profiles: profile || null
+      };
+
+      setComments(prev => ({
+        ...prev,
+        [selectedPost]: [...(prev[selectedPost] || []), newCommentWithProfile]
+      }));
+
+      // Update responses count
+      setPosts(posts.map(p => 
+        p.id === selectedPost 
+          ? { ...p, responses_count: p.responses_count + 1 }
+          : p
+      ));
+
       setNewComment('');
       setShowCommentModal(false);
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Error posting comment:', error);
       alert('Failed to post comment.');
     }
@@ -292,15 +438,18 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
   const handleDeletePost = async (postId: string) => {
     if (!user) return;
+    
     try {
       const { error } = await supabase
         .from('vibe_echoes')
         .update({ is_active: false })
         .eq('id', postId)
         .eq('user_id', user.id);
-      if (error) throw new Error(`Error deleting post: ${error.message}`);
-      setPosts(posts.filter((p) => p.id !== postId));
-    } catch (error) {
+
+      if (error) throw error;
+
+      setPosts(posts.filter(p => p.id !== postId));
+    } catch (error: any) {
       console.error('Error deleting post:', error);
       alert('Failed to delete post.');
     }
@@ -310,6 +459,20 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-400 mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -345,6 +508,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             />
           </div>
         </div>
+        
         <div className="mt-4">
           <label className="block text-sm text-white/60 mb-2">Current mood:</label>
           <div className="flex flex-wrap gap-2">
@@ -353,7 +517,9 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
                 key={mood}
                 onClick={() => setSelectedMood(mood)}
                 className={`px-3 py-1 rounded-full text-sm transition-all ${
-                  selectedMood === mood ? 'bg-purple-500 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'
+                  selectedMood === mood 
+                    ? 'bg-purple-500 text-white' 
+                    : 'bg-white/10 text-white/70 hover:bg-white/20'
                 }`}
               >
                 {mood}
@@ -361,6 +527,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             ))}
           </div>
         </div>
+        
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-4">
             <MediaUpload onFileSelect={handleFileSelect} uploading={uploading} />
