@@ -2,22 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Home, Search, MessageCircle, Users, User as UserIcon, Settings, Menu, X, LogOut, Bell, MapPin
+  Home, MessageCircle, Users, User as UserIcon, Settings, Menu, X, LogOut, Bell, MapPin
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
 
 // Import all necessary components
-import FeedPage from './FeedPage';
 import MessagesPage from './MessagesPage';
 import ProfilePage from './ProfilePage';
 import MapComponent from '../map/SecureVibeMap';
 import SettingsPage from './SettingsPage';
 import NotificationsPage from './NotificationsPage';
-import SearchPage from './SearchPage';
 import LoadingSpinner from './LoadingSpinner';
 
-type Page = 'feed' | 'search' | 'messages' | 'map' | 'profile' | 'notifications' | 'settings';
+type Page = 'map' | 'messages' | 'profile' | 'notifications' | 'settings';
 
 interface DashboardProps {
   user?: User;
@@ -25,7 +23,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activePage, setActivePage] = useState<Page>('feed');
+  const [activePage, setActivePage] = useState<Page>('map');
   const [user, setUser] = useState<User | null>(propUser || null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -195,14 +193,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     if (!user) return <LoadingSpinner message="Loading user data..." />;
 
     switch (activePage) {
-      case 'feed':
-        return <FeedPage user={user} />;
-      case 'search':
-        return <SearchPage user={user} />;
-      case 'messages':
-        return <MessagesPage user={user} />;
       case 'map':
         return <MapComponent />;
+      case 'messages':
+        return <MessagesPage user={user} />;
       case 'profile':
         return <ProfilePage user={user} />;
       case 'notifications':
@@ -217,7 +211,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
       case 'settings':
         return <SettingsPage user={user} />;
       default:
-        return <FeedPage user={user} />;
+        return <MapComponent />;
     }
   };
 
@@ -314,10 +308,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-2">
             {[
-              { key: 'feed', icon: Home, label: 'Feed', description: 'Your vibe feed' },
               { key: 'map', icon: MapPin, label: 'Vibe Map', description: 'Discover nearby vibes' },
               { key: 'messages', icon: MessageCircle, label: 'Messages', description: 'Chat with connections' },
-              { key: 'search', icon: Search, label: 'Search', description: 'Find people & communities' },
               { key: 'notifications', icon: Bell, label: 'Notifications', description: 'Your alerts', badge: unreadCount > 0 ? unreadCount : undefined },
               { key: 'profile', icon: UserIcon, label: 'Profile', description: 'Your vibe profile' },
               { key: 'settings', icon: Settings, label: 'Settings', description: 'App preferences' },
@@ -417,5 +409,4 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     </div>
   );
 };
-
 export default Dashboard;
