@@ -63,6 +63,8 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchPosts = async () => {
       try {
         setLoading(true);
@@ -92,60 +94,65 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         let enrichedPosts = postsData || [];
 
         if (postsData && postsData.length > 0) {
-          const userIds = [...new Set(postsData.map(post => post.user_id))];
+          const userIds = [...new Set(postsData.map((post) => post.user_id))];
           const { data: profilesData } = await supabase
             .from('profiles')
             .select('*')
             .in('user_id', userIds);
 
-          if (profilesData) {
+          if (profilesData && isMounted) {
             setUserProfiles(profilesData as Profile[]);
-            enrichedPosts = postsData.map(post => ({
+            enrichedPosts = postsData.map((post) => ({
               ...post,
               user_has_liked: likedPostIds.has(post.id),
-              profiles: createSafeProfile(profilesData.find(profile => profile.user_id === post.user_id)),
+              profiles: createSafeProfile(profilesData.find((profile) => profile.user_id === post.user_id)),
             }));
           }
         }
 
-        setPosts(enrichedPosts);
-
+        if (isMounted) setPosts(enrichedPosts);
       } catch (err: any) {
         console.error(err);
-        setError('Failed to load posts. Please try again.');
+        if (isMounted) setError('Failed to load posts. Please try again.');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchPosts();
 
+    // Subscribe to new posts
     const subscription = supabase
       .channel('vibe_echoes_feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vibe_echoes' }, async (payload) => {
-        if (payload.new && payload.new.is_active) {
-          try {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', payload.new.user_id)
-              .single();
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'vibe_echoes' },
+        async (payload) => {
+          if (payload.new && payload.new.is_active && isMounted) {
+            try {
+              const { data: profileData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', payload.new.user_id)
+                .single();
 
-            const newPost: VibeEcho = {
-              ...payload.new as any,
-              user_has_liked: false,
-              profiles: createSafeProfile(profileData),
-            };
+              const newPost: VibeEcho = {
+                ...(payload.new as any),
+                user_has_liked: false,
+                profiles: createSafeProfile(profileData),
+              };
 
-            setPosts(prev => [newPost, ...prev]);
-          } catch (error) {
-            console.error('Error processing new post:', error);
+              setPosts((prev) => [newPost, ...prev]);
+            } catch (error) {
+              console.error('Error processing new post:', error);
+            }
           }
         }
-      })
+      )
       .subscribe();
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [user]);
@@ -154,7 +161,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     const text = e.target.value;
     setNewPost(text);
     setCharacterCount(text.length);
-
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = `${textarea.scrollHeight}px`;
@@ -162,22 +168,15 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
   const handleFileSelect = async (file: File, type: 'image' | 'video') => {
     if (!user) return;
-
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(fileName, file);
-
+      const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file);
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(fileName);
-
+      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
       setNewPost(prev => `${prev}\n[Media: ${publicUrl}]`);
     } catch (err) {
       console.error(err);
@@ -206,12 +205,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       };
 
-      const { data, error } = await supabase
-        .from('vibe_echoes')
-        .insert([postData])
-        .select('*')
-        .single();
-
+      const { data, error } = await supabase.from('vibe_echoes').insert([postData]).select('*').single();
       if (error) throw error;
 
       setPosts(prev => [
@@ -223,7 +217,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       setCharacterCount(0);
       setSelectedMood('happy');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
-
     } catch (err: any) {
       console.error(err);
       alert('Failed to post. Please try again.');
@@ -251,11 +244,9 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
   const handleDeletePost = async (postId: string) => {
     if (!user) return;
-
     try {
       const { error } = await supabase.from('vibe_echoes').update({ is_active: false }).eq('id', postId).eq('user_id', user.id);
       if (error) throw error;
-
       setPosts(posts.filter(p => p.id !== postId));
     } catch (err) {
       console.error(err);
@@ -263,28 +254,21 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-red-400 mb-4">{error}</p>
-        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white">
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="text-center py-8">
+      <p className="text-red-400 mb-4">{error}</p>
+      <button onClick={() => window.location.reload()} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white">Retry</button>
+    </div>
+  );
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      
       {/* Create Post */}
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-4">
         <div className="flex gap-3">
@@ -307,11 +291,10 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             />
           </div>
         </div>
-
         <div className="mt-4">
           <label className="block text-sm text-white/60 mb-2">Current mood:</label>
           <div className="flex flex-wrap gap-2">
-            {moods.map((mood) => (
+            {moods.map(mood => (
               <button key={mood} onClick={() => setSelectedMood(mood)}
                 className={`px-3 py-1 rounded-full text-sm transition-all select-none ${
                   selectedMood === mood ? 'bg-purple-500 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'
@@ -321,7 +304,6 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
             ))}
           </div>
         </div>
-
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-4">
             <MediaUpload onFileSelect={handleFileSelect} uploading={uploading} />
@@ -331,11 +313,8 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-white/60">{characterCount}/280</span>
-            <button
-              onClick={handlePost}
-              disabled={!newPost.trim() || characterCount > 280 || uploading}
-              className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 font-semibold text-white"
-            >
+            <button onClick={handlePost} disabled={!newPost.trim() || characterCount > 280 || uploading}
+              className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 font-semibold text-white">
               {uploading ? 'Uploading...' : 'Post'}
             </button>
           </div>
@@ -345,7 +324,7 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
       {/* Posts Feed */}
       <div className="space-y-4">
         {posts.length > 0 ? (
-          posts.map((post) => (
+          posts.map(post => (
             <PostCard
               key={post.id}
               post={post}
@@ -372,19 +351,15 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
         currentUser={user}
       />
 
-{selectedPostForCard && (
-  <VibeCardGenerator
-    isOpen={showCardGenerator}
-    onClose={() => setShowCardGenerator(false)}
-    post={selectedPostForCard}
-    user={user}
-    profile={profile ? {
-      ...profile,
-      cards_shared: profile.cards_shared ?? 0,
-      viral_score: Number(profile.viral_score) || 0,
-    } : undefined}
-  />
-)}
+      {selectedPostForCard && (
+        <VibeCardGenerator
+          isOpen={showCardGenerator}
+          onClose={() => setShowCardGenerator(false)}
+          post={selectedPostForCard}
+          user={user}
+          profile={profile ? { ...profile, cards_shared: profile.cards_shared ?? 0, viral_score: Number(profile.viral_score) || 0 } : undefined}
+        />
+      )}
     </motion.div>
   );
 };
