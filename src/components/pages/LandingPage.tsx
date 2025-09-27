@@ -5,15 +5,12 @@ import {
   ArrowRight, Play, Sparkles, Globe, Shield, Smartphone,
   Check, ChevronDown, Menu, X
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-interface LandingPageProps {
-  onGetStarted: () => void;
-}
-
-const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+const LandingPage: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [email, setEmail] = useState('');
+  const navigate = useNavigate();
 
   const features = [
     {
@@ -80,9 +77,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleEmailSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    onGetStarted();
+  const handleGetStarted = () => {
+    navigate('/login'); // Navigate to login page
   };
 
   return (
@@ -113,7 +109,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <a href="#testimonials" className="text-white/70 hover:text-white transition-colors">Reviews</a>
               <a href="#download" className="text-white/70 hover:text-white transition-colors">Download</a>
               <motion.button
-                onClick={onGetStarted}
+                onClick={handleGetStarted}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-2 rounded-full font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all"
@@ -146,7 +142,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <a href="#testimonials" className="block text-white/70 hover:text-white transition-colors">Reviews</a>
                 <a href="#download" className="block text-white/70 hover:text-white transition-colors">Download</a>
                 <button
-                  onClick={onGetStarted}
+                  onClick={handleGetStarted}
                   className="w-full bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 rounded-full font-medium"
                 >
                   Get Started
@@ -198,7 +194,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <motion.button
-                onClick={onGetStarted}
+                onClick={handleGetStarted}
                 whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(168, 85, 247, 0.4)" }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 px-8 py-4 rounded-full text-lg font-semibold flex items-center gap-2 hover:shadow-2xl transition-all"
@@ -392,41 +388,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             </p>
             
             <motion.button
-              onClick={onGetStarted}
+              onClick={handleGetStarted}
               whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(168, 85, 247, 0.4)" }}
               whileTap={{ scale: 0.95 }}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 px-12 py-4 rounded-full text-xl font-semibold flex items-center gap-2 mx-auto hover:shadow-2xl transition-all"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 px-12 py-4 rounded-full text-lg font-semibold flex items-center gap-2 mx-auto hover:shadow-2xl transition-all"
             >
-              Start Your Journey
-              <Sparkles className="w-6 h-6" />
+              Start Connecting
+              <ArrowRight className="w-5 h-5" />
             </motion.button>
           </motion.div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-white/10 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center gap-2 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                SparkVibe
-              </span>
-            </div>
-            <div className="flex gap-6 text-white/60">
-              <a href="#" className="hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">Support</a>
-            </div>
-          </div>
-          <div className="text-center text-white/40 mt-8">
-            © 2024 SparkVibe. All rights reserved.
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
