@@ -1,212 +1,159 @@
-// src/components/Dashboard.tsx - Updated Dashboard
+// src/components/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MapPin, 
-  Users, 
-  MessageCircle, 
-  Zap, 
-  Shield,
-  TrendingUp,
-  Bell,
-  Search
+  MapPin, MessageCircle, Users, User as UserIcon, Settings, Menu, X, LogOut 
 } from 'lucide-react';
+import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import SecureVibeMap from './map/SecureVibeMap';
 
-interface DashboardStats {
-  nearbyUsers: number;
-  connections: number;
-  unreadMessages: number;
-  vibeScore: number;
-  securityLevel: 'high' | 'medium' | 'low';
+// Placeholder pages
+const PlaceholderPage: React.FC<{ title: string; description: string; icon: string }> = ({ title, description, icon }) => (
+  <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center max-w-md">
+      <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+        {icon}
+      </div>
+      <h2 className="text-2xl font-bold text-white mb-4">{title}</h2>
+      <p className="text-white/70 mb-6">{description}</p>
+    </div>
+  </div>
+);
+
+interface DashboardProps {
+  user: User;
 }
 
-const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats>({
-    nearbyUsers: 0,
-    connections: 0,
-    unreadMessages: 0,
-    vibeScore: 0,
-    securityLevel: 'high'
-  });
-  const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+type ActiveTab = 'map' | 'chat' | 'communities' | 'profile' | 'settings';
 
-  useEffect(() => {
-    const initDashboard = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setCurrentUser(user);
-        await fetchDashboardStats();
-      } catch (error) {
-        console.error('Dashboard init error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+const navItems: { id: ActiveTab; label: string; icon: React.ElementType }[] = [
+  { id: 'map', label: 'Vibe Map', icon: MapPin },
+  { id: 'chat', label: 'Chat', icon: MessageCircle },
+  { id: 'communities', label: 'Communities', icon: Users },
+  { id: 'profile', label: 'Profile', icon: UserIcon },
+  { id: 'settings', label: 'Settings', icon: Settings },
+];
 
-    initDashboard();
-  }, []);
+const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('map');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const fetchDashboardStats = async () => {
-    try {
-      // Mock stats - replace with actual API calls
-      setStats({
-        nearbyUsers: 23,
-        connections: 156,
-        unreadMessages: 7,
-        vibeScore: 8.7,
-        securityLevel: 'high'
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+  const handleSignOut = async () => {
+    if (confirm('Sign out?')) {
+      await supabase.auth.signOut();
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
-      </div>
-    );
-  }
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'map':
+        return <SecureVibeMap />;
+      case 'chat':
+        return <PlaceholderPage title="Secure Chat" description="Encrypted chat coming soon" icon="💬" />;
+      case 'communities':
+        return <PlaceholderPage title="Communities" description="Join vibrant communities soon" icon="👥" />;
+      case 'profile':
+        return <PlaceholderPage title="Profile" description="Your profile features coming soon" icon="👤" />;
+      case 'settings':
+        return <PlaceholderPage title="Settings" description="Manage your preferences soon" icon="⚙️" />;
+      default:
+        return <SecureVibeMap />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      {/* Header */}
-      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 p-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">SparkVibe</h1>
-              <p className="text-white/60 text-sm">Welcome back, {currentUser?.email || 'Vibe Explorer'}!</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all">
-              <Search className="w-5 h-5 text-white" />
-            </button>
-            <button className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all relative">
-              <Bell className="w-5 h-5 text-white" />
-              {stats.unreadMessages > 0 && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-xs text-white font-bold">{stats.unreadMessages}</span>
-                </div>
-              )}
-            </button>
-            <Link 
-              to="/profile"
-              className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+      {/* Desktop sidebar */}
+      <div className="hidden lg:flex lg:flex-col lg:w-60 bg-black bg-opacity-20 backdrop-blur-lg p-4">
+        <div className="flex items-center space-x-2 mb-8">
+          <MapPin className="w-6 h-6 text-white" />
+          <span className="text-white font-bold text-lg">SparkVibe</span>
+        </div>
+        <nav className="flex-1 space-y-2">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center space-x-2 px-4 py-2 rounded-xl transition-all ${
+                activeTab === item.id ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-white/10'
+              }`}
             >
-              <span className="text-white font-bold">
-                {currentUser?.email?.charAt(0).toUpperCase() || 'U'}
-              </span>
-            </Link>
-          </div>
+              <item.icon className="w-5 h-5" />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <button
+          onClick={handleSignOut}
+          className="mt-auto w-full flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-300 hover:bg-white/10"
+        >
+          <LogOut className="w-5 h-5" />
+          <span>Sign Out</span>
+        </button>
+      </div>
+
+      {/* Mobile header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-black bg-opacity-30 backdrop-blur-lg p-4 flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <MapPin className="w-5 h-5 text-white" />
+          <span className="text-white font-bold">SparkVibe</span>
         </div>
-      </header>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white">
+          {isMobileMenuOpen ? <X /> : <Menu />}
+        </button>
+      </div>
 
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <Link
-            to="/map"
-            className="group bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-6 hover:scale-105 transition-all duration-300"
+      {/* Mobile menu overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="lg:hidden fixed inset-0 bg-black bg-opacity-70 backdrop-blur-lg z-40"
           >
-            <div className="flex items-center gap-4 mb-3">
-              <div className="w-12 h-12 bg-purple-500/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                <MapPin className="w-6 h-6 text-purple-300" />
+            <div className="flex flex-col h-full p-8">
+              <div className="flex-1 space-y-4 mt-16">
+                {navItems.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-6 py-3 rounded-2xl text-lg ${
+                      activeTab === item.id ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-white/10'
+                    }`}
+                  >
+                    <item.icon className="w-6 h-6" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
               </div>
-              <div>
-                <h3 className="text-white font-bold">Secure Vibe Map</h3>
-                <p className="text-purple-300 text-sm">Enhanced & Safe</p>
-              </div>
+              <button
+                onClick={handleSignOut}
+                className="mt-auto w-full flex items-center space-x-3 px-6 py-3 rounded-2xl text-lg text-gray-300 hover:bg-white/10"
+              >
+                <LogOut className="w-6 h-6" />
+                <span>Sign Out</span>
+              </button>
             </div>
-            <p className="text-white/70 text-sm mb-3">
-              Discover nearby vibes with advanced privacy and security features
-            </p>
-            <div className="flex items-center gap-2 text-sm">
-              <Users className="w-4 h-4 text-purple-400" />
-              <span className="text-purple-400">{stats.nearbyUsers} users nearby</span>
-            </div>
-          </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <Link
-            to="/chat"
-            className="group bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-xl rounded-2xl border border-blue-500/30 p-6 hover:scale-105 transition-all duration-300"
+      {/* Main content */}
+      <div className="lg:pl-60 pt-16 lg:pt-0 h-screen overflow-y-auto">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="h-full"
           >
-            <div className="flex items-center gap-4 mb-3">
-              <div className="w-12 h-12 bg-blue-500/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                <MessageCircle className="w-6 h-6 text-blue-300" />
-              </div>
-              <div>
-                <h3 className="text-white font-bold">Chat Hub</h3>
-                <p className="text-blue-300 text-sm">Connect & Vibe</p>
-              </div>
-            </div>
-            <p className="text-white/70 text-sm mb-3">
-              Start conversations with people who share your vibe
-            </p>
-            <div className="flex items-center gap-2 text-sm">
-              <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-              <span className="text-blue-400">{stats.unreadMessages} new messages</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/profile"
-            className="group bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-xl rounded-2xl border border-green-500/30 p-6 hover:scale-105 transition-all duration-300"
-          >
-            <div className="flex items-center gap-4 mb-3">
-              <div className="w-12 h-12 bg-green-500/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-6 h-6 text-green-300" />
-              </div>
-              <div>
-                <h3 className="text-white font-bold">Your Vibe</h3>
-                <p className="text-green-300 text-sm">Profile & Stats</p>
-              </div>
-            </div>
-            <p className="text-white/70 text-sm mb-3">
-              Manage your profile and track your vibe journey
-            </p>
-            <div className="flex items-center gap-2 text-sm">
-              <Zap className="w-4 h-4 text-green-400" />
-              <span className="text-green-400">Score: {stats.vibeScore}/10</span>
-            </div>
-          </Link>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Recent Activity</h2>
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-lg">
-              <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                <Shield className="w-5 h-5 text-green-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-white font-medium">Security settings updated</p>
-                <p className="text-white/60 text-sm">Enhanced privacy mode enabled</p>
-              </div>
-              <span className="text-white/40 text-sm">2m ago</span>
-            </div>
-
-            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-lg">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-                <Users className="w-5 h-5 text-purple-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-white font-medium">3 new users discovered nearby</p>
-                <p className="text-white/60 text-sm">Check them out on the map</p>
-              </div>
-              <span className="text-white/40 text-sm">5m ago</span>
-            </div>
-          </div>
-        </div>
+            {renderActiveTab()}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

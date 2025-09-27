@@ -168,7 +168,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                   <Zap className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">EchoVibe</h1>
+                  <h1 className="text-3xl font-bold text-white">SparkVibe</h1>
                   <p className="text-white/60">Secure Social Discovery</p>
                 </div>
               </div>
@@ -355,7 +355,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                   <p className="text-white/60 text-sm">
                     Don't have an account?{' '}
                     <Link 
-                      to="/register" 
+                      to="/signup" 
                       className="text-purple-400 hover:text-purple-300 font-medium transition-colors hover:underline"
                     >
                       Create one now

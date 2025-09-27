@@ -9,10 +9,12 @@ import LandingPage from './components/LandingPage';
 import SecureVibeMap from './components/map/SecureVibeMap';
 import LoadingSpinner from './components/LoadingSpinner';
 import Login from './components/auth/Login';
-import Signup from './components/SignUpPage'; // fixed path
-import Dashboard from './components/Dashboard'; // make sure Dashboard.tsx exists and expects 'user' prop
+import Signup from './components/SignUpPage';
+import Dashboard from './components/Dashboard'; // expects 'user' prop
 
 // Placeholder components
+import './App.css';
+
 const PlaceholderPage: React.FC<{ title: string; description: string; icon: string }> = ({ title, description, icon }) => (
   <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
     <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center max-w-md">
@@ -35,8 +37,6 @@ const ProfilePage = () => <PlaceholderPage title="Profile" description="Your pro
 const ChatPage = () => <PlaceholderPage title="Secure Chat" description="End-to-end encrypted chat functionality coming soon" icon="💬" />;
 const NotificationsPage = () => <PlaceholderPage title="Notifications" description="Smart notification center launching soon" icon="🔔" />;
 const SettingsPage = () => <PlaceholderPage title="Settings" description="Advanced settings and preferences coming soon" icon="⚙️" />;
-
-import './App.css';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -86,7 +86,7 @@ const App: React.FC = () => {
       <Route path="/notifications" element={user ? <NotificationsPage /> : <Navigate to="/login" replace />} />
       <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
 
-      {/* Catch all */}
+      {/* Catch-all */}
       <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
     </Routes>
   );
