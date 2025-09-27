@@ -62,7 +62,9 @@ const ProfilePage: React.FC = () => {
         
         if (!userId || userId === user?.id) {
           setIsOwnProfile(true);
-          await loadOwnProfile(user?.id);
+          if (user?.id) {
+            await loadOwnProfile(user.id);
+          }
         } else {
           await loadUserProfile(userId);
         }

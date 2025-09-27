@@ -1,12 +1,14 @@
-// src/components/auth/Login.tsx
+
+// src/components/auth/Register.tsx
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { 
   Mail, 
   Lock, 
   Eye, 
   EyeOff, 
+  User,
   Zap,
   ArrowRight,
   Chrome,
@@ -15,71 +17,75 @@ import {
   AlertCircle,
   CheckCircle,
   MapPin,
-  Users,
-  MessageCircle
+  Users as UsersIcon
 } from 'lucide-react';
 
-interface LoginProps {
-  redirectTo?: string;
-}
-
-const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const Register: React.FC = () => {
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isEmailLogin, setIsEmailLogin] = useState(false);
-  const [message, setMessage] = useState('');
+  const [isEmailRegister, setIsEmailRegister] = useState(false);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
-  // Check for success messages (e.g., after registration)
-  useEffect(() => {
-    const success = searchParams.get('success');
-    const message = searchParams.get('message');
-    
-    if (success === 'true' && message) {
-      setMessage(decodeURIComponent(message));
-      setTimeout(() => setMessage(''), 5000);
-    }
-  }, [searchParams]);
-
-  // Check if user is already logged in
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate(redirectTo);
+        navigate('/dashboard');
       }
     };
     checkUser();
-  }, [navigate, redirectTo]);
+  }, [navigate]);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email.trim(),
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName.trim(),
+          }
+        }
       });
 
       if (error) throw error;
 
       if (data.user) {
-        navigate(redirectTo);
+        navigate('/login?success=true&message=Registration successful! Please check your email to verify your account.');
       }
     } catch (error: any) {
-      setError(error.message || 'Login failed. Please check your credentials.');
+      setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleRegister = async () => {
     setLoading(true);
     setError('');
 
@@ -87,7 +93,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}${redirectTo}`,
+          redirectTo: `${window.location.origin}/dashboard`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -97,70 +103,38 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
 
       if (error) throw error;
     } catch (error: any) {
-      setError(error.message || 'Google login failed. Please try again.');
+      setError(error.message || 'Google registration failed. Please try again.');
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Please enter your email address first');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) throw error;
-
-      setMessage('Password reset email sent! Check your inbox.');
-      setTimeout(() => setMessage(''), 5000);
-    } catch (error: any) {
-      setError(error.message || 'Failed to send reset email. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
   };
 
-  const features = [
-    {
-      icon: MapPin,
-      title: 'Secure Vibe Map',
-      description: 'Discover nearby users with privacy controls'
-    },
-    {
-      icon: MessageCircle,
-      title: 'Safe Connections',
-      description: 'Connect with verified users securely'
-    },
-    {
-      icon: Shield,
-      title: 'Privacy First',
-      description: 'Enterprise-grade security protection'
-    },
-    {
-      icon: Users,
-      title: 'Verified Community',
-      description: 'Join authentic, verified users'
-    }
+  const benefits = [
+    'Discover nearby verified users',
+    'End-to-end encrypted messaging',
+    'Advanced privacy controls',
+    'Secure location sharing',
+    'Professional moderation',
+    '24/7 customer support'
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
-          {/* Left Side - Marketing Content */}
+          {/* Left Side - Benefits */}
           <div className="hidden lg:block space-y-8">
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -174,54 +148,59 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
               </div>
               
               <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-                Welcome Back to
+                Join the
                 <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  {' '}Your Community
+                  {' '}Secure Community
                 </span>
               </h2>
               <p className="text-lg text-white/80 leading-relaxed">
-                Continue your journey of authentic connections with enhanced security and privacy protection.
+                Start your journey of authentic connections with enterprise-grade security and privacy protection.
               </p>
             </div>
 
-            {/* Features Grid */}
-            <div className="grid grid-cols-1 gap-4 mt-8">
-              {features.map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <div key={index} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                    <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-6 h-6 text-purple-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold">{feature.title}</h3>
-                      <p className="text-white/60 text-sm">{feature.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Benefits List */}
+            <div className="space-y-3">
+              {benefits.map((benefit, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+                  <span className="text-white/80">{benefit}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="grid grid-cols-2 gap-4 mt-8">
+              <div className="flex items-center gap-2 text-white/60">
+                <MapPin className="w-4 h-4 text-purple-400" />
+                <span className="text-sm">Location Privacy</span>
+              </div>
+              <div className="flex items-center gap-2 text-white/60">
+                <Shield className="w-4 h-4 text-green-400" />
+                <span className="text-sm">Verified Users</span>
+              </div>
+              <div className="flex items-center gap-2 text-white/60">
+                <UsersIcon className="w-4 h-4 text-blue-400" />
+                <span className="text-sm">Safe Community</span>
+              </div>
+              <div className="flex items-center gap-2 text-white/60">
+                <Sparkles className="w-4 h-4 text-pink-400" />
+                <span className="text-sm">Premium Features</span>
+              </div>
             </div>
           </div>
 
-          {/* Right Side - Login Form */}
+          {/* Right Side - Registration Form */}
           <div className="flex flex-col items-center justify-center">
             <div className="w-full max-w-md">
-              {/* Login Card */}
+              {/* Registration Card */}
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 shadow-2xl">
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Sparkles className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Welcome Back</h3>
-                  <p className="text-white/70">Sign in to continue your journey</p>
+                  <h3 className="text-2xl font-bold text-white mb-2">Create Account</h3>
+                  <p className="text-white/70">Join EchoVibe today</p>
                 </div>
-
-                {message && (
-                  <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3 mb-6 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                    <p className="text-green-300 text-sm">{message}</p>
-                  </div>
-                )}
 
                 {error && (
                   <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-6 flex items-center gap-2">
@@ -230,11 +209,11 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                   </div>
                 )}
 
-                {!isEmailLogin ? (
-                  // Social Login Options
+                {!isEmailRegister ? (
+                  // Social Registration Options
                   <div className="space-y-4">
                     <button
-                      onClick={handleGoogleLogin}
+                      onClick={handleGoogleRegister}
                       disabled={loading}
                       className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-medium py-4 px-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                     >
@@ -243,7 +222,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                       ) : (
                         <Chrome className="w-5 h-5" />
                       )}
-                      {loading ? 'Signing in...' : 'Continue with Google'}
+                      {loading ? 'Creating account...' : 'Sign up with Google'}
                     </button>
 
                     {/* Divider */}
@@ -252,29 +231,49 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                         <div className="w-full border-t border-white/20"></div>
                       </div>
                       <div className="relative flex justify-center text-sm">
-                        <span className="bg-slate-900 px-4 text-white/60">or continue with email</span>
+                        <span className="bg-slate-900 px-4 text-white/60">or sign up with email</span>
                       </div>
                     </div>
 
                     <button
-                      onClick={() => setIsEmailLogin(true)}
+                      onClick={() => setIsEmailRegister(true)}
                       className="w-full flex items-center justify-center gap-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium py-3 px-4 rounded-xl transition-all duration-200 hover:border-white/30"
                     >
                       <Mail className="w-5 h-5" />
-                      Sign in with Email
+                      Sign up with Email
                     </button>
                   </div>
                 ) : (
-                  // Email Login Form
+                  // Email Registration Form
                   <div>
                     <button
-                      onClick={() => setIsEmailLogin(false)}
+                      onClick={() => setIsEmailRegister(false)}
                       className="text-white/60 hover:text-white text-sm mb-4 flex items-center gap-2 transition-colors hover:underline"
                     >
                       ← Back to other options
                     </button>
 
-                    <form onSubmit={handleEmailLogin} className="space-y-4">
+                    <form onSubmit={handleEmailRegister} className="space-y-4">
+                      <div>
+                        <label htmlFor="fullName" className="block text-white/80 text-sm font-medium mb-2">
+                          Full Name
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
+                          <input
+                            id="fullName"
+                            name="fullName"
+                            type="text"
+                            value={formData.fullName}
+                            onChange={handleInputChange}
+                            className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
+                            placeholder="Enter your full name"
+                            required
+                            disabled={loading}
+                          />
+                        </div>
+                      </div>
+
                       <div>
                         <label htmlFor="email" className="block text-white/80 text-sm font-medium mb-2">
                           Email Address
@@ -283,9 +282,10 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                           <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
                           <input
                             id="email"
+                            name="email"
                             type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            value={formData.email}
+                            onChange={handleInputChange}
                             className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
                             placeholder="Enter your email"
                             required
@@ -302,11 +302,12 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
                           <input
                             id="password"
+                            name="password"
                             type={showPassword ? 'text' : 'password'}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            value={formData.password}
+                            onChange={handleInputChange}
                             className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
-                            placeholder="Enter your password"
+                            placeholder="Create a password"
                             required
                             disabled={loading}
                           />
@@ -321,15 +322,32 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={handleForgotPassword}
-                          className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors hover:underline"
-                          disabled={loading}
-                        >
-                          Forgot password?
-                        </button>
+                      <div>
+                        <label htmlFor="confirmPassword" className="block text-white/80 text-sm font-medium mb-2">
+                          Confirm Password
+                        </label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
+                          <input
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            value={formData.confirmPassword}
+                            onChange={handleInputChange}
+                            className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition-all duration-200"
+                            placeholder="Confirm your password"
+                            required
+                            disabled={loading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
+                            disabled={loading}
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
                       </div>
 
                       <button
@@ -341,7 +359,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : (
                           <>
-                            Sign In
+                            Create Account
                             <ArrowRight className="w-4 h-4" />
                           </>
                         )}
@@ -350,15 +368,15 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                   </div>
                 )}
 
-                {/* Sign Up Link */}
+                {/* Login Link */}
                 <div className="mt-6 text-center">
                   <p className="text-white/60 text-sm">
-                    Don't have an account?{' '}
+                    Already have an account?{' '}
                     <Link 
-                      to="/register" 
+                      to="/login" 
                       className="text-purple-400 hover:text-purple-300 font-medium transition-colors hover:underline"
                     >
-                      Create one now
+                      Sign in here
                     </Link>
                   </p>
                 </div>
@@ -368,7 +386,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                   <div className="flex items-center justify-center gap-4 text-xs">
                     <div className="flex items-center gap-2 text-white/60">
                       <Shield className="w-4 h-4 text-green-400" />
-                      <span>Secure Authentication</span>
+                      <span>Your data is secure with us</span>
                     </div>
                   </div>
                 </div>
@@ -377,7 +395,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
               {/* Footer */}
               <div className="text-center mt-6">
                 <p className="text-white/40 text-sm">
-                  By signing in, you agree to our{' '}
+                  By creating an account, you agree to our{' '}
                   <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
                     Terms
                   </a>{' '}
@@ -395,4 +413,4 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
   );
 };
 
-export default Login;
+export default Register;

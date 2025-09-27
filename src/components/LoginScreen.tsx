@@ -199,7 +199,7 @@ const LoginScreen: React.FC = () => {
                     disabled={loading}
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium py-2 px-6 rounded-lg transition-all duration-200 disabled:opacity-50"
                   >
-                    Join EchoVibe
+                    Join SparkVibe
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
