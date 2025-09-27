@@ -142,22 +142,26 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
         if (isMounted) {
           setPosts(enrichedPosts);
+          setLoading(false); // Move this here to ensure it always gets set
           console.log('✅ Posts loaded successfully');
         }
       } catch (err: any) {
         console.error('❌ Error in fetchPosts:', err);
         if (isMounted) {
           setError('Failed to load posts. Please try again.');
+          setLoading(false); // Also set loading to false on error
         }
       } finally {
         if (isMounted) {
-          setLoading(false);
           console.log('🏁 Loading set to false');
         }
       }
     };
 
-    fetchPosts();
+    // Add a small delay to prevent rapid re-renders
+    const timeoutId = setTimeout(() => {
+      fetchPosts();
+    }, 100);
 
     // Subscribe to new posts
     const subscription = supabase
@@ -191,9 +195,10 @@ const FeedPage: React.FC<FeedPageProps> = ({ user, profile }) => {
 
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-  }, [user]);
+  }, [user?.id]); // Only depend on user.id, not the entire user object
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;

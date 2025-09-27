@@ -242,16 +242,15 @@ const AppContent: React.FC = () => {
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={!user ? <LandingPage /> : <MainDashboard user={user} profile={profile} />}
-      />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
-      {/* Fixed: Added wildcard to allow nested routes */}
       <Route
         path="/dashboard/*"
         element={user ? <MainDashboard user={user} profile={profile} /> : <LoginPage />}
+      />
+      <Route
+        path="/"
+        element={!user ? <LandingPage /> : <MainDashboard user={user} profile={profile} />}
       />
     </Routes>
   );
