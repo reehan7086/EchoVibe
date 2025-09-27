@@ -1,4 +1,3 @@
-// src/components/pages/SignUpPage.tsx - Fixed with proper profile creation
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -22,16 +21,16 @@ const SignUpPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1: Basic Info, 2: Account Creation
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const navigate = useNavigate();
 
-  // Handle input changes
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
     
-    // Auto-generate username from full name
     if (field === 'fullName' && value) {
       setFormData(prev => ({
         ...prev,
@@ -39,11 +38,9 @@ const SignUpPage: React.FC = () => {
       }));
     }
     
-    // Clear errors when user types
     if (error) setError(null);
   };
 
-  // Validate form data
   const validateForm = () => {
     if (!formData.fullName.trim()) {
       setError('Full name is required');
@@ -69,10 +66,13 @@ const SignUpPage: React.FC = () => {
       setError('Username is required');
       return false;
     }
+    if (!termsAccepted || !privacyAccepted) {
+      setError('You must accept both the Terms of Service and Privacy Policy to proceed.');
+      return false;
+    }
     return true;
   };
 
-  // Handle email signup
   const handleEmailSignUp = async () => {
     if (!validateForm()) return;
 
@@ -80,7 +80,6 @@ const SignUpPage: React.FC = () => {
     setError(null);
 
     try {
-      // Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email.trim(),
         password: formData.password,
@@ -96,18 +95,14 @@ const SignUpPage: React.FC = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // The trigger should create the profile automatically, but let's ensure it exists
-        // Wait a moment for the trigger to fire
         setTimeout(async () => {
           try {
-            // Check if profile was created by trigger
             const { data: existingProfile } = await supabase
               .from('profiles')
               .select('id')
               .eq('user_id', authData.user!.id)
               .single();
 
-            // If no profile exists, create one manually
             if (!existingProfile) {
               await supabase
                 .from('profiles')
@@ -130,7 +125,6 @@ const SignUpPage: React.FC = () => {
           }
         }, 1000);
 
-        // Redirect to login with success message
         navigate('/login?success=true&message=' + encodeURIComponent('Account created successfully! Please check your email to verify your account.'));
       }
     } catch (err: any) {
@@ -141,8 +135,11 @@ const SignUpPage: React.FC = () => {
     }
   };
 
-  // Handle Google signup
   const handleGoogleSignUp = async () => {
+    if (!termsAccepted || !privacyAccepted) {
+      setError('You must accept both the Terms of Service and Privacy Policy to proceed.');
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -168,7 +165,6 @@ const SignUpPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
-      {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -176,9 +172,8 @@ const SignUpPage: React.FC = () => {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
-          {/* Left Side - Marketing Content */}
           <div className="hidden lg:flex flex-col justify-center space-y-8 px-4 lg:px-0">
-          <div>
+            <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                   <Zap className="w-6 h-6 text-white" />
@@ -200,7 +195,6 @@ const SignUpPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Features */}
             <div className="grid grid-cols-1 gap-4">
               {[
                 { icon: MapPin, title: 'Location-Based Discovery', desc: 'Find people and communities in your area' },
@@ -223,7 +217,6 @@ const SignUpPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Side - Signup Form */}
           <div className="flex flex-col items-center justify-center">
             <div className="w-full max-w-md">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 shadow-2xl">
@@ -243,10 +236,9 @@ const SignUpPage: React.FC = () => {
                 )}
 
                 <div className="space-y-6">
-                  {/* Google Signup */}
                   <button
                     onClick={handleGoogleSignUp}
-                    disabled={loading}
+                    disabled={loading || !termsAccepted || !privacyAccepted}
                     className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-medium py-4 px-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                   >
                     {loading ? (
@@ -257,7 +249,6 @@ const SignUpPage: React.FC = () => {
                     {loading ? 'Creating account...' : 'Continue with Google'}
                   </button>
 
-                  {/* Divider */}
                   <div className="relative my-6">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-white/20"></div>
@@ -267,9 +258,7 @@ const SignUpPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Email Signup Form */}
                   <div className="space-y-4">
-                    {/* Full Name */}
                     <div>
                       <label htmlFor="fullName" className="block text-white/80 text-sm font-medium mb-2">
                         Full Name
@@ -289,7 +278,6 @@ const SignUpPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Username */}
                     <div>
                       <label htmlFor="username" className="block text-white/80 text-sm font-medium mb-2">
                         Username
@@ -309,7 +297,6 @@ const SignUpPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Email */}
                     <div>
                       <label htmlFor="email" className="block text-white/80 text-sm font-medium mb-2">
                         Email Address
@@ -329,7 +316,6 @@ const SignUpPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Password */}
                     <div>
                       <label htmlFor="password" className="block text-white/80 text-sm font-medium mb-2">
                         Password
@@ -357,7 +343,6 @@ const SignUpPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Confirm Password */}
                     <div>
                       <label htmlFor="confirmPassword" className="block text-white/80 text-sm font-medium mb-2">
                         Confirm Password
@@ -385,10 +370,9 @@ const SignUpPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Create Account Button */}
                     <button
                       onClick={handleEmailSignUp}
-                      disabled={loading}
+                      disabled={loading || !termsAccepted || !privacyAccepted}
                       className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                     >
                       {loading ? (
@@ -403,7 +387,6 @@ const SignUpPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Login Link */}
                 <div className="mt-6 text-center">
                   <p className="text-white/60 text-sm">
                     Already have an account?{' '}
@@ -416,18 +399,33 @@ const SignUpPage: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Terms */}
                 <div className="mt-8 pt-6 border-t border-white/20 text-center">
-                  <p className="text-white/40 text-xs">
-                    By creating an account, you agree to our{' '}
-                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
-                      Terms of Service
-                    </a>{' '}
-                    and{' '}
-                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
-                      Privacy Policy
-                    </a>
-                  </p>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      disabled={loading}
+                    />
+                    <label htmlFor="terms" className="text-white/60 text-sm">
+                      I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="privacy"
+                      checked={privacyAccepted}
+                      onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      disabled={loading}
+                    />
+                    <label htmlFor="privacy" className="text-white/60 text-sm">
+                      I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

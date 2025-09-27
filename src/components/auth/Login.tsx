@@ -1,4 +1,3 @@
-// src/components/auth/Login.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -31,10 +30,11 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
   const [error, setError] = useState('');
   const [isEmailLogin, setIsEmailLogin] = useState(false);
   const [message, setMessage] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Check for success messages (e.g., after registration)
   useEffect(() => {
     const success = searchParams.get('success');
     const message = searchParams.get('message');
@@ -45,7 +45,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
     }
   }, [searchParams]);
 
-  // Check if user is already logged in
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -58,6 +57,10 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!termsAccepted || !privacyAccepted) {
+      setError('You must accept both the Terms of Service and Privacy Policy to proceed.');
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -80,6 +83,10 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
   };
 
   const handleGoogleLogin = async () => {
+    if (!termsAccepted || !privacyAccepted) {
+      setError('You must accept both the Terms of Service and Privacy Policy to proceed.');
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -107,7 +114,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
       setError('Please enter your email address first');
       return;
     }
-
     setLoading(true);
     setError('');
 
@@ -152,7 +158,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
-      {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -160,7 +165,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
-          {/* Left Side - Marketing Content */}
           <div className="hidden lg:block space-y-8">
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -184,7 +188,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
               </p>
             </div>
 
-            {/* Features Grid */}
             <div className="grid grid-cols-1 gap-4 mt-8">
               {features.map((feature, index) => {
                 const Icon = feature.icon;
@@ -203,10 +206,8 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
             </div>
           </div>
 
-          {/* Right Side - Login Form */}
           <div className="flex flex-col items-center justify-center">
             <div className="w-full max-w-md">
-              {/* Login Card */}
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 shadow-2xl">
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -231,11 +232,10 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                 )}
 
                 {!isEmailLogin ? (
-                  // Social Login Options
                   <div className="space-y-4">
                     <button
                       onClick={handleGoogleLogin}
-                      disabled={loading}
+                      disabled={loading || !termsAccepted || !privacyAccepted}
                       className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-medium py-4 px-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                     >
                       {loading ? (
@@ -246,7 +246,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                       {loading ? 'Signing in...' : 'Continue with Google'}
                     </button>
 
-                    {/* Divider */}
                     <div className="relative my-6">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t border-white/20"></div>
@@ -265,7 +264,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                     </button>
                   </div>
                 ) : (
-                  // Email Login Form
                   <div>
                     <button
                       onClick={() => setIsEmailLogin(false)}
@@ -334,7 +332,7 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
 
                       <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !termsAccepted || !privacyAccepted}
                         className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                       >
                         {loading ? (
@@ -350,7 +348,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                   </div>
                 )}
 
-                {/* Sign Up Link */}
                 <div className="mt-6 text-center">
                   <p className="text-white/60 text-sm">
                     Don't have an account?{' '}
@@ -363,7 +360,6 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                   </p>
                 </div>
 
-                {/* Security Features */}
                 <div className="mt-8 pt-6 border-t border-white/20">
                   <div className="flex items-center justify-center gap-4 text-xs">
                     <div className="flex items-center gap-2 text-white/60">
@@ -372,20 +368,35 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Footer */}
-              <div className="text-center mt-6">
-                <p className="text-white/40 text-sm">
-                  By signing in, you agree to our{' '}
-                  <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
-                    Terms
-                  </a>{' '}
-                  and{' '}
-                  <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
-                    Privacy Policy
-                  </a>
-                </p>
+                <div className="mt-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      disabled={loading}
+                    />
+                    <label htmlFor="terms" className="text-white/60 text-sm">
+                      I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="privacy"
+                      checked={privacyAccepted}
+                      onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      disabled={loading}
+                    />
+                    <label htmlFor="privacy" className="text-white/60 text-sm">
+                      I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

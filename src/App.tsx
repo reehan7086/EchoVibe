@@ -10,7 +10,9 @@ import SecureVibeMap from './components/map/SecureVibeMap';
 import LoadingSpinner from './components/pages/LoadingSpinner';
 import Login from './components/auth/Login';
 import Signup from './components/pages/SignUpPage';
-import Dashboard from './components/pages/Dashboard'; // Dashboard expects 'user' prop
+import Dashboard from './components/pages/Dashboard';
+import PrivacyPolicy from './components/pages/PrivacyPolicy';
+import TermsOfService from './components/pages/TermsOfService' ;// Dashboard expects 'user' prop
 
 // Styles
 import './App.css';
@@ -84,23 +86,25 @@ const App: React.FC = () => {
   }
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
-      <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
-      <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/dashboard" replace />} />
+<Routes>
+  {/* Public routes */}
+  <Route path="/privacy" element={<PrivacyPolicy />} />
+  <Route path="/terms" element={<TermsOfService />} />
+  <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
+  <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
+  <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/dashboard" replace />} />
 
-      {/* Protected routes */}
-      <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
-      <Route path="/map" element={user ? <SecureVibeMap /> : <Navigate to="/login" replace />} />
-      <Route path="/profile/:userId?" element={user ? <ProfilePage /> : <Navigate to="/login" replace />} />
-      <Route path="/chat/:chatId?" element={user ? <ChatPage /> : <Navigate to="/login" replace />} />
-      <Route path="/notifications" element={user ? <NotificationsPage /> : <Navigate to="/login" replace />} />
-      <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
+  {/* Protected routes */}
+  <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
+  <Route path="/map" element={user ? <SecureVibeMap /> : <Navigate to="/login" replace />} />
+  <Route path="/profile/:userId?" element={user ? <ProfilePage /> : <Navigate to="/login" replace />} />
+  <Route path="/chat/:chatId?" element={user ? <ChatPage /> : <Navigate to="/login" replace />} />
+  <Route path="/notifications" element={user ? <NotificationsPage /> : <Navigate to="/login" replace />} />
+  <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
 
-      {/* Catch-all */}
-      <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
-    </Routes>
+  {/* Catch-all */}
+  <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
+</Routes>
   );
 };
 
