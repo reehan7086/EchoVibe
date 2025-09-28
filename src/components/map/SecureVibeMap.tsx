@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, 
   MessageCircle, 
@@ -8,7 +8,8 @@ import {
   Sliders,
   X,
   UserPlus,
-  Eye
+  Navigation,
+  Filter
 } from 'lucide-react';
 
 // Type definitions
@@ -32,6 +33,7 @@ interface GlobalUser {
   city: string;
   lastSeen: string;
   profession: string;
+  interests: string[];
 }
 
 interface UserLocation {
@@ -59,14 +61,17 @@ const SecureVibeMap: React.FC = () => {
   const [agreedToTerms, setAgreedToTerms] = useState<boolean>(false);
   const [blinkingMarkers, setBlinkingMarkers] = useState<Record<number, boolean>>({});
   const [chatBubbles, setChatBubbles] = useState<Record<number, boolean>>({});
-  const [mapZoom, setMapZoom] = useState<number>(12);
+  const [mapZoom, setMapZoom] = useState<number>(13);
   const [searchRadius, setSearchRadius] = useState<number>(25);
   const [showRadiusControls, setShowRadiusControls] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<GlobalUser | null>(null);
   const [showProfileCard, setShowProfileCard] = useState<boolean>(false);
-  const [liveUsersCount, setLiveUsersCount] = useState<number>(8);
+  const [liveUsersCount, setLiveUsersCount] = useState<number>(12);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [mapCenter, setMapCenter] = useState<Position>({ lat: 25.2048, lng: 55.2708 }); // Dubai default
+  const [mapCenter, setMapCenter] = useState<Position>({ lat: 25.2048, lng: 55.2708 });
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [ageFilter, setAgeFilter] = useState<[number, number]>([18, 50]);
+  const [genderFilter, setGenderFilter] = useState<string>('all');
 
   // Get user's current location
   useEffect(() => {
@@ -82,12 +87,11 @@ const SecureVibeMap: React.FC = () => {
             id: 'me',
             name: 'You',
             position: pos,
-            country: 'UAE',
-            city: 'Current Location'
+            country: 'Current',
+            city: 'Location'
           });
         },
         () => {
-          // Fallback to Dubai if geolocation fails
           setUserLocation({
             id: 'me',
             name: 'You',
@@ -100,57 +104,64 @@ const SecureVibeMap: React.FC = () => {
     }
   }, []);
 
-  // Realistic global users with proper lat/lng coordinates
+  // Realistic users with proper coordinates
   const globalUsers: GlobalUser[] = [
     {
       id: 1, name: "Ahmed Al Mansouri", age: 28, gender: "male", distance: "2.3KM",
-      mood: "Coffee enthusiast ☕", vibe: "Best shawarma in town!", avatar: "👨‍💼",
-      status: "away", position: { lat: 25.2208, lng: 55.2808 }, country: "UAE", city: "Dubai",
-      lastSeen: "5 min ago", profession: "Business Analyst"
+      mood: "Coffee enthusiast", vibe: "Best shawarma in town!", avatar: "👨‍💼",
+      status: "online", position: { lat: 25.2208, lng: 55.2808 }, country: "UAE", city: "Dubai",
+      lastSeen: "now", profession: "Business Analyst", interests: ["coffee", "business"]
     },
     {
       id: 2, name: "Fatima Al Zahra", age: 25, gender: "female", distance: "1.8KM",
-      mood: "Art lover 🎨", vibe: "Exhibition at DIFC tonight", avatar: "👩‍🎨",
+      mood: "Art lover", vibe: "Exhibition at DIFC tonight", avatar: "👩‍🎨",
       status: "online", position: { lat: 25.1948, lng: 55.2608 }, country: "UAE", city: "Dubai",
-      lastSeen: "now", profession: "Graphic Designer"
+      lastSeen: "now", profession: "Graphic Designer", interests: ["art", "design"]
     },
     {
-      id: 3, name: "Omar bin Rashid", age: 32, gender: "male", distance: "15.2KM",
-      mood: "Tech innovator 💻", vibe: "Working on new startup", avatar: "👨‍💻",
-      status: "away", position: { lat: 24.4539, lng: 54.3773 }, country: "UAE", city: "Abu Dhabi",
-      lastSeen: "2 hours ago", profession: "Software Engineer"
+      id: 3, name: "Omar bin Rashid", age: 32, gender: "male", distance: "4.2KM",
+      mood: "Tech innovator", vibe: "Working on new startup", avatar: "👨‍💻",
+      status: "away", position: { lat: 25.2348, lng: 55.2908 }, country: "UAE", city: "Dubai",
+      lastSeen: "5 min ago", profession: "Software Engineer", interests: ["technology", "gaming"]
     },
     {
-      id: 4, name: "Sarah Al Qasimi", age: 26, gender: "female", distance: "85.4KM",
-      mood: "Adventure seeker ⛰️", vibe: "Hiking Jebel Jais this weekend", avatar: "👩‍🚀",
-      status: "online", position: { lat: 25.9579, lng: 56.1291 }, country: "UAE", city: "Ras Al Khaimah",
-      lastSeen: "now", profession: "Travel Blogger"
+      id: 4, name: "Sarah Al Qasimi", age: 26, gender: "female", distance: "3.1KM",
+      mood: "Adventure seeker", vibe: "Weekend hiking plans", avatar: "👩‍🚀",
+      status: "online", position: { lat: 25.1848, lng: 55.2408 }, country: "UAE", city: "Dubai",
+      lastSeen: "now", profession: "Travel Blogger", interests: ["travel", "hiking"]
     },
     {
-      id: 5, name: "Khalid Al Thani", age: 30, gender: "male", distance: "315KM",
-      mood: "Sports fanatic ⚽", vibe: "World Cup memories", avatar: "👨‍⚽",
-      status: "away", position: { lat: 25.3548, lng: 51.1839 }, country: "Qatar", city: "Doha",
-      lastSeen: "1 hour ago", profession: "Sports Journalist"
+      id: 5, name: "Khalid Al Thani", age: 30, gender: "male", distance: "5.7KM",
+      mood: "Sports fanatic", vibe: "Football match tonight", avatar: "⚽",
+      status: "away", position: { lat: 25.2548, lng: 55.3208 }, country: "UAE", city: "Dubai",
+      lastSeen: "15 min ago", profession: "Sports Journalist", interests: ["sports", "football"]
     },
     {
-      id: 6, name: "Noura Al Sabah", age: 27, gender: "female", distance: "420KM",
-      mood: "Foodie explorer 🍽️", vibe: "Traditional Kuwaiti cuisine", avatar: "👩‍🍳",
-      status: "online", position: { lat: 29.3117, lng: 47.4818 }, country: "Kuwait", city: "Kuwait City",
-      lastSeen: "now", profession: "Food Critic"
+      id: 6, name: "Noura Al Sabah", age: 27, gender: "female", distance: "2.9KM",
+      mood: "Foodie explorer", vibe: "New restaurant discovery", avatar: "👩‍🍳",
+      status: "online", position: { lat: 25.2148, lng: 55.2508 }, country: "UAE", city: "Dubai",
+      lastSeen: "now", profession: "Food Critic", interests: ["food", "cooking"]
     },
     {
-      id: 7, name: "Arjun Sharma", age: 26, gender: "male", distance: "1,850KM",
-      mood: "Bollywood dancer 💃", vibe: "Teaching dance classes", avatar: "👨‍🎭",
-      status: "away", position: { lat: 19.0760, lng: 72.8777 }, country: "India", city: "Mumbai",
-      lastSeen: "45 min ago", profession: "Dance Instructor"
+      id: 7, name: "Hassan Ali", age: 24, gender: "male", distance: "6.2KM",
+      mood: "Fitness enthusiast", vibe: "Gym session complete", avatar: "🏋️‍♂️",
+      status: "online", position: { lat: 25.2448, lng: 55.2308 }, country: "UAE", city: "Dubai",
+      lastSeen: "now", profession: "Personal Trainer", interests: ["fitness", "health"]
     },
     {
-      id: 8, name: "Priya Patel", age: 28, gender: "female", distance: "1,720KM",
-      mood: "Tech entrepreneur 🚀", vibe: "Building the future", avatar: "👩‍💼",
-      status: "online", position: { lat: 12.9716, lng: 77.5946 }, country: "India", city: "Bangalore",
-      lastSeen: "now", profession: "CEO & Founder"
+      id: 8, name: "Layla Mahmoud", age: 23, gender: "female", distance: "1.5KM",
+      mood: "Photography lover", vibe: "Golden hour shots", avatar: "📸",
+      status: "online", position: { lat: 25.2098, lng: 55.2758 }, country: "UAE", city: "Dubai",
+      lastSeen: "now", profession: "Photographer", interests: ["photography", "art"]
     }
   ];
+
+  // Filter users
+  const filteredUsers = globalUsers.filter(user => {
+    const ageMatch = user.age >= ageFilter[0] && user.age <= ageFilter[1];
+    const genderMatch = genderFilter === 'all' || user.gender === genderFilter;
+    return ageMatch && genderMatch;
+  });
 
   // Convert lat/lng to screen coordinates
   const latLngToScreenCoords = (position: Position, center: Position, zoom: number) => {
@@ -162,37 +173,35 @@ const SecureVibeMap: React.FC = () => {
     const y = (1 - Math.log(Math.tan(position.lat * Math.PI / 180) + 1 / Math.cos(position.lat * Math.PI / 180)) / Math.PI) / 2 * scale - centerY;
     
     return {
-      x: 50 + (x / 10), // Adjust scaling
-      y: 50 + (y / 10)
+      x: 50 + (x / 8),
+      y: 50 + (y / 8)
     };
   };
 
-  // Random live users count animation
+  // Random live users count
   useEffect(() => {
     const interval = setInterval(() => {
       setLiveUsersCount(prev => {
         const change = Math.random() > 0.5 ? 1 : -1;
-        const newCount = prev + change;
-        return Math.max(5, Math.min(15, newCount));
+        return Math.max(8, Math.min(18, prev + change));
       });
-    }, 3000 + Math.random() * 2000);
-
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  // Mouse wheel zoom handler
+  // Mouse wheel zoom
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -1 : 1;
-    setMapZoom(prev => Math.max(8, Math.min(18, prev + delta)));
+    setMapZoom(prev => Math.max(10, Math.min(18, prev + delta)));
   };
 
-  // Blinking effect for markers
+  // Blinking markers effect
   useEffect(() => {
     const interval = setInterval(() => {
       setBlinkingMarkers(prev => {
         const newState = { ...prev };
-        globalUsers.forEach((user: GlobalUser) => {
+        filteredUsers.forEach((user: GlobalUser) => {
           if (user.status === 'online') {
             newState[user.id] = !prev[user.id];
           }
@@ -200,32 +209,30 @@ const SecureVibeMap: React.FC = () => {
         return newState;
       });
     }, 2000);
-
     return () => clearInterval(interval);
-  }, []);
+  }, [filteredUsers]);
 
   // Chat bubbles animation
   useEffect(() => {
     const interval = setInterval(() => {
       setChatBubbles(prev => {
         const newState = { ...prev };
-        globalUsers.forEach((user: GlobalUser) => {
-          if (user.status === 'online' && Math.random() > 0.85) {
+        filteredUsers.forEach((user: GlobalUser) => {
+          if (user.status === 'online' && Math.random() > 0.88) {
             newState[user.id] = true;
             setTimeout(() => {
               setChatBubbles(current => ({
                 ...current,
                 [user.id]: false
               }));
-            }, 4000);
+            }, 3500);
           }
         });
         return newState;
       });
-    }, 3000);
-
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [filteredUsers]);
 
   // Custom Checkbox Component
   const CustomCheckbox: React.FC<CustomCheckboxProps> = ({ checked, onChange, label, id }) => (
@@ -265,7 +272,7 @@ const SecureVibeMap: React.FC = () => {
   // Profile Card Component
   const ProfileCard: React.FC<ProfileCardProps> = ({ user, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden transform transition-all duration-300 scale-100">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
         <div className="relative bg-gradient-to-br from-purple-500 to-blue-600 p-6 text-white">
           <button 
             onClick={onClose}
@@ -304,14 +311,20 @@ const SecureVibeMap: React.FC = () => {
           </div>
           
           <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-sm text-gray-700">{user.mood}</p>
+            <p className="text-sm text-gray-700 font-medium">{user.mood}</p>
             <p className="text-xs text-gray-500 mt-1 italic">"{user.vibe}"</p>
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            {user.interests.map((interest, index) => (
+              <span key={index} className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
+                {interest}
+              </span>
+            ))}
+          </div>
+
           <div className="flex space-x-3">
-            <button 
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-            >
+            <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
               <MessageCircle className="w-4 h-4" />
               <span>Chat</span>
             </button>
@@ -330,10 +343,10 @@ const SecureVibeMap: React.FC = () => {
 
   if (!userLocation) {
     return (
-      <div className="flex-1 bg-gray-100 flex items-center justify-center">
+      <div className="flex-1 bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Getting your location...</p>
+          <p className="mt-4 text-gray-600 font-medium">Getting your location...</p>
         </div>
       </div>
     );
@@ -341,38 +354,33 @@ const SecureVibeMap: React.FC = () => {
 
   return (
     <div 
-      className="flex-1 relative bg-gray-100 overflow-hidden"
+      className="flex-1 relative bg-gray-50 overflow-hidden"
       onWheel={handleWheel}
       style={{ cursor: 'grab' }}
     >
-      {/* Real Map Background using Google Maps style */}
-      <div className="absolute inset-0">
-        <div 
-          className="w-full h-full bg-cover bg-center transition-transform duration-200"
-          style={{ 
-            backgroundImage: `url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/${mapCenter.lng},${mapCenter.lat},${mapZoom}/1200x800@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw')`,
-            transform: `scale(${1 + (mapZoom - 12) * 0.1})`,
-            transformOrigin: '50% 50%'
-          }}
-        />
-        
-        {/* Fallback pattern if map doesn't load */}
-        <div 
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><pattern id="water" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="%23a7c7e7"/></pattern><pattern id="land" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse"><rect width="50" height="50" fill="%23f5f5dc"/></pattern></defs><rect width="1000" height="1000" fill="url(%23water)"/><path d="M100,200 Q300,100 500,200 Q700,300 900,200 L900,800 Q700,700 500,800 Q300,900 100,800 Z" fill="url(%23land)"/></svg>')`,
-          }}
-        />
-      </div>
+      {/* Real Map Background */}
+      <div 
+        className="absolute inset-0 w-full h-full"
+        style={{
+          backgroundColor: '#f5f5f2',
+          backgroundImage: `
+            linear-gradient(90deg, #e5e5e5 1px, transparent 1px),
+            linear-gradient(180deg, #e5e5e5 1px, transparent 1px),
+            radial-gradient(circle at 25% 25%, #a2daf2 2px, transparent 2px),
+            radial-gradient(circle at 75% 75%, #a2daf2 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px, 50px 50px, 100px 100px, 80px 80px'
+        }}
+      />
       
       {/* Search radius circle */}
       <div
-        className="absolute border-2 border-purple-400 border-dashed rounded-full opacity-30 pointer-events-none"
+        className="absolute border-2 border-purple-400 border-dashed rounded-full opacity-25 pointer-events-none"
         style={{
           left: '50%',
           top: '50%',
-          width: `${searchRadius * 4}px`,
-          height: `${searchRadius * 4}px`,
+          width: `${searchRadius * 6}px`,
+          height: `${searchRadius * 6}px`,
           transform: 'translate(-50%, -50%)',
           background: 'radial-gradient(circle, rgba(147, 51, 234, 0.05) 0%, transparent 70%)',
         }}
@@ -381,45 +389,41 @@ const SecureVibeMap: React.FC = () => {
       {/* Your location marker */}
       <div
         className="absolute transform -translate-x-1/2 -translate-y-1/2 z-30"
-        style={{
-          left: '50%',
-          top: '50%',
-        }}
+        style={{ left: '50%', top: '50%' }}
       >
-        <div className="absolute inset-0 w-16 h-16 bg-yellow-400 rounded-full animate-ping opacity-40"></div>
-        <div className="absolute inset-0 w-12 h-12 bg-yellow-400 rounded-full animate-pulse opacity-60"></div>
-        <div className="absolute inset-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-2 border-white shadow-xl flex items-center justify-center">
-          <div className="w-3 h-3 bg-white rounded-full"></div>
-        </div>
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 text-yellow-400">
-          <div className="animate-bounce">👑</div>
-        </div>
-        <div className="absolute top-12 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 px-2 py-1 rounded-full shadow-lg">
-          <span className="text-xs font-bold text-white">YOU</span>
+        <div className="relative">
+          <div className="absolute inset-0 w-12 h-12 bg-yellow-400 rounded-full animate-ping opacity-30"></div>
+          <div className="relative w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-3 border-white shadow-xl flex items-center justify-center">
+            <Navigation className="w-5 h-5 text-white" />
+          </div>
+          <div className="absolute top-12 left-1/2 transform -translate-x-1/2 bg-yellow-500 px-2 py-1 rounded-md shadow-lg">
+            <span className="text-xs font-bold text-white">YOU</span>
+          </div>
         </div>
       </div>
       
-      {/* Global user markers */}
-      {globalUsers.map((user: GlobalUser) => {
+      {/* User markers - Meetup style map pins */}
+      {filteredUsers.map((user: GlobalUser) => {
         const isVisible = user.status === 'online' ? blinkingMarkers[user.id] !== false : true;
         const showChatBubble = chatBubbles[user.id];
         const screenCoords = latLngToScreenCoords(user.position, mapCenter, mapZoom);
         
-        // Only show users within viewport
-        if (screenCoords.x < -10 || screenCoords.x > 110 || screenCoords.y < -10 || screenCoords.y > 110) {
+        if (screenCoords.x < -5 || screenCoords.x > 105 || screenCoords.y < -5 || screenCoords.y > 105) {
           return null;
         }
+        
+        const pinColor = user.gender === 'female' ? 'from-pink-500 to-pink-600' : 'from-blue-500 to-blue-600';
         
         return (
           <div
             key={user.id}
-            className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 cursor-pointer hover:scale-110 ${
-              isVisible ? 'opacity-100' : 'opacity-50'
+            className={`absolute transform -translate-x-1/2 -translate-y-full transition-all duration-500 cursor-pointer hover:scale-110 ${
+              isVisible ? 'opacity-100' : 'opacity-70'
             }`}
             style={{
               left: `${screenCoords.x}%`,
               top: `${screenCoords.y}%`,
-              zIndex: showChatBubble ? 20 : 10
+              zIndex: showChatBubble ? 25 : 15
             }}
             onClick={() => {
               setSelectedUser(user);
@@ -429,81 +433,51 @@ const SecureVibeMap: React.FC = () => {
             {/* Chat bubble */}
             {showChatBubble && (
               <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-30">
-                <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl px-3 py-2 max-w-40 relative shadow-xl animate-bounce">
-                  <div className="flex items-center space-x-1">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium truncate">{user.vibe}</span>
+                <div className="bg-white rounded-lg shadow-xl px-3 py-2 max-w-48 relative border border-gray-200 animate-bounce">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-gray-800 truncate">{user.vibe}</span>
                   </div>
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-                    <svg width="8" height="6" viewBox="0 0 8 6" className="text-purple-500">
-                      <path d="M4 6L0 0h8z" fill="currentColor"/>
-                    </svg>
+                    <div className="border-4 border-transparent border-t-white"></div>
                   </div>
-                  <div className="absolute -top-1 -right-1 text-yellow-300 text-xs animate-ping">✨</div>
                 </div>
               </div>
             )}
             
-            {/* Heart-shaped marker */}
+            {/* Meetup-style map pin */}
             <div className="relative group">
-              <div className="relative w-10 h-10 group-hover:scale-110 transition-all duration-300 cursor-pointer">
-                <svg 
-                  width="40" 
-                  height="40" 
-                  viewBox="0 0 24 24" 
-                  className="drop-shadow-lg group-hover:drop-shadow-xl transition-all duration-300"
-                >
-                  <defs>
-                    <linearGradient id={`heartGradient-${user.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                      {user.gender === 'female' ? (
-                        <>
-                          <stop offset="0%" stopColor="#ec4899" />
-                          <stop offset="50%" stopColor="#f472b6" />
-                          <stop offset="100%" stopColor="#fb7185" />
-                        </>
-                      ) : (
-                        <>
-                          <stop offset="0%" stopColor="#3b82f6" />
-                          <stop offset="50%" stopColor="#60a5fa" />
-                          <stop offset="100%" stopColor="#93c5fd" />
-                        </>
-                      )}
-                    </linearGradient>
-                  </defs>
-                  
-                  <path
-                    d="M12,21.35l-1.45-1.32C5.4,15.36,2,12.28,2,8.5 C2,5.42,4.42,3,7.5,3c1.74,0,3.41,0.81,4.5,2.09C13.09,3.81,14.76,3,16.5,3 C19.58,3,22,5.42,22,8.5c0,3.78-3.4,6.86-8.55,11.54L12,21.35z"
-                    fill={`url(#heartGradient-${user.id})`}
-                    className={user.status === 'online' ? 'animate-pulse' : ''}
-                  />
-                </svg>
-                
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-xs font-bold">
+              <div className={`w-8 h-12 bg-gradient-to-b ${pinColor} rounded-t-full rounded-br-full shadow-lg group-hover:shadow-xl transition-all duration-300 flex items-start justify-center pt-1`}>
+                <div className="text-white text-sm font-bold">
                   {user.avatar}
                 </div>
               </div>
+              
+              {/* Pin point */}
+              <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gradient-to-b ${pinColor} rotate-45`}></div>
               
               {/* Status indicator */}
               <div className="absolute -top-1 -right-1">
                 {user.status === 'online' ? (
                   <div className="relative">
-                    <div className="w-4 h-4 bg-green-400 border-2 border-white rounded-full shadow-lg"></div>
-                    <div className="absolute inset-0 w-4 h-4 bg-green-400 rounded-full animate-ping opacity-60"></div>
+                    <div className="w-4 h-4 bg-green-400 border-2 border-white rounded-full shadow-md"></div>
+                    <div className="absolute inset-0 w-4 h-4 bg-green-400 rounded-full animate-ping opacity-50"></div>
                   </div>
                 ) : (
-                  <div className="w-4 h-4 bg-gray-400 border-2 border-white rounded-full relative shadow-lg">
-                    <div className="absolute inset-1 bg-white rounded-full"></div>
-                  </div>
+                  <div className="w-4 h-4 bg-gray-400 border-2 border-white rounded-full shadow-md"></div>
                 )}
               </div>
               
-              {/* Country flag */}
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border border-gray-200 flex items-center justify-center text-xs shadow-md">
-                {user.country === 'UAE' && '🇦🇪'}
-                {user.country === 'India' && '🇮🇳'}
-                {user.country === 'Qatar' && '🇶🇦'}
-                {user.country === 'Kuwait' && '🇰🇼'}
-                {!['UAE', 'India', 'Qatar', 'Kuwait'].includes(user.country) && '🌍'}
+              {/* Hover info card */}
+              <div className="absolute bottom-14 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-xl px-3 py-2 min-w-32 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200">
+                <div className="text-center">
+                  <div className="text-sm font-bold text-gray-800">{user.name}</div>
+                  <div className="text-xs text-gray-600">{user.age} • {user.distance}</div>
+                  <div className="text-xs text-purple-600 mt-1">{user.mood}</div>
+                </div>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2">
+                  <div className="border-4 border-transparent border-t-white"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -514,27 +488,33 @@ const SecureVibeMap: React.FC = () => {
       <div className="absolute top-4 right-4 flex flex-col space-y-2">
         <button 
           onClick={() => setMapZoom(prev => Math.min(prev + 1, 18))}
-          className="w-10 h-10 bg-white bg-opacity-95 backdrop-blur-sm shadow-lg rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all duration-300 border border-gray-200"
+          className="w-10 h-10 bg-white shadow-lg rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all duration-300 border border-gray-200"
         >
           <Plus className="w-4 h-4" />
         </button>
         <button 
-          onClick={() => setMapZoom(prev => Math.max(prev - 1, 8))}
-          className="w-10 h-10 bg-white bg-opacity-95 backdrop-blur-sm shadow-lg rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all duration-300 border border-gray-200"
+          onClick={() => setMapZoom(prev => Math.max(prev - 1, 10))}
+          className="w-10 h-10 bg-white shadow-lg rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all duration-300 border border-gray-200"
         >
           <Minus className="w-4 h-4" />
         </button>
         <button 
           onClick={() => setShowRadiusControls(!showRadiusControls)}
-          className="w-10 h-10 bg-purple-600 bg-opacity-95 backdrop-blur-sm shadow-lg rounded-lg flex items-center justify-center hover:bg-purple-700 transition-all duration-300"
+          className="w-10 h-10 bg-purple-600 shadow-lg rounded-lg flex items-center justify-center hover:bg-purple-700 transition-all duration-300"
         >
           <Sliders className="w-4 h-4 text-white" />
+        </button>
+        <button 
+          onClick={() => setShowFilters(!showFilters)}
+          className="w-10 h-10 bg-blue-600 shadow-lg rounded-lg flex items-center justify-center hover:bg-blue-700 transition-all duration-300"
+        >
+          <Filter className="w-4 h-4 text-white" />
         </button>
       </div>
       
       {/* Radius controls */}
       {showRadiusControls && (
-        <div className="absolute top-4 right-16 bg-white bg-opacity-95 backdrop-blur-sm shadow-lg rounded-xl p-4 border border-gray-200">
+        <div className="absolute top-4 right-16 bg-white shadow-lg rounded-xl p-4 border border-gray-200">
           <div className="text-sm font-medium text-gray-800 mb-3">Search Radius</div>
           <div className="flex items-center space-x-3">
             <span className="text-xs text-gray-500 font-medium">5km</span>
@@ -553,9 +533,56 @@ const SecureVibeMap: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Filter controls */}
+      {showFilters && (
+        <div className="absolute top-4 right-28 bg-white shadow-lg rounded-xl p-4 border border-gray-200 w-64">
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-800 mb-2 block">Age Range</label>
+              <div className="flex items-center space-x-3">
+                <span className="text-xs text-gray-500">{ageFilter[0]}</span>
+                <input
+                  type="range"
+                  min="18"
+                  max="50"
+                  value={ageFilter[0]}
+                  onChange={(e) => setAgeFilter([Number(e.target.value), ageFilter[1]])}
+                  className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <input
+                  type="range"
+                  min="18"
+                  max="50"
+                  value={ageFilter[1]}
+                  onChange={(e) => setAgeFilter([ageFilter[0], Number(e.target.value)])}
+                  className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-xs text-gray-500">{ageFilter[1]}</span>
+              </div>
+              <div className="text-center mt-1 text-xs text-gray-600">
+                {ageFilter[0]} - {ageFilter[1]} years
+              </div>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium text-gray-800 mb-2 block">Gender</label>
+              <select 
+                value={genderFilter} 
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Genders</option>
+                <option value="male">Men</option>
+                <option value="female">Women</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Live users stats */}
-      <div className="absolute top-4 left-4 bg-white bg-opacity-95 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-gray-200">
+      <div className="absolute top-4 left-4 bg-white shadow-lg rounded-xl p-4 border border-gray-200">
         <div className="flex items-center space-x-3">
           <div className="relative">
             <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
@@ -568,10 +595,21 @@ const SecureVibeMap: React.FC = () => {
             <div className="text-xs text-gray-500 -mt-1">live now</div>
           </div>
         </div>
+        <div className="mt-2 text-xs text-gray-600">
+          {filteredUsers.length} nearby users
+        </div>
+      </div>
+
+      {/* Nearby Vibers button */}
+      <div className="absolute bottom-20 right-4">
+        <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-medium">
+          <Users className="w-5 h-5" />
+          <span>Nearby Vibers</span>
+        </button>
       </div>
       
       {/* Terms checkbox */}
-      <div className="absolute bottom-4 left-4 bg-white bg-opacity-95 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-gray-200">
+      <div className="absolute bottom-4 left-4 bg-white shadow-lg rounded-xl p-4 border border-gray-200">
         <CustomCheckbox
           id="terms-map"
           checked={agreedToTerms}
@@ -582,6 +620,29 @@ const SecureVibeMap: React.FC = () => {
             </>
           }
         />
+      </div>
+
+      {/* Legend */}
+      <div className="absolute bottom-4 right-4 bg-white shadow-lg rounded-xl p-4 border border-gray-200 w-48">
+        <div className="text-sm font-medium text-gray-800 mb-3">Map Legend</div>
+        <div className="space-y-2">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-6 bg-gradient-to-b from-pink-500 to-pink-600 rounded-t-full rounded-br-full"></div>
+            <span className="text-xs text-gray-600">Women</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-6 bg-gradient-to-b from-blue-500 to-blue-600 rounded-t-full rounded-br-full"></div>
+            <span className="text-xs text-gray-600">Men</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+            <span className="text-xs text-gray-600">Online</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+            <span className="text-xs text-gray-600">Away</span>
+          </div>
+        </div>
       </div>
       
       {/* Profile Card Modal */}
