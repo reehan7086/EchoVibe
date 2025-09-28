@@ -399,6 +399,7 @@ const MapComponent: React.FC<{
           </div>
         </div>
       )}
+      
       <div ref={mapRef} className="w-full h-full z-0" />
       
       <div className="absolute top-4 right-4 z-20">
@@ -464,14 +465,14 @@ const UserProfileCard: React.FC<{
           <p className="text-purple-400 text-sm">{user.location_name}</p>
           
           <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs mt-2 ${
-            user.status === 'online' ? 'bg-green-600 text-green-100' : user.status === 'away' ? 'bg-yellow-600 text-yellow-100' : 'bg-gray-600 text-gray-100'
+            user.status === 'online' ? 'bg-green-600 text-green-100' : 
+            user.status === 'away' ? 'bg-yellow-600 text-yellow-100' : 'bg-gray-600 text-gray-100'
           }`}>
             <div className={`w-2 h-2 rounded-full mr-2 ${
               user.status === 'online' ? 'bg-green-300' : 
               user.status === 'away' ? 'bg-yellow-300' : 'bg-gray-300'
             } animate-pulse`}></div>
-            {user.status === 'online' ? 'Online' : 
-             user.status === 'away' ? 'Away' : 'Offline'}
+            {user.status === 'online' ? 'Online' : user.status === 'away' ? 'Away' : 'Offline'}
           </div>
         </div>
 
@@ -734,12 +735,8 @@ const SparkVibeMap: React.FC = () => {
                     <input
                       type="text"
                       value={message}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMessage(e.target.value)}
-                      onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (e.key === 'Enter') {
-                          handleSendMessage();
-                        }
-                      }}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                       placeholder="Type a message..."
                       className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -807,18 +804,64 @@ const SparkVibeMap: React.FC = () => {
       default:
         return (
           <div className="bg-gray-800 rounded-xl p-6 h-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">Live Map</h2>
-              <div className="flex items-center space-x-4 text-gray-300">
-                <span>Radius: 5 km</span>
-                <span>0 users nearby</span>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">Live Map</h2>
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-400">Radius:</span>
+                <select 
+                  value={selectedRadius}
+                  onChange={(e) => setSelectedRadius(Number(e.target.value))}
+                  className="bg-gray-700 text-white px-3 py-1 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  {radiusOptions.map(radius => (
+                    <option key={radius} value={radius}>{radius} km</option>
+                  ))}
+                </select>
+                <div className="text-sm text-gray-400">
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin inline" />
+                  ) : (
+                    `${nearbyUsers.length} users nearby`
+                  )}
+                </div>
               </div>
             </div>
-            
-            {/* Map Container - Full height with no gaps */}
-            <div className="w-full h-[calc(100vh-200px)] rounded-lg overflow-hidden">
-              {/* Your map component here */}
-            </div>
+            {currentUser?.latitude && currentUser?.longitude ? (
+              <MapComponent 
+                onUserSelect={handleUserSelect} 
+                radius={selectedRadius} 
+                users={nearbyUsers}
+                currentUser={currentUser}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-96 bg-gray-700 rounded-lg">
+                <div className="text-center text-white">
+                  <MapPin className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-400">Location access required</p>
+                  <button 
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          async (position) => {
+                            if (currentUser) {
+                              await updateUserLocation(
+                                currentUser.user_id,
+                                position.coords.latitude,
+                                position.coords.longitude
+                              );
+                              window.location.reload();
+                            }
+                          }
+                        );
+                      }
+                    }}
+                    className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Enable Location
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
     }
@@ -843,45 +886,146 @@ const SparkVibeMap: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-900">
-      {/* Main Navigation Sidebar - Keep only this one */}
-      <div className="w-16 bg-purple-800 flex flex-col items-center py-4 space-y-4">
-        {/* Navigation items */}
-      </div>
-
-      {/* Main Content Area - Full width minus sidebar */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 bg-gray-800">
-          <h1 className="text-2xl font-bold text-white">Discover Nearby</h1>
-          <div className="flex items-center space-x-2 text-green-400">
-            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-            <span className="text-sm">0 users nearby</span>
+    <div className="h-screen bg-gray-900 text-white flex overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-20 bg-gradient-to-b from-purple-800 to-blue-900 flex flex-col">
+        <div className="p-4 space-y-6">
+          <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-blue-400 rounded-xl flex items-center justify-center">
+            <Menu className="w-6 h-6 text-white" />
+          </div>
+          
+          <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-bold text-lg">
+            {currentUser.full_name?.charAt(0) || currentUser.username?.charAt(0) || 'P'}
+          </div>
+          
+          <div className="space-y-4">
+            <button 
+              onClick={() => setCurrentView('map')}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all ${
+                currentView === 'map' ? 'bg-purple-700 bg-opacity-50' : 'hover:bg-purple-700 hover:bg-opacity-30'
+              }`}
+            >
+              <MapPin className="w-6 h-6 text-white" />
+            </button>
+            <button 
+              onClick={() => setCurrentView('messages')}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all ${
+                currentView === 'messages' ? 'bg-purple-700 bg-opacity-50' : 'hover:bg-purple-700 hover:bg-opacity-30'
+              }`}
+            >
+              <MessageCircle className="w-6 h-6 text-gray-300" />
+            </button>
+            <button 
+              onClick={() => setCurrentView('notifications')}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all ${
+                currentView === 'notifications' ? 'bg-purple-700 bg-opacity-50' : 'hover:bg-purple-700 hover:bg-opacity-30'
+              }`}
+            >
+              <Bell className="w-6 h-6 text-gray-300" />
+            </button>
+            <button 
+              onClick={() => setCurrentView('users')}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all ${
+                currentView === 'users' ? 'bg-purple-700 bg-opacity-50' : 'hover:bg-purple-700 hover:bg-opacity-30'
+              }`}
+            >
+              <Users className="w-6 h-6 text-gray-300" />
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-gray-800 bg-opacity-50 backdrop-blur-sm p-6 flex items-center justify-between border-b border-gray-700">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-2xl font-bold">
+              {currentView === 'map' && 'Discover Nearby'}
+              {currentView === 'messages' && 'Messages'}
+              {currentView === 'notifications' && 'Notifications'}
+              {currentView === 'users' && 'All Users'}
+            </h1>
+          </div>
+          {currentView === 'map' && (
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>{nearbyUsers.length} users nearby</span>
+            </div>
+          )}
+        </header>
 
         {/* Content Area */}
-        <div className="flex-1 flex">
-          {/* Map Section - Takes most space */}
-          <div className="flex-1 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">Live Map</h2>
-              <div className="flex items-center space-x-4 text-gray-300">
-                <span>Radius: 5 km</span>
-                <span>0 users nearby</span>
+        <div className="flex-1 p-6 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+            
+            {/* Main Content */}
+            <div className="lg:col-span-3 h-full">
+              {renderMainContent()}
+            </div>
+
+            {/* Right Sidebar - Nearby Users */}
+            <div className="space-y-6 h-full overflow-hidden">
+              <div className="bg-gray-800 rounded-xl p-6 h-full flex flex-col">
+                <h3 className="text-lg font-semibold mb-4 text-gray-100 flex-shrink-0">Nearby Users</h3>
+                <div className="flex-1 overflow-y-auto pr-2">
+                  {loading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {nearbyUsers.map((user) => (
+                        <div 
+                          key={user.id} 
+                          className="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-all cursor-pointer border border-gray-600"
+                          onClick={() => handleUserSelect(user)}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold relative flex-shrink-0 ${
+                              user.gender === 'female' 
+                                ? 'bg-gradient-to-r from-pink-400 to-pink-600' 
+                                : 'bg-gradient-to-r from-blue-400 to-blue-600'
+                            } shadow-lg`}>
+                              {getActivityEmoji(user.current_mood || '', user.activity, user.gender)}
+                              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-700 ${
+                                user.status === 'online' ? 'bg-green-400' : 
+                                user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400'
+                              }`}></div>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-semibold text-white text-sm truncate">{user.full_name || user.username}</p>
+                                  <p className="text-xs text-gray-400 truncate">{user.location_name}</p>
+                                </div>
+                                <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{user.distance?.toFixed(1)} km</span>
+                              </div>
+                              
+                              <div className={`text-xs mt-1 px-2 py-0.5 rounded-full inline-block ${
+                                user.status === 'online' 
+                                  ? 'bg-green-600 bg-opacity-20 text-green-300' 
+                                  : user.status === 'away'
+                                  ? 'bg-yellow-600 bg-opacity-20 text-yellow-300'
+                                  : 'bg-gray-600 bg-opacity-20 text-gray-300'
+                              }`}>
+                                {user.status === 'online' ? 'Online' : 
+                                 user.status === 'away' ? 'Away' : 'Offline'}
+                              </div>
+                              
+                              <div className="mt-2">
+                                <p className="text-xs text-gray-300 italic truncate">"{user.current_mood || 'Just vibing'}"</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            
-            {/* Map Container - Full height with no gaps */}
-            <div className="w-full h-[calc(100vh-200px)] rounded-lg overflow-hidden">
-              {/* Your map component here */}
-            </div>
-          </div>
-
-          {/* Right Sidebar - Nearby Users */}
-          <div className="w-80 bg-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Nearby Users</h3>
-            {/* Users list */}
           </div>
         </div>
       </div>
