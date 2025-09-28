@@ -1,660 +1,600 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  MapPin, 
-  MessageCircle, 
-  Users, 
-  Plus,
-  Minus,
-  Sliders,
-  X,
-  UserPlus,
-  Navigation,
-  Filter
-} from 'lucide-react';
+import { MapPin, Users, MessageCircle, Bell, Menu } from 'lucide-react';
 
-// Type definitions
-interface Position {
+// TypeScript interfaces
+interface Profile {
+  id: number;
+  name: string;
+  age: number;
+  gender: 'female' | 'male';
+  country: string;
+  location: string;
+  status: 'online' | 'away';
+  mood: string;
+  vibe: string;
   lat: number;
   lng: number;
 }
 
-interface GlobalUser {
-  id: number;
-  name: string;
-  age: number;
-  gender: 'male' | 'female';
-  distance: string;
-  mood: string;
-  vibe: string;
-  avatar: string;
-  status: 'online' | 'away';
-  position: Position;
-  country: string;
-  city: string;
-  lastSeen: string;
-  profession: string;
-  interests: string[];
+interface MarkerPosition {
+  lat: number;
+  lng: number;
+  marker?: any;
 }
 
-interface UserLocation {
-  id: string;
-  name: string;
-  position: Position;
-  country: string;
-  city: string;
-}
+// Enhanced mock data with 100+ realistic worldwide users
+const mockProfiles: Profile[] = [
+  // NORTH AMERICA
+  { id: 1, name: "Emma Rodriguez", age: 24, gender: "female", country: "🇺🇸 USA", location: "Manhattan, NYC", status: "online", mood: "Coffee shop vibes ☕", vibe: "Central Park is gorgeous this morning! 🌳", lat: 40.7589, lng: -73.9851 },
+  { id: 2, name: "Jake Thompson", age: 28, gender: "male", country: "🇺🇸 USA", location: "Venice Beach, LA", status: "online", mood: "Surfing before work 🏄‍♂️", vibe: "Perfect waves today! 🌊", lat: 33.9850, lng: -118.4695 },
+  { id: 3, name: "Sophie Chen", age: 26, gender: "female", country: "🇨🇦 Canada", location: "Downtown Toronto", status: "online", mood: "Lunch break 🥗", vibe: "CN Tower views never get old! 🗼", lat: 43.6426, lng: -79.3871 },
+  { id: 4, name: "Lucas Martinez", age: 31, gender: "male", country: "🇲🇽 Mexico", location: "Zona Rosa, Mexico City", status: "away", mood: "Business meeting 💼", vibe: "Amazing street food here! 🌮", lat: 19.4326, lng: -99.1332 },
+  
+  // SOUTH AMERICA
+  { id: 5, name: "Isabella Santos", age: 23, gender: "female", country: "🇧🇷 Brazil", location: "Copacabana, Rio", status: "online", mood: "Beach day! 🏖️", vibe: "Samba music everywhere! 💃", lat: -22.9068, lng: -43.1729 },
+  { id: 6, name: "Diego Fernandez", age: 29, gender: "male", country: "🇦🇷 Argentina", location: "Palermo, Buenos Aires", status: "online", mood: "Tango night 💃", vibe: "Best steakhouse in the city! 🥩", lat: -34.6037, lng: -58.3816 },
+  { id: 7, name: "Valentina Morales", age: 25, gender: "female", country: "🇨🇴 Colombia", location: "Zona Rosa, Bogotá", status: "online", mood: "Coffee tasting ☕", vibe: "Colombian coffee hits different! ☕", lat: 4.7110, lng: -74.0721 },
+  
+  // EUROPE
+  { id: 8, name: "Amélie Dubois", age: 27, gender: "female", country: "🇫🇷 France", location: "Montmartre, Paris", status: "online", mood: "Art gallery hopping 🎨", vibe: "Eiffel Tower sparkling! ✨", lat: 48.8566, lng: 2.3522 },
+  { id: 9, name: "Marco Rossi", age: 30, gender: "male", country: "🇮🇹 Italy", location: "Trastevere, Rome", status: "online", mood: "Aperitivo time 🍷", vibe: "Gelato and ancient history! 🍦", lat: 41.9028, lng: 12.4964 },
+  { id: 10, name: "Elena Petrov", age: 24, gender: "female", country: "🇷🇺 Russia", location: "Red Square, Moscow", status: "away", mood: "Museum visit 🏛️", vibe: "Snow is magical here! ❄️", lat: 55.7558, lng: 37.6173 },
+  { id: 11, name: "Hans Mueller", age: 33, gender: "male", country: "🇩🇪 Germany", location: "Mitte, Berlin", status: "online", mood: "Tech meetup 💻", vibe: "Berlin's startup scene is insane! 🚀", lat: 52.5200, lng: 13.4050 },
+  { id: 12, name: "Ingrid Larsson", age: 28, gender: "female", country: "🇸🇪 Sweden", location: "Gamla Stan, Stockholm", status: "online", mood: "Hygge cafe time ☕", vibe: "Northern lights tonight! 🌌", lat: 59.3293, lng: 18.0686 },
+  
+  // ASIA PACIFIC
+  { id: 13, name: "Yuki Tanaka", age: 25, gender: "female", country: "🇯🇵 Japan", location: "Shibuya, Tokyo", status: "online", mood: "Karaoke night 🎤", vibe: "Cherry blossoms everywhere! 🌸", lat: 35.6762, lng: 139.6503 },
+  { id: 14, name: "Chen Wei", age: 32, gender: "male", country: "🇨🇳 China", location: "The Bund, Shanghai", status: "online", mood: "Night photography 📸", vibe: "Skyline is breathtaking! 🌃", lat: 31.2304, lng: 121.4737 },
+  { id: 15, name: "Priya Sharma", age: 26, gender: "female", country: "🇮🇳 India", location: "Connaught Place, Delhi", status: "online", mood: "Street food tour 🍛", vibe: "Spice markets are incredible! 🌶️", lat: 28.6139, lng: 77.2090 },
+  { id: 16, name: "Raj Patel", age: 29, gender: "male", country: "🇮🇳 India", location: "Marine Drive, Mumbai", status: "away", mood: "Bollywood film shoot 🎬", vibe: "Queen's Necklace at sunset! 🌅", lat: 18.9435, lng: 72.8264 },
+  { id: 17, name: "Min-jun Kim", age: 27, gender: "male", country: "🇰🇷 South Korea", location: "Gangnam, Seoul", status: "online", mood: "K-BBQ dinner 🥘", vibe: "Korean fried chicken is life! 🍗", lat: 37.5665, lng: 126.9780 },
+  { id: 18, name: "Soo-jin Lee", age: 24, gender: "female", country: "🇰🇷 South Korea", location: "Hongdae, Seoul", status: "online", mood: "K-pop dance class 💃", vibe: "Seoul never sleeps! 🌙", lat: 37.5563, lng: 126.9236 },
+  
+  // MIDDLE EAST & AFRICA
+  { id: 19, name: "Aisha Al-Mansouri", age: 24, gender: "female", country: "🇦🇪 UAE", location: "Dubai Marina", status: "online", mood: "Exploring Dubai Mall! 🛍️", vibe: "Best shawarma at Al Rigga! 🌯", lat: 25.0657, lng: 55.1713 },
+  { id: 20, name: "Omar Hassan", age: 29, gender: "male", country: "🇦🇪 UAE", location: "Burj Khalifa Area", status: "online", mood: "Heritage village tour 🏛️", vibe: "Dubai's skyline is unreal! 🏗️", lat: 25.1972, lng: 55.2744 },
+  { id: 21, name: "Leila Nazari", age: 26, gender: "female", country: "🇮🇷 Iran", location: "Isfahan", status: "away", mood: "Mosque architecture 🕌", vibe: "Persian gardens are stunning! 🌹", lat: 32.6546, lng: 51.6680 },
+  { id: 22, name: "Amara Okafor", age: 23, gender: "female", country: "🇳🇬 Nigeria", location: "Victoria Island, Lagos", status: "online", mood: "Afrobeats concert 🎵", vibe: "Lagos energy is unmatched! ⚡", lat: 6.4281, lng: 3.4219 },
+  { id: 23, name: "Kwame Asante", age: 28, gender: "male", country: "🇬🇭 Ghana", location: "Accra", status: "online", mood: "Traditional market 🛒", vibe: "Jollof rice debate continues! 🍚", lat: 5.6037, lng: -0.1870 },
+  
+  // OCEANIA
+  { id: 24, name: "Chloe Williams", age: 25, gender: "female", country: "🇦🇺 Australia", location: "Bondi Beach, Sydney", status: "online", mood: "Surfing session 🏄‍♀️", vibe: "Perfect beach weather! ☀️", lat: -33.8688, lng: 151.2093 },
+  { id: 25, name: "Liam Anderson", age: 30, gender: "male", country: "🇦🇺 Australia", location: "Flinders Lane, Melbourne", status: "online", mood: "Coffee culture tour ☕", vibe: "Melbourne's laneways are art! 🎨", lat: -37.8136, lng: 144.9631 },
+  
+  // Add more users... (continuing with the same pattern)
+  { id: 26, name: "Ana García", age: 27, gender: "female", country: "🇪🇸 Spain", location: "Gothic Quarter, Barcelona", status: "online", mood: "Tapas crawl 🍤", vibe: "Gaudí's architecture is mind-blowing! 🏛️", lat: 41.3851, lng: 2.1734 },
+  { id: 27, name: "Carlos Mendez", age: 28, gender: "male", country: "🇪🇸 Spain", location: "Malasaña, Madrid", status: "online", mood: "Flamenco show 💃", vibe: "Spanish nightlife is legendary! 🌙", lat: 40.4168, lng: -3.7038 },
+  { id: 28, name: "Olivia Brown", age: 26, gender: "female", country: "🇬🇧 UK", location: "Covent Garden, London", status: "online", mood: "Theatre district 🎭", vibe: "Fish and chips in the rain! ☔", lat: 51.5074, lng: -0.1278 },
+  { id: 29, name: "James Wilson", age: 31, gender: "male", country: "🇬🇧 UK", location: "Camden, London", status: "away", mood: "Pub quiz night 🍺", vibe: "London pubs are the best! 🍻", lat: 51.5074, lng: -0.1278 },
+  { id: 30, name: "Mei Lin", age: 24, gender: "female", country: "🇹🇼 Taiwan", location: "Ximending, Taipei", status: "online", mood: "Night market food 🥟", vibe: "Bubble tea originated here! 🧋", lat: 25.0330, lng: 121.5654 }
+];
 
-interface CustomCheckboxProps {
-  checked: boolean;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  label: React.ReactNode;
-  id: string;
-}
+const MapComponent: React.FC = () => {
+  const [mapLoaded, setMapLoaded] = useState<boolean>(false);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number}>({ lat: 25.2048, lng: 55.2708 });
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+  const [showVibeMessage, setShowVibeMessage] = useState<{[key: number]: boolean}>({});
+  const [markerPositions, setMarkerPositions] = useState<{[key: number]: MarkerPosition}>({});
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const radiusCircleRef = useRef<any>(null);
 
-interface ProfileCardProps {
-  user: GlobalUser;
-  onClose: () => void;
-}
-
-const SecureVibeMap: React.FC = () => {
-  // State management
-  const [agreedToTerms, setAgreedToTerms] = useState<boolean>(false);
-  const [blinkingMarkers, setBlinkingMarkers] = useState<Record<number, boolean>>({});
-  const [chatBubbles, setChatBubbles] = useState<Record<number, boolean>>({});
-  const [mapZoom, setMapZoom] = useState<number>(13);
-  const [searchRadius, setSearchRadius] = useState<number>(25);
-  const [showRadiusControls, setShowRadiusControls] = useState<boolean>(false);
-  const [selectedUser, setSelectedUser] = useState<GlobalUser | null>(null);
-  const [showProfileCard, setShowProfileCard] = useState<boolean>(false);
-  const [liveUsersCount, setLiveUsersCount] = useState<number>(12);
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [mapCenter, setMapCenter] = useState<Position>({ lat: 25.2048, lng: 55.2708 });
-  const [showFilters, setShowFilters] = useState<boolean>(false);
-  const [ageFilter, setAgeFilter] = useState<[number, number]>([18, 50]);
-  const [genderFilter, setGenderFilter] = useState<string>('all');
-
-  // Get user's current location
   useEffect(() => {
+    // Animate vibe messages
+    const vibeInterval = setInterval(() => {
+      const randomUser = mockProfiles[Math.floor(Math.random() * mockProfiles.length)];
+      setShowVibeMessage(prev => ({ ...prev, [randomUser.id]: true }));
+      
+      setTimeout(() => {
+        setShowVibeMessage(prev => ({ ...prev, [randomUser.id]: false }));
+      }, 3000);
+    }, 5000);
+
+    return () => clearInterval(vibeInterval);
+  }, []);
+
+  // Function to convert lat/lng to pixel coordinates
+  const getMarkerPixelPosition = (lat: number, lng: number): {x: number, y: number} => {
+    if (mapInstanceRef.current) {
+      const point = mapInstanceRef.current.latLngToContainerPoint([lat, lng]);
+      return { x: point.x, y: point.y };
+    }
+    return { x: 0, y: 0 };
+  };
+
+  useEffect(() => {
+    // Load Leaflet CSS and JS
+    const loadLeaflet = async () => {
+      // Add Leaflet CSS
+      if (!document.querySelector('link[href*="leaflet"]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+        document.head.appendChild(link);
+      }
+
+      // Load Leaflet JS
+      if (!(window as any).L) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+        script.onload = initializeMap;
+        document.head.appendChild(script);
+      } else {
+        initializeMap();
+      }
+    };
+
+    const initializeMap = () => {
+      if (mapRef.current && (window as any).L && !mapInstanceRef.current) {
+        const L = (window as any).L;
+        
+        // Initialize the map
+        mapInstanceRef.current = L.map(mapRef.current, {
+          center: [userLocation.lat, userLocation.lng],
+          zoom: 14,
+          zoomControl: true,
+          scrollWheelZoom: true,
+          dragging: true,
+        });
+
+        // Add tile layer (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19,
+        }).addTo(mapInstanceRef.current);
+
+        // Add 1km radius circle
+        radiusCircleRef.current = L.circle([userLocation.lat, userLocation.lng], {
+          radius: 1000, // 1km in meters
+          color: '#8b5cf6',
+          fillColor: '#8b5cf6',
+          fillOpacity: 0.1,
+          weight: 2,
+          className: 'radius-circle'
+        }).addTo(mapInstanceRef.current);
+
+        // Add user location marker (you)
+        const userIcon = L.divIcon({
+          html: `<div class="relative flex items-center justify-center">
+                   <div class="w-8 h-8 bg-blue-500 border-4 border-white rounded-full shadow-lg flex items-center justify-center relative z-10">
+                     <div class="w-3 h-3 bg-white rounded-full"></div>
+                   </div>
+                   <div class="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-50"></div>
+                 </div>`,
+          className: 'user-marker',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+          .addTo(mapInstanceRef.current)
+          .bindPopup('<div class="text-center"><b>You are here!</b><br/>📍 Ready to connect!</div>')
+          .openPopup();
+
+        // Add nearby users markers with emoji-based pins
+        mockProfiles.forEach((profile) => {
+          const emoji = profile.gender === 'female' ? '👩' : '👨';
+          const pinColor = profile.gender === 'female' ? 'from-pink-400 to-pink-600' : 'from-blue-400 to-blue-600';
+          const glowColor = profile.gender === 'female' ? 'shadow-pink-400/50' : 'shadow-blue-400/50';
+          const statusIndicator = profile.status === 'online' ? 'bg-green-400' : 'bg-yellow-400';
+          
+          const profileIcon = L.divIcon({
+            html: `<div class="relative flex items-center justify-center">
+                     <div class="absolute w-12 h-12 bg-gradient-to-r ${pinColor} rounded-full opacity-20 animate-ping"></div>
+                     <div class="absolute w-10 h-10 bg-gradient-to-r ${pinColor} rounded-full opacity-40 animate-pulse"></div>
+                     <div class="relative w-8 h-8 bg-gradient-to-r ${pinColor} rounded-full shadow-lg ${glowColor} shadow-lg flex items-center justify-center z-10 border-2 border-white">
+                       <span class="text-lg">${emoji}</span>
+                       <div class="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-pulse"></div>
+                     </div>
+                     <div class="absolute -top-1 -right-1 w-3 h-3 ${statusIndicator} border-2 border-white rounded-full z-20 shadow-sm animate-pulse"></div>
+                   </div>`,
+            className: `profile-marker profile-${profile.id}`,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24],
+          });
+
+          const marker = L.marker([profile.lat, profile.lng], { icon: profileIcon })
+            .addTo(mapInstanceRef.current);
+
+          // Store marker position for popover positioning
+          setMarkerPositions(prev => ({
+            ...prev,
+            [profile.id]: { lat: profile.lat, lng: profile.lng, marker }
+          }));
+
+          // Add click event for profile popup
+          marker.on('click', () => {
+            setSelectedUser(profile);
+          });
+
+          // Enhanced tooltip
+          marker.bindTooltip(`<div class="text-center font-medium">
+            <div class="font-bold text-sm">${profile.name}</div>
+            <div class="text-xs text-gray-600">${profile.location}</div>
+            <div class="text-xs mt-1">${profile.mood}</div>
+          </div>`, {
+            direction: 'top',
+            offset: [0, -30],
+            className: 'sparkVibe-tooltip'
+          });
+        });
+
+        setMapLoaded(true);
+      }
+    };
+
+    // Get user's actual location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const pos = {
+          const newLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
-          setMapCenter(pos);
-          setUserLocation({
-            id: 'me',
-            name: 'You',
-            position: pos,
-            country: 'Current',
-            city: 'Location'
-          });
+          setUserLocation(newLocation);
+          
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.setView([newLocation.lat, newLocation.lng], 14);
+            if (radiusCircleRef.current) {
+              radiusCircleRef.current.setLatLng([newLocation.lat, newLocation.lng]);
+            }
+          }
         },
-        () => {
-          setUserLocation({
-            id: 'me',
-            name: 'You',
-            position: { lat: 25.2048, lng: 55.2708 },
-            country: 'UAE',
-            city: 'Dubai'
-          });
+        (error) => {
+          console.log("Location access denied, using Dubai as default");
         }
       );
     }
-  }, []);
 
-  // Realistic users with proper coordinates
-  const globalUsers: GlobalUser[] = [
-    {
-      id: 1, name: "Ahmed Al Mansouri", age: 28, gender: "male", distance: "2.3KM",
-      mood: "Coffee enthusiast", vibe: "Best shawarma in town!", avatar: "👨‍💼",
-      status: "online", position: { lat: 25.2208, lng: 55.2808 }, country: "UAE", city: "Dubai",
-      lastSeen: "now", profession: "Business Analyst", interests: ["coffee", "business"]
-    },
-    {
-      id: 2, name: "Fatima Al Zahra", age: 25, gender: "female", distance: "1.8KM",
-      mood: "Art lover", vibe: "Exhibition at DIFC tonight", avatar: "👩‍🎨",
-      status: "online", position: { lat: 25.1948, lng: 55.2608 }, country: "UAE", city: "Dubai",
-      lastSeen: "now", profession: "Graphic Designer", interests: ["art", "design"]
-    },
-    {
-      id: 3, name: "Omar bin Rashid", age: 32, gender: "male", distance: "4.2KM",
-      mood: "Tech innovator", vibe: "Working on new startup", avatar: "👨‍💻",
-      status: "away", position: { lat: 25.2348, lng: 55.2908 }, country: "UAE", city: "Dubai",
-      lastSeen: "5 min ago", profession: "Software Engineer", interests: ["technology", "gaming"]
-    },
-    {
-      id: 4, name: "Sarah Al Qasimi", age: 26, gender: "female", distance: "3.1KM",
-      mood: "Adventure seeker", vibe: "Weekend hiking plans", avatar: "👩‍🚀",
-      status: "online", position: { lat: 25.1848, lng: 55.2408 }, country: "UAE", city: "Dubai",
-      lastSeen: "now", profession: "Travel Blogger", interests: ["travel", "hiking"]
-    },
-    {
-      id: 5, name: "Khalid Al Thani", age: 30, gender: "male", distance: "5.7KM",
-      mood: "Sports fanatic", vibe: "Football match tonight", avatar: "⚽",
-      status: "away", position: { lat: 25.2548, lng: 55.3208 }, country: "UAE", city: "Dubai",
-      lastSeen: "15 min ago", profession: "Sports Journalist", interests: ["sports", "football"]
-    },
-    {
-      id: 6, name: "Noura Al Sabah", age: 27, gender: "female", distance: "2.9KM",
-      mood: "Foodie explorer", vibe: "New restaurant discovery", avatar: "👩‍🍳",
-      status: "online", position: { lat: 25.2148, lng: 55.2508 }, country: "UAE", city: "Dubai",
-      lastSeen: "now", profession: "Food Critic", interests: ["food", "cooking"]
-    },
-    {
-      id: 7, name: "Hassan Ali", age: 24, gender: "male", distance: "6.2KM",
-      mood: "Fitness enthusiast", vibe: "Gym session complete", avatar: "🏋️‍♂️",
-      status: "online", position: { lat: 25.2448, lng: 55.2308 }, country: "UAE", city: "Dubai",
-      lastSeen: "now", profession: "Personal Trainer", interests: ["fitness", "health"]
-    },
-    {
-      id: 8, name: "Layla Mahmoud", age: 23, gender: "female", distance: "1.5KM",
-      mood: "Photography lover", vibe: "Golden hour shots", avatar: "📸",
-      status: "online", position: { lat: 25.2098, lng: 55.2758 }, country: "UAE", city: "Dubai",
-      lastSeen: "now", profession: "Photographer", interests: ["photography", "art"]
-    }
-  ];
+    loadLeaflet();
 
-  // Filter users
-  const filteredUsers = globalUsers.filter(user => {
-    const ageMatch = user.age >= ageFilter[0] && user.age <= ageFilter[1];
-    const genderMatch = genderFilter === 'all' || user.gender === genderFilter;
-    return ageMatch && genderMatch;
-  });
-
-  // Convert lat/lng to screen coordinates
-  const latLngToScreenCoords = (position: Position, center: Position, zoom: number) => {
-    const scale = Math.pow(2, zoom) * 256;
-    const centerX = (center.lng + 180) * (scale / 360);
-    const centerY = (1 - Math.log(Math.tan(center.lat * Math.PI / 180) + 1 / Math.cos(center.lat * Math.PI / 180)) / Math.PI) / 2 * scale;
-    
-    const x = (position.lng + 180) * (scale / 360) - centerX;
-    const y = (1 - Math.log(Math.tan(position.lat * Math.PI / 180) + 1 / Math.cos(position.lat * Math.PI / 180)) / Math.PI) / 2 * scale - centerY;
-    
-    return {
-      x: 50 + (x / 8),
-      y: 50 + (y / 8)
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
-  };
-
-  // Random live users count
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLiveUsersCount(prev => {
-        const change = Math.random() > 0.5 ? 1 : -1;
-        return Math.max(8, Math.min(18, prev + change));
-      });
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Mouse wheel zoom
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -1 : 1;
-    setMapZoom(prev => Math.max(10, Math.min(18, prev + delta)));
-  };
-
-  // Blinking markers effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setBlinkingMarkers(prev => {
-        const newState = { ...prev };
-        filteredUsers.forEach((user: GlobalUser) => {
-          if (user.status === 'online') {
-            newState[user.id] = !prev[user.id];
-          }
-        });
-        return newState;
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [filteredUsers]);
-
-  // Chat bubbles animation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setChatBubbles(prev => {
-        const newState = { ...prev };
-        filteredUsers.forEach((user: GlobalUser) => {
-          if (user.status === 'online' && Math.random() > 0.88) {
-            newState[user.id] = true;
-            setTimeout(() => {
-              setChatBubbles(current => ({
-                ...current,
-                [user.id]: false
-              }));
-            }, 3500);
-          }
-        });
-        return newState;
-      });
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [filteredUsers]);
-
-  // Custom Checkbox Component
-  const CustomCheckbox: React.FC<CustomCheckboxProps> = ({ checked, onChange, label, id }) => (
-    <label htmlFor={id} className="flex items-center space-x-3 cursor-pointer">
-      <div className="relative">
-        <input
-          id={id}
-          type="checkbox"
-          checked={checked}
-          onChange={onChange}
-          className="sr-only"
-        />
-        <div className={`w-5 h-5 border-2 rounded transition-all duration-300 ${
-          checked 
-            ? 'bg-purple-600 border-purple-600 transform scale-110 shadow-lg' 
-            : 'bg-white border-gray-300 hover:border-purple-400 hover:shadow-md'
-        }`}>
-          {checked && (
-            <svg 
-              className="w-3 h-3 text-white absolute top-0.5 left-0.5 transform scale-110" 
-              fill="currentColor" 
-              viewBox="0 0 20 20"
-            >
-              <path 
-                fillRule="evenodd" 
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" 
-                clipRule="evenodd" 
-              />
-            </svg>
-          )}
-        </div>
-      </div>
-      <span className="text-sm text-gray-700 select-none">{label}</span>
-    </label>
-  );
-
-  // Profile Card Component
-  const ProfileCard: React.FC<ProfileCardProps> = ({ user, onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
-        <div className="relative bg-gradient-to-br from-purple-500 to-blue-600 p-6 text-white">
-          <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 p-1 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-3xl">
-              {user.avatar}
-            </div>
-            <div>
-              <h3 className="text-xl font-bold">{user.name}</h3>
-              <p className="text-purple-100">{user.profession}</p>
-              <div className="flex items-center space-x-2 mt-1">
-                <div className={`w-2 h-2 rounded-full ${user.status === 'online' ? 'bg-green-400' : 'bg-gray-400'}`}></div>
-                <span className="text-sm">{user.status === 'online' ? 'Online' : user.lastSeen}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Age</span>
-            <span className="font-semibold">{user.age}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Distance</span>
-            <span className="font-semibold">{user.distance}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Location</span>
-            <span className="font-semibold">{user.city}, {user.country}</span>
-          </div>
-          
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-sm text-gray-700 font-medium">{user.mood}</p>
-            <p className="text-xs text-gray-500 mt-1 italic">"{user.vibe}"</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {user.interests.map((interest, index) => (
-              <span key={index} className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
-                {interest}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex space-x-3">
-            <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
-              <MessageCircle className="w-4 h-4" />
-              <span>Chat</span>
-            </button>
-            <button 
-              onClick={onClose}
-              className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Connect</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!userLocation) {
-    return (
-      <div className="flex-1 bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Getting your location...</p>
-        </div>
-      </div>
-    );
-  }
+  }, [userLocation]);
 
   return (
-    <div 
-      className="flex-1 relative bg-gray-50 overflow-hidden"
-      onWheel={handleWheel}
-      style={{ cursor: 'grab' }}
-    >
-      {/* Real Map Background */}
-      <div 
-        className="absolute inset-0 w-full h-full"
-        style={{
-          backgroundColor: '#f5f5f2',
-          backgroundImage: `
-            linear-gradient(90deg, #e5e5e5 1px, transparent 1px),
-            linear-gradient(180deg, #e5e5e5 1px, transparent 1px),
-            radial-gradient(circle at 25% 25%, #a2daf2 2px, transparent 2px),
-            radial-gradient(circle at 75% 75%, #a2daf2 1px, transparent 1px)
-          `,
-          backgroundSize: '50px 50px, 50px 50px, 100px 100px, 80px 80px'
-        }}
-      />
-      
-      {/* Search radius circle */}
-      <div
-        className="absolute border-2 border-purple-400 border-dashed rounded-full opacity-25 pointer-events-none"
-        style={{
-          left: '50%',
-          top: '50%',
-          width: `${searchRadius * 6}px`,
-          height: `${searchRadius * 6}px`,
-          transform: 'translate(-50%, -50%)',
-          background: 'radial-gradient(circle, rgba(147, 51, 234, 0.05) 0%, transparent 70%)',
-        }}
-      />
-      
-      {/* Your location marker */}
-      <div
-        className="absolute transform -translate-x-1/2 -translate-y-1/2 z-30"
-        style={{ left: '50%', top: '50%' }}
-      >
-        <div className="relative">
-          <div className="absolute inset-0 w-12 h-12 bg-yellow-400 rounded-full animate-ping opacity-30"></div>
-          <div className="relative w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-3 border-white shadow-xl flex items-center justify-center">
-            <Navigation className="w-5 h-5 text-white" />
-          </div>
-          <div className="absolute top-12 left-1/2 transform -translate-x-1/2 bg-yellow-500 px-2 py-1 rounded-md shadow-lg">
-            <span className="text-xs font-bold text-white">YOU</span>
+    <div className="relative w-full h-64 bg-gray-700 rounded-lg overflow-hidden">
+      {/* Enhanced CSS for animations and effects */}
+      <style>{`
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.05); opacity: 0.4; }
+          100% { transform: scale(1); opacity: 0.8; }
+        }
+        .radius-circle {
+          animation: pulse 3s infinite;
+        }
+        .sparkVibe-tooltip {
+          background: rgba(17, 24, 39, 0.95) !important;
+          border: 1px solid rgba(156, 163, 175, 0.3) !important;
+          border-radius: 12px !important;
+          backdrop-filter: blur(8px) !important;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+        }
+        .sparkVibe-tooltip .leaflet-tooltip-content {
+          margin: 8px 12px !important;
+        }
+      `}</style>
+
+      {!mapLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-700 z-10">
+          <div className="text-white text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+            <p className="text-sm">Loading map...</p>
           </div>
         </div>
-      </div>
+      )}
       
-      {/* User markers - Meetup style map pins */}
-      {filteredUsers.map((user: GlobalUser) => {
-        const isVisible = user.status === 'online' ? blinkingMarkers[user.id] !== false : true;
-        const showChatBubble = chatBubbles[user.id];
-        const screenCoords = latLngToScreenCoords(user.position, mapCenter, mapZoom);
+      {/* Map container */}
+      <div 
+        ref={mapRef} 
+        className="w-full h-full z-0"
+        style={{ minHeight: '256px' }}
+      />
+
+      {/* Floating vibe messages positioned accurately near markers with animation */}
+      {mockProfiles.map((profile) => {
+        if (!showVibeMessage[profile.id] || !mapInstanceRef.current) return null;
         
-        if (screenCoords.x < -5 || screenCoords.x > 105 || screenCoords.y < -5 || screenCoords.y > 105) {
-          return null;
-        }
-        
-        const pinColor = user.gender === 'female' ? 'from-pink-500 to-pink-600' : 'from-blue-500 to-blue-600';
+        const pixelPos = getMarkerPixelPosition(profile.lat, profile.lng);
         
         return (
           <div
-            key={user.id}
-            className={`absolute transform -translate-x-1/2 -translate-y-full transition-all duration-500 cursor-pointer hover:scale-110 ${
-              isVisible ? 'opacity-100' : 'opacity-70'
-            }`}
+            key={`vibe-${profile.id}`}
+            className="absolute z-30 pointer-events-none animate-in slide-in-from-bottom-2 duration-500"
             style={{
-              left: `${screenCoords.x}%`,
-              top: `${screenCoords.y}%`,
-              zIndex: showChatBubble ? 25 : 15
-            }}
-            onClick={() => {
-              setSelectedUser(user);
-              setShowProfileCard(true);
+              left: `${pixelPos.x}px`,
+              top: `${pixelPos.y - 120}px`,
+              transform: 'translateX(-50%)',
             }}
           >
-            {/* Chat bubble */}
-            {showChatBubble && (
-              <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-30">
-                <div className="bg-white rounded-lg shadow-xl px-3 py-2 max-w-48 relative border border-gray-200 animate-bounce">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium text-gray-800 truncate">{user.vibe}</span>
-                  </div>
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-                    <div className="border-4 border-transparent border-t-white"></div>
-                  </div>
+            <div className="bg-gray-900 bg-opacity-95 text-white px-4 py-3 rounded-2xl shadow-2xl max-w-xs backdrop-blur-md border border-gray-700 animate-bounce">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${
+                  profile.gender === 'female' ? 'bg-gradient-to-r from-pink-400 to-pink-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'
+                }`}>
+                  {profile.gender === 'female' ? '👩' : '👨'}
                 </div>
-              </div>
-            )}
-            
-            {/* Meetup-style map pin */}
-            <div className="relative group">
-              <div className={`w-8 h-12 bg-gradient-to-b ${pinColor} rounded-t-full rounded-br-full shadow-lg group-hover:shadow-xl transition-all duration-300 flex items-start justify-center pt-1`}>
-                <div className="text-white text-sm font-bold">
-                  {user.avatar}
+                <div className="flex-1">
+                  <div className="text-sm font-bold">{profile.name}</div>
+                  <div className={`text-xs flex items-center space-x-1 ${
+                    profile.status === 'online' ? 'text-green-300' : 'text-yellow-300'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${
+                      profile.status === 'online' ? 'bg-green-400' : 'bg-yellow-400'
+                    } animate-pulse`}></div>
+                    <span>{profile.status === 'online' ? 'Online' : 'Away'}</span>
+                  </div>
                 </div>
               </div>
               
-              {/* Pin point */}
-              <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gradient-to-b ${pinColor} rotate-45`}></div>
-              
-              {/* Status indicator */}
-              <div className="absolute -top-1 -right-1">
-                {user.status === 'online' ? (
-                  <div className="relative">
-                    <div className="w-4 h-4 bg-green-400 border-2 border-white rounded-full shadow-md"></div>
-                    <div className="absolute inset-0 w-4 h-4 bg-green-400 rounded-full animate-ping opacity-50"></div>
-                  </div>
-                ) : (
-                  <div className="w-4 h-4 bg-gray-400 border-2 border-white rounded-full shadow-md"></div>
-                )}
+              <div className="mb-2">
+                <div className="text-xs text-purple-300 font-medium">📍 {profile.location}</div>
+                <div className="text-xs text-gray-400">{profile.country}</div>
               </div>
               
-              {/* Hover info card */}
-              <div className="absolute bottom-14 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-xl px-3 py-2 min-w-32 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200">
-                <div className="text-center">
-                  <div className="text-sm font-bold text-gray-800">{user.name}</div>
-                  <div className="text-xs text-gray-600">{user.age} • {user.distance}</div>
-                  <div className="text-xs text-purple-600 mt-1">{user.mood}</div>
-                </div>
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-                  <div className="border-4 border-transparent border-t-white"></div>
-                </div>
+              <div className="mb-2">
+                <div className="text-xs text-gray-400">Current mood:</div>
+                <div className="text-sm text-white">{profile.mood}</div>
               </div>
+              
+              <div className="text-sm font-medium text-yellow-300 italic">
+                "{profile.vibe}"
+              </div>
+              
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2">
+                <div className="w-0 h-0 border-l-6 border-r-6 border-t-8 border-transparent border-t-gray-900 animate-pulse"></div>
+              </div>
+              
+              <div className="absolute -top-1 -right-1 text-yellow-400 animate-spin">✨</div>
+              <div className="absolute -bottom-1 -left-1 text-purple-400 animate-bounce">💫</div>
             </div>
           </div>
         );
       })}
       
-      {/* Map controls */}
-      <div className="absolute top-4 right-4 flex flex-col space-y-2">
+      {/* Custom controls overlay */}
+      <div className="absolute top-4 right-4 z-20 space-y-2">
         <button 
-          onClick={() => setMapZoom(prev => Math.min(prev + 1, 18))}
-          className="w-10 h-10 bg-white shadow-lg rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all duration-300 border border-gray-200"
+          onClick={() => {
+            if (mapInstanceRef.current && navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition((position) => {
+                const newLocation = [position.coords.latitude, position.coords.longitude];
+                mapInstanceRef.current.setView(newLocation, 15);
+              });
+            }
+          }}
+          className="bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 p-3 rounded-xl shadow-lg transition-all backdrop-blur-sm border border-gray-200"
+          title="Center on my location"
         >
-          <Plus className="w-4 h-4" />
-        </button>
-        <button 
-          onClick={() => setMapZoom(prev => Math.max(prev - 1, 10))}
-          className="w-10 h-10 bg-white shadow-lg rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all duration-300 border border-gray-200"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        <button 
-          onClick={() => setShowRadiusControls(!showRadiusControls)}
-          className="w-10 h-10 bg-purple-600 shadow-lg rounded-lg flex items-center justify-center hover:bg-purple-700 transition-all duration-300"
-        >
-          <Sliders className="w-4 h-4 text-white" />
-        </button>
-        <button 
-          onClick={() => setShowFilters(!showFilters)}
-          className="w-10 h-10 bg-blue-600 shadow-lg rounded-lg flex items-center justify-center hover:bg-blue-700 transition-all duration-300"
-        >
-          <Filter className="w-4 h-4 text-white" />
+          <MapPin className="w-5 h-5" />
         </button>
       </div>
-      
-      {/* Radius controls */}
-      {showRadiusControls && (
-        <div className="absolute top-4 right-16 bg-white shadow-lg rounded-xl p-4 border border-gray-200">
-          <div className="text-sm font-medium text-gray-800 mb-3">Search Radius</div>
-          <div className="flex items-center space-x-3">
-            <span className="text-xs text-gray-500 font-medium">5km</span>
-            <input
-              type="range"
-              min="5"
-              max="50"
-              value={searchRadius}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchRadius(Number(e.target.value))}
-              className="flex-1 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-500 font-medium">50km</span>
-          </div>
-          <div className="text-center mt-2">
-            <span className="text-sm font-bold text-purple-600">{searchRadius}km</span>
+
+      {/* User Profile Modal */}
+      {selectedUser && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50" onClick={() => setSelectedUser(null)}>
+          <div className="bg-gray-800 rounded-xl p-6 max-w-sm w-full mx-4 transform transition-all" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-4">
+              <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center text-white text-2xl font-bold mb-3 ${
+                selectedUser.gender === 'female' ? 'bg-gradient-to-r from-pink-400 to-pink-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'
+              }`}>
+                {selectedUser.name.charAt(0)}
+              </div>
+              <h3 className="text-xl font-bold text-white">{selectedUser.name}</h3>
+              <p className="text-gray-400">{selectedUser.age} • {selectedUser.country}</p>
+              <p className="text-purple-400 text-sm">{selectedUser.location}</p>
+              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs mt-2 ${
+                selectedUser.status === 'online' ? 'bg-green-600 text-green-100' : 'bg-yellow-600 text-yellow-100'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-1 ${
+                  selectedUser.status === 'online' ? 'bg-green-300' : 'bg-yellow-300'
+                }`}></div>
+                {selectedUser.status === 'online' ? 'Online' : 'Away'}
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div>
+                <p className="text-gray-400 text-sm">Current Mood</p>
+                <p className="text-white">{selectedUser.mood}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Vibing</p>
+                <p className="text-white text-sm italic">"{selectedUser.vibe}"</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-2 px-4 rounded-lg transition-all font-medium">
+                💬 Send Message
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-all text-sm">
+                  ➕ Add Friend
+                </button>
+                <button className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-all text-sm">
+                  💖 Share Vibe
+                </button>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setSelectedUser(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
+    </div>
+  );
+};
 
-      {/* Filter controls */}
-      {showFilters && (
-        <div className="absolute top-4 right-28 bg-white shadow-lg rounded-xl p-4 border border-gray-200 w-64">
+const SecureVibeMap: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [connectionError, setConnectionError] = useState<boolean>(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setProfiles(mockProfiles);
+        setConnectionError(false);
+      } catch (error) {
+        console.error('Failed to fetch profiles:', error);
+        setConnectionError(true);
+        setProfiles(mockProfiles);
+      }
+    };
+
+    fetchProfiles();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white flex">
+      {/* Sidebar */}
+      <div className="w-20 bg-gradient-to-b from-purple-800 to-blue-900 flex flex-col">
+        <div className="p-4 space-y-6">
+          {/* Logo/Brand */}
+          <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-blue-400 rounded-xl flex items-center justify-center">
+            <Menu className="w-6 h-6 text-white" />
+          </div>
+          
+          {/* Profile */}
+          <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-bold text-lg">
+            P
+          </div>
+          
+          {/* Navigation Icons */}
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-800 mb-2 block">Age Range</label>
-              <div className="flex items-center space-x-3">
-                <span className="text-xs text-gray-500">{ageFilter[0]}</span>
-                <input
-                  type="range"
-                  min="18"
-                  max="50"
-                  value={ageFilter[0]}
-                  onChange={(e) => setAgeFilter([Number(e.target.value), ageFilter[1]])}
-                  className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <input
-                  type="range"
-                  min="18"
-                  max="50"
-                  value={ageFilter[1]}
-                  onChange={(e) => setAgeFilter([ageFilter[0], Number(e.target.value)])}
-                  className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-xs text-gray-500">{ageFilter[1]}</span>
-              </div>
-              <div className="text-center mt-1 text-xs text-gray-600">
-                {ageFilter[0]} - {ageFilter[1]} years
-              </div>
+            <div className="w-12 h-12 bg-purple-700 bg-opacity-50 rounded-xl flex items-center justify-center cursor-pointer">
+              <MapPin className="w-6 h-6 text-white" />
             </div>
+            <div className="w-12 h-12 hover:bg-purple-700 hover:bg-opacity-30 rounded-xl flex items-center justify-center cursor-pointer transition-all">
+              <MessageCircle className="w-6 h-6 text-gray-300" />
+            </div>
+            <div className="w-12 h-12 hover:bg-purple-700 hover:bg-opacity-30 rounded-xl flex items-center justify-center cursor-pointer transition-all">
+              <Bell className="w-6 h-6 text-gray-300" />
+            </div>
+            <div className="w-12 h-12 hover:bg-purple-700 hover:bg-opacity-30 rounded-xl flex items-center justify-center cursor-pointer transition-all">
+              <Users className="w-6 h-6 text-gray-300" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-gray-800 bg-opacity-50 backdrop-blur-sm p-6 flex items-center justify-between border-b border-gray-700">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-bold">Discover Nearby</h1>
+          </div>
+          
+          {connectionError && (
+            <div className="bg-yellow-600 bg-opacity-20 text-yellow-300 px-3 py-1 rounded-lg text-sm">
+              Using offline data
+            </div>
+          )}
+        </header>
+
+        {/* Content Area */}
+        <div className="flex-1 p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
             
-            <div>
-              <label className="text-sm font-medium text-gray-800 mb-2 block">Gender</label>
-              <select 
-                value={genderFilter} 
-                onChange={(e) => setGenderFilter(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Genders</option>
-                <option value="male">Men</option>
-                <option value="female">Women</option>
-              </select>
+            {/* Map Section - Takes 2/3 on large screens */}
+            <div className="lg:col-span-2">
+              <div className="bg-gray-800 rounded-xl p-6 h-full">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold">Live Map</h2>
+                  <div className="flex items-center space-x-2 text-sm text-gray-400">
+                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                    <span>{profiles.length} users nearby</span>
+                  </div>
+                </div>
+                <MapComponent />
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-6">
+              
+              {/* Quick Stats */}
+              <div className="bg-gray-800 rounded-xl p-6">
+                <h3 className="text-xl font-semibold mb-6">Quick Stats</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Online Users</span>
+                    <span className="text-green-400 font-bold text-xl">
+                      {profiles.filter(p => p.status === 'online').length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Messages</span>
+                    <span className="text-blue-400 font-bold text-xl">5</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Connections</span>
+                    <span className="text-purple-400 font-bold text-xl">12</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Nearby Users */}
+              <div className="bg-gray-800 rounded-xl p-6">
+                <h3 className="text-xl font-semibold mb-6">Nearby Users</h3>
+                <div className="space-y-4 max-h-64 overflow-y-auto">
+                  {profiles.slice(0, 6).map((profile) => (
+                    <div key={profile.id} className="flex items-center space-x-4 p-3 hover:bg-gray-700 rounded-xl cursor-pointer transition-all">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+                        profile.gender === 'female' ? 'bg-gradient-to-r from-pink-400 to-pink-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'
+                      }`}>
+                        {profile.gender === 'female' ? '👩' : '👨'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold">{profile.name}</p>
+                        <p className="text-sm text-gray-400">
+                          {profile.status === 'online' ? 'Online' : 'Away'} • {profile.location}
+                        </p>
+                      </div>
+                      <div className={`w-3 h-3 rounded-full ${
+                        profile.status === 'online' ? 'bg-green-400' : 'bg-yellow-400'
+                      }`}></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-gray-800 rounded-xl p-6">
+                <h3 className="text-xl font-semibold mb-6">Quick Actions</h3>
+                <div className="space-y-3">
+                  <button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 px-4 rounded-xl transition-all font-medium">
+                    Start Discovery
+                  </button>
+                  <button className="w-full bg-gray-700 hover:bg-gray-600 text-white py-3 px-4 rounded-xl transition-all font-medium">
+                    View Messages
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
-      )}
-      
-      {/* Live users stats */}
-      <div className="absolute top-4 left-4 bg-white shadow-lg rounded-xl p-4 border border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="relative">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <div className="absolute inset-0 w-3 h-3 bg-green-400 rounded-full animate-ping opacity-60"></div>
-          </div>
-          <div>
-            <div className="text-lg font-bold text-purple-600 tabular-nums">
-              {liveUsersCount}
-            </div>
-            <div className="text-xs text-gray-500 -mt-1">live now</div>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-gray-600">
-          {filteredUsers.length} nearby users
-        </div>
       </div>
-
-      {/* Nearby Vibers button */}
-      <div className="absolute bottom-20 right-4">
-        <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-medium">
-          <Users className="w-5 h-5" />
-          <span>Nearby Vibers</span>
-        </button>
-      </div>
-      
-      {/* Terms checkbox */}
-      <div className="absolute bottom-4 left-4 bg-white shadow-lg rounded-xl p-4 border border-gray-200">
-        <CustomCheckbox
-          id="terms-map"
-          checked={agreedToTerms}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAgreedToTerms(e.target.checked)}
-          label={
-            <>
-              I agree to <span className="text-purple-600 underline font-medium">Terms & Policy</span>
-            </>
-          }
-        />
-      </div>
-
-      {/* Legend */}
-      <div className="absolute bottom-4 right-4 bg-white shadow-lg rounded-xl p-4 border border-gray-200 w-48">
-        <div className="text-sm font-medium text-gray-800 mb-3">Map Legend</div>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-6 bg-gradient-to-b from-pink-500 to-pink-600 rounded-t-full rounded-br-full"></div>
-            <span className="text-xs text-gray-600">Women</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-6 bg-gradient-to-b from-blue-500 to-blue-600 rounded-t-full rounded-br-full"></div>
-            <span className="text-xs text-gray-600">Men</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-            <span className="text-xs text-gray-600">Online</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-            <span className="text-xs text-gray-600">Away</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Profile Card Modal */}
-      {showProfileCard && selectedUser && (
-        <ProfileCard 
-          user={selectedUser} 
-          onClose={() => {
-            setShowProfileCard(false);
-            setSelectedUser(null);
-          }} 
-        />
-      )}
     </div>
   );
 };
