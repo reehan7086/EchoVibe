@@ -8,6 +8,52 @@ import {
 } from 'lucide-react';
 import { generateUsername } from '../../utils';
 
+// Custom Checkbox Component
+interface CustomCheckboxProps {
+  checked: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  label: React.ReactNode;
+  id: string;
+  disabled?: boolean;
+}
+
+const CustomCheckbox: React.FC<CustomCheckboxProps> = ({ checked, onChange, label, id, disabled = false }) => (
+  <label htmlFor={id} className="flex items-start gap-3 cursor-pointer">
+    <div className="relative flex-shrink-0">
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="sr-only"
+        disabled={disabled}
+      />
+      <div className={`w-5 h-5 mt-0.5 border-2 rounded transition-all duration-300 ${
+        checked 
+          ? 'bg-purple-600 border-purple-600 transform scale-110 shadow-lg' 
+          : 'bg-white/10 border-white/40 hover:border-purple-400 hover:bg-white/20'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+        {checked && (
+          <svg 
+            className="w-3 h-3 text-white absolute top-0.5 left-0.5 transform scale-110" 
+            fill="currentColor" 
+            viewBox="0 0 20 20"
+          >
+            <path 
+              fillRule="evenodd" 
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" 
+              clipRule="evenodd" 
+            />
+          </svg>
+        )}
+      </div>
+    </div>
+    <span className={`text-white/80 text-sm leading-relaxed ${disabled ? 'opacity-50' : ''}`}>
+      {label}
+    </span>
+  </label>
+);
+
 const SignUpPage: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
@@ -237,30 +283,28 @@ const SignUpPage: React.FC = () => {
 
                 <div className="space-y-6">
                   <div className="mb-4 space-y-3">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="w-5 h-5 mt-0.5 rounded border-2 border-white/40 bg-white/10 text-purple-500 focus:ring-purple-500 focus:border-purple-500"
-                        disabled={loading}
-                      />
-                      <span className="text-white/80 text-sm leading-relaxed">
-                        I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={privacyAccepted}
-                        onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                        className="w-5 h-5 mt-0.5 rounded border-2 border-white/40 bg-white/10 text-purple-500 focus:ring-purple-500 focus:border-purple-500"
-                        disabled={loading}
-                      />
-                      <span className="text-white/80 text-sm leading-relaxed">
-                        I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
-                      </span>
-                    </label>
+                    <CustomCheckbox
+                      id="terms-signup"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      disabled={loading}
+                      label={
+                        <>
+                          I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
+                        </>
+                      }
+                    />
+                    <CustomCheckbox
+                      id="privacy-signup"
+                      checked={privacyAccepted}
+                      onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                      disabled={loading}
+                      label={
+                        <>
+                          I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
+                        </>
+                      }
+                    />
                   </div>
 
                   <button
