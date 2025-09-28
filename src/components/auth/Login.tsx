@@ -233,33 +233,31 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
 
                 {!isEmailLogin ? (
                   <div className="space-y-4">
-                    <div className="mb-4">
-                      <div className="flex items-start gap-2 mb-2">
+                    <div className="mb-4 space-y-3">
+                      <label className="flex items-start gap-3 cursor-pointer">
                         <input
                           type="checkbox"
-                          id="terms"
                           checked={termsAccepted}
                           onChange={(e) => setTermsAccepted(e.target.checked)}
-                          className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          className="w-5 h-5 mt-0.5 rounded border-2 border-white/40 bg-white/10 text-purple-500 focus:ring-purple-500 focus:border-purple-500"
                           disabled={loading}
                         />
-                        <label htmlFor="terms" className="text-white/60 text-sm">
+                        <span className="text-white/80 text-sm leading-relaxed">
                           I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
-                        </label>
-                      </div>
-                      <div className="flex items-start gap-2">
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer">
                         <input
                           type="checkbox"
-                          id="privacy"
                           checked={privacyAccepted}
                           onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                          className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          className="w-5 h-5 mt-0.5 rounded border-2 border-white/40 bg-white/10 text-purple-500 focus:ring-purple-500 focus:border-purple-500"
                           disabled={loading}
                         />
-                        <label htmlFor="privacy" className="text-white/60 text-sm">
+                        <span className="text-white/80 text-sm leading-relaxed">
                           I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
-                        </label>
-                      </div>
+                        </span>
+                      </label>
                     </div>
 
                     <button
@@ -359,33 +357,31 @@ const Login: React.FC<LoginProps> = ({ redirectTo = '/dashboard' }) => {
                         </button>
                       </div>
 
-                      <div className="mt-4">
-                        <div className="flex items-start gap-2 mb-2">
+                      <div className="mt-4 space-y-3">
+                        <label className="flex items-start gap-3 cursor-pointer">
                           <input
                             type="checkbox"
-                            id="terms"
                             checked={termsAccepted}
                             onChange={(e) => setTermsAccepted(e.target.checked)}
-                            className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                            className="w-5 h-5 mt-0.5 rounded border-2 border-white/40 bg-white/10 text-purple-500 focus:ring-purple-500 focus:border-purple-500"
                             disabled={loading}
                           />
-                          <label htmlFor="terms" className="text-white/60 text-sm">
+                          <span className="text-white/80 text-sm leading-relaxed">
                             I agree to the <Link to="/terms" className="underline text-purple-400 hover:text-purple-300">Terms of Service</Link>
-                          </label>
-                        </div>
-                        <div className="flex items-start gap-2">
+                          </span>
+                        </label>
+                        <label className="flex items-start gap-3 cursor-pointer">
                           <input
                             type="checkbox"
-                            id="privacy"
                             checked={privacyAccepted}
                             onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                            className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                            className="w-5 h-5 mt-0.5 rounded border-2 border-white/40 bg-white/10 text-purple-500 focus:ring-purple-500 focus:border-purple-500"
                             disabled={loading}
                           />
-                          <label htmlFor="privacy" className="text-white/60 text-sm">
+                          <span className="text-white/80 text-sm leading-relaxed">
                             I agree to the <Link to="/privacy" className="underline text-purple-400 hover:text-purple-300">Privacy Policy</Link>
-                          </label>
-                        </div>
+                          </span>
+                        </label>
                       </div>
 
                       <button

@@ -1,8 +1,8 @@
-// src/components/pages/Dashboard.tsx - Fixed Navigation and State Management
+// src/components/pages/Dashboard.tsx - Fixed Navigation and Profile Click
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Home, MessageCircle, Users, User as UserIcon, Settings, Menu, X, LogOut, Bell, MapPin
+  Home, MessageCircle, Users, Menu, X, LogOut, Bell, MapPin
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
@@ -77,6 +77,29 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
             last_active: new Date().toISOString() 
           })
           .eq('user_id', userId);
+      } else {
+        // Create default profile if none exists
+        const defaultProfile = {
+          user_id: userId,
+          username: 'user_' + userId.slice(-8),
+          full_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'SparkVibe User',
+          bio: '',
+          avatar_url: user?.user_metadata?.avatar_url || null,
+          is_online: true,
+          reputation_score: 50,
+          vibe_score: 50,
+          privacy_level: 'public',
+          created_at: new Date().toISOString()
+        };
+        
+        // Try to create the profile
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert(defaultProfile);
+          
+        if (!insertError) {
+          setProfile(defaultProfile);
+        }
       }
     } catch (error) {
       console.error('Error in fetchProfile:', error);
@@ -152,6 +175,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
   // Handle page navigation
   const handlePageChange = (page: Page) => {
     setActivePage(page);
+    setMenuOpen(false);
+  };
+
+  // Handle profile click - open profile page
+  const handleProfileClick = () => {
+    setActivePage('profile');
     setMenuOpen(false);
   };
 
@@ -268,10 +297,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
           </button>
         </div>
 
-        {/* User Profile Section */}
+        {/* User Profile Section - Clickable */}
         <div className="p-4 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-sm font-bold">
+          <button 
+            onClick={handleProfileClick}
+            className="w-full flex items-center gap-3 hover:bg-white/10 rounded-lg p-2 transition-all group"
+          >
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-sm font-bold flex-shrink-0">
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
@@ -289,19 +321,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 text-left"
                 >
-                  <h3 className="font-semibold text-white truncate">
+                  <h3 className="font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
                     {profile?.full_name || user.email}
                   </h3>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-white/60">Online</span>
+                    <span className="text-xs text-white/60">Online • Click to view profile</span>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </button>
         </div>
 
         {/* Navigation Menu */}
@@ -311,8 +343,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
               { key: 'map', icon: MapPin, label: 'Vibe Map', description: 'Discover nearby vibes' },
               { key: 'messages', icon: MessageCircle, label: 'Messages', description: 'Chat with connections' },
               { key: 'notifications', icon: Bell, label: 'Notifications', description: 'Your alerts', badge: unreadCount > 0 ? unreadCount : undefined },
-              { key: 'profile', icon: UserIcon, label: 'Profile', description: 'Your vibe profile' },
-              { key: 'settings', icon: Settings, label: 'Settings', description: 'App preferences' },
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activePage === item.key;
@@ -356,6 +386,38 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                 </button>
               );
             })}
+          </div>
+
+          {/* Settings Section */}
+          <div className="mt-8 pt-4 border-t border-white/10">
+            <button
+              onClick={() => handlePageChange('settings')}
+              className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all group relative ${
+                activePage === 'settings'
+                  ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border border-purple-500/30'
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Users className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                activePage === 'settings' ? 'text-purple-400' : ''
+              }`} />
+              <AnimatePresence>
+                {menuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="flex-1 text-left"
+                  >
+                    <span className="font-medium">Settings</span>
+                    <p className="text-xs text-white/50">App preferences</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {activePage === 'settings' && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-r-full" />
+              )}
+            </button>
           </div>
         </div>
 
@@ -409,4 +471,5 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     </div>
   );
 };
+
 export default Dashboard;
