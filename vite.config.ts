@@ -3,10 +3,9 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/EchoVibe/' : '/',
   server: {
     host: "0.0.0.0",
-    port: parseInt(process.env.PORT || "8080"),
+    port: process.env.PORT ? parseInt(process.env.PORT) : 8080,
     proxy: {
       "/api": {
         target: "https://sparkvibe.app",
@@ -18,12 +17,7 @@ export default defineConfig({
   },
   preview: {
     host: "0.0.0.0",
-    port: parseInt(process.env.PORT || "8080"),
-    allowedHosts: [
-      "echovibe-app-bdza8.ondigitalocean.app",
-      "sparkvibe.app",
-      "www.sparkvibe.app"
-    ],
+    port: process.env.PORT ? parseInt(process.env.PORT) : 8080,
     proxy: {
       "/api": {
         target: "https://sparkvibe.app",
