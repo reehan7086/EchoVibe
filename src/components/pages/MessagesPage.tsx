@@ -57,16 +57,13 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
     full_name: name,
     bio: '',
     avatar_url: '',
-    location: null,
     city: '',
     vibe_score: 0,
     is_online: false,
     last_active: new Date().toISOString(),
-    cards_generated: 0,
-    cards_shared: 0,
-    viral_score: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
+    // cards_generated, cards_shared, and viral_score are optional and will be undefined
   });
 
   const setupRealtimeSubscription = () => {
@@ -123,18 +120,18 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
       }, async (payload: any) => {
         if (!mountedRef.current) return;
         
-        if (selectedChatId === payload.new.chat_id) {
+        if (selectedChatId === payload.new.chat_room_id) {
           try {
             const { data: profileData } = await supabase
               .from('profiles')
               .select('*')
-              .eq('user_id', payload.new.sender_id)
+              .eq('user_id', payload.new.user_id)
               .single();
               
             if (mountedRef.current) {
               setMessages((prev) => [...prev, { 
                 ...payload.new, 
-                profiles: profileData || createDefaultProfile(payload.new.sender_id)
+                profiles: profileData || createDefaultProfile(payload.new.user_id)
               } as Message]);
             }
           } catch (error) {
@@ -142,7 +139,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
             if (mountedRef.current) {
               setMessages((prev) => [...prev, { 
                 ...payload.new, 
-                profiles: createDefaultProfile(payload.new.sender_id)
+                profiles: createDefaultProfile(payload.new.user_id)
               } as Message]);
             }
           }
@@ -151,7 +148,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         // Update last message in chat
         if (mountedRef.current) {
           setChats((prev) => prev.map(chat => 
-            chat.id === payload.new.chat_id 
+            chat.id === payload.new.chat_room_id 
               ? { ...chat, last_message: payload.new.content, last_message_at: payload.new.created_at }
               : chat
           ));
@@ -235,7 +232,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .from('messages')
         .select(`
           *,
-          profiles:sender_id (
+          profiles:user_id (
             id,
             user_id,
             username,
@@ -254,7 +251,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
             updated_at
           )
         `)
-        .eq('chat_id', chatId)
+        .eq('chat_room_id', chatId)
         .order('created_at', { ascending: true });
       
       if (error) {
@@ -265,7 +262,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
       if (mountedRef.current) {
         const messagesWithProfiles = (data || []).map(message => ({
           ...message,
-          profiles: message.profiles || createDefaultProfile(message.sender_id)
+          profiles: message.profiles || createDefaultProfile(message.user_id)
         }));
         setMessages(messagesWithProfiles);
       }
@@ -285,8 +282,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
     
     try {
       const message = {
-        chat_id: selectedChatId,
-        sender_id: user.id,
+        chat_room_id: selectedChatId,
+        user_id: user.id,
         topic: 'general',
         content: messageContent,
         extension: 'text',
@@ -299,7 +296,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .insert([message])
         .select(`
           *,
-          profiles:sender_id (
+          profiles:user_id (
             id,
             user_id,
             username,
@@ -558,11 +555,11 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
                 messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.sender_id === user.id ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${message.user_id === user.id ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
                       className={`max-w-xs px-4 py-2 rounded-lg ${
-                        message.sender_id === user.id
+                        message.user_id === user.id
                           ? 'bg-purple-600 text-white'
                           : 'bg-white/10 text-white'
                       }`}

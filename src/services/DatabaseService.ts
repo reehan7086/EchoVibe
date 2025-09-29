@@ -41,8 +41,8 @@ export interface Chat {
 
 export interface Message {
   id: string;
-  chat_id: string;
-  sender_id: string;
+  chat_room_id: string;
+  user_id: string;
   content: string;
   message_type: 'text' | 'image' | 'file';
   media_url?: string;
@@ -330,7 +330,7 @@ class DatabaseService {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('chat_id', chatId)
+        .eq('chat_room_id', chatId)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -348,8 +348,8 @@ class DatabaseService {
       if (!user) return null;
 
       const insertData: Partial<Message> = {
-        chat_id: chatId,
-        sender_id: user.id,
+        chat_room_id: chatId,
+        user_id: user.id,
         content,
         message_type: messageType,
         media_url: mediaUrl,

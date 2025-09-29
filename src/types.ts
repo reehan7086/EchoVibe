@@ -22,9 +22,12 @@ export interface Profile {
   current_mood?: string;
   mood_message?: string;
   
-  // Status fields - ALL OPTIONAL to match schema
+  // Status fields
   is_online?: boolean;
   last_active?: string;
+  cards_generated?: number;      // ✅ Make optional to match schema
+  cards_shared?: number;         // ✅ Make optional to match schema
+  viral_score?: number | null;   // ✅ Make optional to match schema
   last_ping?: string;
   session_id?: string;
   
@@ -86,7 +89,6 @@ export interface Message {
   id: string;
   chat_room_id: string;
   user_id: string;
-  sender_id?: string;
   content: string;
   message_type: 'text' | 'image' | 'video' | 'audio' | 'system';
   is_read: boolean;

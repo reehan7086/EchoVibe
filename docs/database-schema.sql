@@ -67,8 +67,8 @@ CREATE TABLE public.chats (
 -- Messages table
 CREATE TABLE public.messages (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  chat_id UUID REFERENCES public.chats(id) ON DELETE CASCADE NOT NULL,
-  sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  chat_room_id UUID REFERENCES public.chats(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   content TEXT NOT NULL,
   message_type TEXT CHECK (message_type IN ('text', 'image', 'audio', 'video')) DEFAULT 'text',
   media_url TEXT,
@@ -129,7 +129,7 @@ CREATE INDEX idx_chats_match_id ON public.chats(match_id);
 CREATE INDEX idx_chats_user1_id ON public.chats(user1_id);
 CREATE INDEX idx_chats_user2_id ON public.chats(user2_id);
 
-CREATE INDEX idx_messages_chat_id ON public.messages(chat_id);
+CREATE INDEX idx_messages_chat_room_id ON public.messages(chat_room_id);
 CREATE INDEX idx_messages_created_at ON public.messages(created_at);
 
 -- Enable Row Level Security
@@ -186,7 +186,7 @@ CREATE POLICY "Users can view messages from their chats" ON public.messages
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.chats 
-      WHERE chats.id = messages.chat_id 
+      WHERE chats.id = messages.chat_room_id 
       AND (chats.user1_id = auth.uid() OR chats.user2_id = auth.uid())
     )
   );
@@ -195,9 +195,9 @@ CREATE POLICY "Users can send messages to their chats" ON public.messages
   FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.chats 
-      WHERE chats.id = chat_id 
+      WHERE chats.id = chat_room_id 
       AND (chats.user1_id = auth.uid() OR chats.user2_id = auth.uid())
-    ) AND sender_id = auth.uid()
+    ) AND user_id = auth.uid()
   );
 
 -- Communities policies
