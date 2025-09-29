@@ -161,13 +161,24 @@ const createChatRoom = async (user1Id: string, user2Id: string): Promise<ChatRoo
       }
     }
 
+    // Check if users are connected (friends)
+    const { data: connection } = await supabase
+      .from('user_connections')
+      .select('status')
+      .or(`and(user_id.eq.${user1Id},connected_user_id.eq.${user2Id}),and(user_id.eq.${user2Id},connected_user_id.eq.${user1Id})`)
+      .eq('status', 'connected')
+      .single();
+
+    const chatStatus = connection ? 'approved' : 'pending';
+
     // Create new chat room
     const { data: room, error: roomError } = await supabase
       .from('chat_rooms')
       .insert({
         name: null,
         is_group: false,
-        created_by: user1Id
+        created_by: user1Id,
+        chat_status: chatStatus
       })
       .select()
       .single();
@@ -190,6 +201,25 @@ const createChatRoom = async (user1Id: string, user2Id: string): Promise<ChatRoo
       return null;
     }
 
+    // If chat requires approval, send notification to the other user
+    if (chatStatus === 'pending') {
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('full_name, username')
+        .eq('user_id', user1Id)
+        .single();
+
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: user2Id,
+          related_user_id: user1Id,
+          type: 'chat_request',
+          message: `${senderProfile?.full_name || senderProfile?.username || 'Someone'} wants to start a chat with you`,
+          read: false
+        });
+    }
+
     return room;
   } catch (error) {
     console.error('Error in createChatRoom:', error);
@@ -199,6 +229,21 @@ const createChatRoom = async (user1Id: string, user2Id: string): Promise<ChatRoo
 
 const sendMessage = async (chatRoomId: string, userId: string, content: string): Promise<Message | null> => {
   try {
+    // Check chat room status
+    const { data: chatRoom } = await supabase
+      .from('chat_rooms')
+      .select('chat_status, created_by')
+      .eq('id', chatRoomId)
+      .single();
+
+    if (!chatRoom) {
+      console.error('Chat room not found');
+      return null;
+    }
+
+    // If chat is pending and user is not the creator, require approval
+    const requiresApproval = chatRoom.chat_status === 'pending' && chatRoom.created_by !== userId;
+
     const { data, error } = await supabase
       .from('messages')
       .insert({
@@ -206,7 +251,9 @@ const sendMessage = async (chatRoomId: string, userId: string, content: string):
         user_id: userId,
         content,
         message_type: 'text',
-        is_read: false
+        is_read: false,
+        requires_approval: requiresApproval,
+        approved: !requiresApproval
       })
       .select()
       .single();
@@ -432,7 +479,22 @@ const UserProfileCard: React.FC<{
   const handleConnect = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Check if connection already exists
+      const { data: existingConnection } = await supabase
+        .from('user_connections')
+        .select('*')
+        .or(`and(user_id.eq.${currentUser.user_id},connected_user_id.eq.${user.user_id}),and(user_id.eq.${user.user_id},connected_user_id.eq.${currentUser.user_id})`)
+        .single();
+
+      if (existingConnection) {
+        console.log('Connection already exists');
+        setIsConnected(true);
+        setLoading(false);
+        return;
+      }
+
+      // Create connection request
+      const { error: connectionError } = await supabase
         .from('user_connections')
         .insert({
           user_id: currentUser.user_id,
@@ -440,9 +502,28 @@ const UserProfileCard: React.FC<{
           status: 'pending'
         });
 
-      if (!error) {
-        setIsConnected(true);
+      if (connectionError) {
+        console.error('Error creating connection:', connectionError);
+        setLoading(false);
+        return;
       }
+
+      // Send notification to the other user
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: user.user_id,
+          related_user_id: currentUser.user_id,
+          type: 'connection_request',
+          message: `${currentUser.full_name || currentUser.username || 'Someone'} wants to connect with you`,
+          read: false
+        });
+
+      if (notificationError) {
+        console.error('Error sending notification:', notificationError);
+      }
+
+      setIsConnected(true);
     } catch (error) {
       console.error('Error connecting:', error);
     }
@@ -500,12 +581,12 @@ const UserProfileCard: React.FC<{
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-xl transition-all font-medium text-sm flex items-center justify-center space-x-2"
             >
               <MessageCircle className="w-4 h-4" />
-              <span>Message</span>
+              <span>Chat</span>
             </button>
             <button 
               onClick={handleConnect}
               disabled={loading}
-              className={`${isConnected ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'} text-white py-3 px-4 rounded-xl transition-all font-medium text-sm flex items-center justify-center space-x-2`}
+              className={`${isConnected ? 'bg-green-600 hover:bg-green-700' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'} text-white py-3 px-4 rounded-xl transition-all font-medium text-sm flex items-center justify-center space-x-2`}
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -515,17 +596,6 @@ const UserProfileCard: React.FC<{
                 <UserPlus className="w-4 h-4" />
               )}
               <span>{isConnected ? 'Connected' : 'Connect'}</span>
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-xl transition-all text-sm flex items-center justify-center space-x-2">
-              <Phone className="w-4 h-4" />
-              <span>Call</span>
-            </button>
-            <button className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-xl transition-all text-sm flex items-center justify-center space-x-2">
-              <Video className="w-4 h-4" />
-              <span>Video</span>
             </button>
           </div>
         </div>
@@ -619,22 +689,77 @@ const SparkVibeMap: React.FC = () => {
           schema: 'public', 
           table: 'profiles' 
         },
-        (payload: any) => {
-          // Type-safe payload handling
+        async (payload: any) => {
+          console.log('Profile change detected:', payload);
+          
+          // Handle different event types
           if (payload.eventType === 'UPDATE' && payload.new) {
             const updatedProfile = payload.new as Profile;
             
-            setNearbyUsers(prev => prev.map(user => {
-              if (user.user_id === updatedProfile.user_id) {
-                return { 
-                  ...user, 
-                  ...updatedProfile,
-                  // Preserve distance if it exists, since it might not be in the profile update
-                  distance: user.distance 
-                };
+            // Check if this user should be in our nearby list
+            if (currentUser.latitude && currentUser.longitude && updatedProfile.latitude && updatedProfile.longitude) {
+              const distance = calculateDistance(
+                currentUser.latitude, 
+                currentUser.longitude, 
+                updatedProfile.latitude, 
+                updatedProfile.longitude
+              );
+              
+              if (distance <= selectedRadius && updatedProfile.user_id !== currentUser.user_id) {
+                // Add or update user in nearby list
+                setNearbyUsers(prev => {
+                  const existingIndex = prev.findIndex(user => user.user_id === updatedProfile.user_id);
+                  const mapUser: MapUser = {
+                    ...updatedProfile,
+                    distance,
+                    status: getStatusFromLastActive(updatedProfile.last_active || new Date().toISOString()),
+                    activity: updatedProfile.current_mood || 'Just vibing',
+                    location_name: `${distance.toFixed(1)} km away`
+                  };
+                  
+                  if (existingIndex >= 0) {
+                    // Update existing user
+                    const updated = [...prev];
+                    updated[existingIndex] = mapUser;
+                    return updated.sort((a, b) => a.distance! - b.distance!);
+                  } else {
+                    // Add new user
+                    return [...prev, mapUser].sort((a, b) => a.distance! - b.distance!);
+                  }
+                });
+              } else {
+                // Remove user if they're now out of range
+                setNearbyUsers(prev => prev.filter(user => user.user_id !== updatedProfile.user_id));
               }
-              return user;
-            }));
+            }
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            // Handle new user registration
+            const newProfile = payload.new as Profile;
+            
+            if (currentUser.latitude && currentUser.longitude && newProfile.latitude && newProfile.longitude) {
+              const distance = calculateDistance(
+                currentUser.latitude, 
+                currentUser.longitude, 
+                newProfile.latitude, 
+                newProfile.longitude
+              );
+              
+              if (distance <= selectedRadius && newProfile.user_id !== currentUser.user_id) {
+                const mapUser: MapUser = {
+                  ...newProfile,
+                  distance,
+                  status: getStatusFromLastActive(newProfile.last_active || new Date().toISOString()),
+                  activity: newProfile.current_mood || 'Just vibing',
+                  location_name: `${distance.toFixed(1)} km away`
+                };
+                
+                setNearbyUsers(prev => [...prev, mapUser].sort((a, b) => a.distance! - b.distance!));
+              }
+            }
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            // Remove user from map if they delete their profile
+            const deletedProfile = payload.old as Profile;
+            setNearbyUsers(prev => prev.filter(user => user.user_id !== deletedProfile.user_id));
           }
         }
       )
@@ -649,7 +774,7 @@ const SparkVibeMap: React.FC = () => {
     return () => {
       supabase.removeChannel(profileSubscription);
     };
-  }, [currentUser]);
+  }, [currentUser, selectedRadius]);
 
   const handleUserSelect = (user: MapUser) => {
     setSelectedUser(user);

@@ -49,6 +49,135 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({
     }
   });
 
+  const handleConnectionRequest = async (notificationId: string, relatedUserId: string, action: 'accept' | 'decline') => {
+    setLoading(true);
+    try {
+      if (action === 'accept') {
+        // Update connection status to 'connected'
+        const { error: connectionError } = await supabase
+          .from('user_connections')
+          .update({ status: 'connected' })
+          .or(`and(user_id.eq.${relatedUserId},connected_user_id.eq.${user.id}),and(user_id.eq.${user.id},connected_user_id.eq.${relatedUserId})`);
+
+        if (connectionError) {
+          console.error('Error accepting connection:', connectionError);
+          setLoading(false);
+          return;
+        }
+
+        // Send acceptance notification back
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: relatedUserId,
+            related_user_id: user.id,
+            type: 'connection_accepted',
+            message: `${user.user_metadata?.full_name || user.email} accepted your connection request`,
+            read: false
+          });
+
+        if (notificationError) {
+          console.error('Error sending acceptance notification:', notificationError);
+        }
+      } else {
+        // Delete the connection request
+        const { error: deleteError } = await supabase
+          .from('user_connections')
+          .delete()
+          .or(`and(user_id.eq.${relatedUserId},connected_user_id.eq.${user.id}),and(user_id.eq.${user.id},connected_user_id.eq.${relatedUserId})`);
+
+        if (deleteError) {
+          console.error('Error declining connection:', deleteError);
+        }
+      }
+
+      // Mark notification as read
+      await onMarkAsRead(notificationId);
+    } catch (error) {
+      console.error('Error handling connection request:', error);
+    }
+    setLoading(false);
+  };
+
+  const handleChatRequest = async (notificationId: string, relatedUserId: string, action: 'accept' | 'decline') => {
+    setLoading(true);
+    try {
+      // Find the chat room between these users
+      const { data: participants } = await supabase
+        .from('chat_participants')
+        .select('chat_room_id')
+        .in('user_id', [user.id, relatedUserId]);
+
+      if (participants && participants.length >= 2) {
+        const chatRoomIds = participants.map(p => p.chat_room_id);
+        const commonRoomId = chatRoomIds.find(id => 
+          chatRoomIds.filter(roomId => roomId === id).length >= 2
+        );
+
+        if (commonRoomId) {
+          if (action === 'accept') {
+            // Update chat room status to approved
+            const { error: chatError } = await supabase
+              .from('chat_rooms')
+              .update({ 
+                chat_status: 'approved',
+                approved_by: user.id
+              })
+              .eq('id', commonRoomId);
+
+            if (chatError) {
+              console.error('Error approving chat:', chatError);
+              setLoading(false);
+              return;
+            }
+
+            // Approve any pending messages in this chat
+            const { error: messageError } = await supabase
+              .from('messages')
+              .update({ approved: true })
+              .eq('chat_room_id', commonRoomId)
+              .eq('requires_approval', true);
+
+            if (messageError) {
+              console.error('Error approving messages:', messageError);
+            }
+
+            // Send approval notification back
+            const { error: notificationError } = await supabase
+              .from('notifications')
+              .insert({
+                user_id: relatedUserId,
+                related_user_id: user.id,
+                type: 'chat_approved',
+                message: `${user.user_metadata?.full_name || user.email} approved your chat request`,
+                read: false
+              });
+
+            if (notificationError) {
+              console.error('Error sending approval notification:', notificationError);
+            }
+          } else {
+            // Block the chat room
+            const { error: chatError } = await supabase
+              .from('chat_rooms')
+              .update({ chat_status: 'blocked' })
+              .eq('id', commonRoomId);
+
+            if (chatError) {
+              console.error('Error blocking chat:', chatError);
+            }
+          }
+        }
+      }
+
+      // Mark notification as read
+      await onMarkAsRead(notificationId);
+    } catch (error) {
+      console.error('Error handling chat request:', error);
+    }
+    setLoading(false);
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleMarkAsRead = async (notificationId: string) => {
@@ -123,7 +252,14 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({
       case 'follow':
         return '👤';
       case 'friend_request':
+      case 'connection_request':
         return '🤝';
+      case 'connection_accepted':
+        return '✅';
+      case 'chat_request':
+        return '💬';
+      case 'chat_approved':
+        return '✅';
       case 'mention':
         return '@';
       case 'match':
@@ -142,7 +278,14 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({
       case 'follow':
         return 'from-green-500/20 to-emerald-500/20 border-green-500/30';
       case 'friend_request':
+      case 'connection_request':
         return 'from-purple-500/20 to-violet-500/20 border-purple-500/30';
+      case 'connection_accepted':
+        return 'from-green-500/20 to-emerald-500/20 border-green-500/30';
+      case 'chat_request':
+        return 'from-blue-500/20 to-cyan-500/20 border-blue-500/30';
+      case 'chat_approved':
+        return 'from-green-500/20 to-emerald-500/20 border-green-500/30';
       case 'match':
         return 'from-yellow-500/20 to-orange-500/20 border-yellow-500/30';
       default:
@@ -271,12 +414,57 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({
                     }`}>
                       {notification.message}
                     </p>
+                    
+                    {/* Connection Request Actions */}
+                    {notification.type === 'connection_request' && !notification.read && notification.related_user_id && (
+                      <div className="flex items-center gap-2 mt-3">
+                        <button
+                          onClick={() => handleConnectionRequest(notification.id, notification.related_user_id!, 'accept')}
+                          disabled={loading}
+                          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs transition-all disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" />
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleConnectionRequest(notification.id, notification.related_user_id!, 'decline')}
+                          disabled={loading}
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs transition-all disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" />
+                          Decline
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Chat Request Actions */}
+                    {notification.type === 'chat_request' && !notification.read && notification.related_user_id && (
+                      <div className="flex items-center gap-2 mt-3">
+                        <button
+                          onClick={() => handleChatRequest(notification.id, notification.related_user_id!, 'accept')}
+                          disabled={loading}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs transition-all disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" />
+                          Allow Chat
+                        </button>
+                        <button
+                          onClick={() => handleChatRequest(notification.id, notification.related_user_id!, 'decline')}
+                          disabled={loading}
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs transition-all disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" />
+                          Block
+                        </button>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-xs text-white/40">
                         {formatDate(notification.created_at)}
                       </span>
                       <div className="flex items-center gap-2">
-                        {!notification.read && (
+                        {!notification.read && !['connection_request', 'chat_request'].includes(notification.type) && (
                           <button
                             onClick={() => handleMarkAsRead(notification.id)}
                             disabled={loading}

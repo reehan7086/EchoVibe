@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? '/EchoVibe/' : '/',
   server: {
     host: "0.0.0.0",
     port: parseInt(process.env.PORT || "8080"),
@@ -42,6 +43,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
+    assetsDir: "assets",
   },
   optimizeDeps: {
     exclude: ["lucide-react"]

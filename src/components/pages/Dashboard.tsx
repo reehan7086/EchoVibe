@@ -13,9 +13,10 @@ import ProfilePage from './ProfilePage';
 import MapComponent from '../map/SecureVibeMap';
 import SettingsPage from './SettingsPage';
 import NotificationsPage from './NotificationsPage';
+import FriendsPage from './FriendsPage';
 import LoadingSpinner from './LoadingSpinner';
 
-type Page = 'map' | 'messages' | 'profile' | 'notifications' | 'settings';
+type Page = 'map' | 'messages' | 'profile' | 'notifications' | 'friends' | 'settings';
 
 interface DashboardProps {
   user?: User;
@@ -226,6 +227,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
         return <MapComponent />;
       case 'messages':
         return <MessagesPage user={user} />;
+      case 'friends':
+        return <FriendsPage user={user} onStartChat={(friend) => {
+          // Switch to messages page when starting a chat
+          setActivePage('messages');
+          // You can add additional logic here to open specific chat
+        }} />;
       case 'profile':
         return <ProfilePage user={user} />;
       case 'notifications':
@@ -342,6 +349,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
             {[
               { key: 'map', icon: MapPin, label: 'Vibe Map', description: 'Discover nearby vibes' },
               { key: 'messages', icon: MessageCircle, label: 'Messages', description: 'Chat with connections' },
+              { key: 'friends', icon: Users, label: 'Friends', description: 'Your connections' },
               { key: 'notifications', icon: Bell, label: 'Notifications', description: 'Your alerts', badge: unreadCount > 0 ? unreadCount : undefined },
             ].map((item) => {
               const Icon = item.icon;

@@ -72,6 +72,8 @@ export interface ChatRoom {
   is_group: boolean;
   created_by?: string;
   created_at: string;
+  chat_status?: 'pending' | 'approved' | 'blocked';
+  approved_by?: string;
 }
 
 // ------------------
@@ -92,10 +94,12 @@ export interface Message {
   chat_room_id?: string;
   user_id?: string;
   content: string;
-  message_type?: 'text' | 'image' | 'video' | 'audio';
+  message_type?: 'text' | 'image' | 'video' | 'audio' | 'system';
   is_read?: boolean;
   created_at: string;
   profile?: Profile; // Populated from join
+  requires_approval?: boolean;
+  approved?: boolean;
 }
 
 // ------------------
