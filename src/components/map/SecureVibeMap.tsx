@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, MessageCircle, UserPlus, Heart, Send, Users, Bell, Settings, X, Check, Loader2 } from 'lucide-react';
+import { MapPin, MessageCircle, UserPlus, Heart, X, Check, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import type { Profile, MapUser, ChatRoom, Message } from '../../types';
+import type { Profile, MapUser } from '../../types';
 
 // Current user hook
 const useCurrentUser = () => {
@@ -54,7 +54,9 @@ const getActivityEmoji = (mood: string, activity?: string, gender?: string): str
   return gender === 'female' ? '👩' : '👨';
 };
 
-const getStatusFromLastActive = (lastActive: string): 'online' | 'away' | 'offline' => {
+const getStatusFromLastActive = (lastActive: string, isOnline: boolean): 'online' | 'away' | 'offline' => {
+  if (!isOnline) return 'offline';
+  
   const now = new Date();
   const last = new Date(lastActive);
   const diffMinutes = (now.getTime() - last.getTime()) / (1000 * 60);
@@ -83,12 +85,13 @@ const fetchNearbyUsers = async (userLat: number, userLng: number, radiusKm: numb
         return {
           ...user,
           distance,
-          status: getStatusFromLastActive(user.last_active || new Date().toISOString()),
+          status: getStatusFromLastActive(user.last_active || new Date().toISOString(), user.is_online || false),
           activity: user.current_mood || 'Just vibing',
           location_name: `${distance.toFixed(1)} km away`
         } as MapUser;
       })
       .filter(user => (user.distance ?? 0) <= radiusKm)
+      .filter(user => user.is_online) // Only show online users
       .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
   } catch (error) {
     return [];
@@ -101,7 +104,9 @@ const updateUserLocation = async (userId: string, lat: number, lng: number): Pro
     .update({
       latitude: lat,
       longitude: lng,
-      last_active: new Date().toISOString()
+      last_active: new Date().toISOString(),
+      last_ping: new Date().toISOString(),
+      is_online: true
     })
     .eq('user_id', userId);
 };
@@ -172,7 +177,7 @@ const MapComponent: React.FC<{
       const statusColor = user.status === 'online' ? 'bg-green-400' : user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400';
       
       const profileIcon = L.divIcon({
-        html: `<div class="relative"><div class="w-10 h-10 bg-gradient-to-r ${pinColor} rounded-full shadow-lg flex items-center justify-center border-2 border-white"><span class="text-lg">${emoji}</span></div><div class="absolute -top-1 -right-1 w-4 h-4 ${statusColor} border-2 border-white rounded-full"></div></div>`,
+        html: `<div class="relative"><div class="w-10 h-10 bg-gradient-to-r ${pinColor} rounded-full shadow-lg flex items-center justify-center border-2 border-white cursor-pointer hover:scale-110 transition-transform"><span class="text-lg">${emoji}</span></div><div class="absolute -top-1 -right-1 w-4 h-4 ${statusColor} border-2 border-white rounded-full"></div></div>`,
         className: 'profile-marker cursor-pointer',
         iconSize: [40, 40],
         iconAnchor: [20, 20],
@@ -289,8 +294,8 @@ const UserProfileCard: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={onClose}>
+      <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full relative" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white">
           <X className="w-6 h-6" />
         </button>
@@ -304,6 +309,17 @@ const UserProfileCard: React.FC<{
           <h3 className="text-xl font-bold text-white">{user.full_name || user.username}</h3>
           <p className="text-gray-400">@{user.username}</p>
           <p className="text-purple-400 text-sm">{user.location_name}</p>
+          
+          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs mt-2 ${
+            user.status === 'online' ? 'bg-green-600 text-green-100' : 
+            user.status === 'away' ? 'bg-yellow-600 text-yellow-100' : 'bg-gray-600 text-gray-100'
+          }`}>
+            <div className={`w-2 h-2 rounded-full mr-2 ${
+              user.status === 'online' ? 'bg-green-300' : 
+              user.status === 'away' ? 'bg-yellow-300' : 'bg-gray-300'
+            } animate-pulse`}></div>
+            {user.status === 'online' ? 'Online' : user.status === 'away' ? 'Away' : 'Offline'}
+          </div>
         </div>
 
         <div className="space-y-4 mb-6">
@@ -317,6 +333,10 @@ const UserProfileCard: React.FC<{
               <p className="text-white text-sm">{user.bio}</p>
             </div>
           )}
+          <div>
+            <p className="text-gray-400 text-xs uppercase">Vibe Score</p>
+            <p className="text-yellow-300 text-sm">{user.vibe_score || 50}/100</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -334,7 +354,7 @@ const UserProfileCard: React.FC<{
               connectionStatus === 'connected' ? 'bg-green-600' : 
               connectionStatus === 'pending' ? 'bg-yellow-600' : 
               'bg-purple-600 hover:bg-purple-700'
-            } text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2`}
+            } text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 disabled:opacity-50`}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 
              connectionStatus === 'connected' ? <Heart className="w-4 h-4 fill-current" /> : 
@@ -351,16 +371,12 @@ const UserProfileCard: React.FC<{
   );
 };
 
-// Main Component
-const SparkVibeMap: React.FC = () => {
+// Main Component - NO BOTTOM NAV (Dashboard handles navigation)
+const SecureVibeMap: React.FC = () => {
   const { currentUser, loading: userLoading } = useCurrentUser();
-  const [currentView, setCurrentView] = useState<'map' | 'chat' | 'friends' | 'notifications' | 'settings'>('map');
   const [selectedRadius, setSelectedRadius] = useState(5);
   const [nearbyUsers, setNearbyUsers] = useState<MapUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<MapUser | null>(null);
-  const [friendRequests, setFriendRequests] = useState<any[]>([]);
-  const [friends, setFriends] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadNearbyUsers = useCallback(async () => {
@@ -377,119 +393,96 @@ const SparkVibeMap: React.FC = () => {
     setLoading(false);
   }, [currentUser, selectedRadius]);
 
-  const loadFriendRequests = useCallback(async () => {
-    if (!currentUser) return;
-    
-    const { data } = await supabase
-      .from('user_connections')
-      .select(`
-        *,
-        requester:profiles!user_connections_user_id_fkey(*)
-      `)
-      .eq('connected_user_id', currentUser.user_id)
-      .eq('status', 'pending');
-
-    setFriendRequests(data || []);
-  }, [currentUser]);
-
-  const loadFriends = useCallback(async () => {
-    if (!currentUser) return;
-    
-    const { data } = await supabase
-      .from('user_connections')
-      .select(`
-        *,
-        friend:profiles!user_connections_connected_user_id_fkey(*)
-      `)
-      .eq('user_id', currentUser.user_id)
-      .eq('status', 'connected');
-
-    setFriends(data || []);
-  }, [currentUser]);
-
-  const loadNotifications = useCallback(async () => {
-    if (!currentUser) return;
-    
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', currentUser.user_id)
-      .order('created_at', { ascending: false });
-
-    setNotifications(data || []);
-  }, [currentUser]);
-
-  const handleApproveRequest = async (connectionId: string, requesterId: string) => {
-    await supabase
-      .from('user_connections')
-      .update({ status: 'connected' })
-      .eq('id', connectionId);
-
-    await supabase.from('user_connections').insert({
-      user_id: currentUser!.user_id,
-      connected_user_id: requesterId,
-      status: 'connected'
-    });
-
-    await supabase.from('notifications').insert({
-      user_id: requesterId,
-      related_user_id: currentUser!.user_id,
-      type: 'connection_accepted',
-      message: `${currentUser!.full_name || currentUser!.username} accepted your friend request`,
-      read: false
-    });
-
-    loadFriendRequests();
-    loadFriends();
-  };
-
-  const handleRejectRequest = async (connectionId: string) => {
-    await supabase
-      .from('user_connections')
-      .delete()
-      .eq('id', connectionId);
-
-    loadFriendRequests();
-  };
-
+  // Update location periodically
   useEffect(() => {
-    if (currentUser?.user_id) {
-      const updateLocation = () => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              await updateUserLocation(
-                currentUser.user_id,
-                position.coords.latitude,
-                position.coords.longitude
-              );
-            }
-          );
-        }
-      };
+    if (!currentUser?.user_id) return;
 
-      updateLocation();
-      const interval = setInterval(updateLocation, 60000);
-      return () => clearInterval(interval);
-    }
+    const updateLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            await updateUserLocation(
+              currentUser.user_id,
+              position.coords.latitude,
+              position.coords.longitude
+            );
+          },
+          (error) => console.error('Geolocation error:', error)
+        );
+      }
+    };
+
+    updateLocation();
+    const interval = setInterval(updateLocation, 60000);
+    return () => clearInterval(interval);
   }, [currentUser]);
 
+  // Load users when radius or location changes
   useEffect(() => {
     loadNearbyUsers();
   }, [loadNearbyUsers]);
 
+  // Real-time updates for online status changes
   useEffect(() => {
-    if (currentView === 'friends') {
-      loadFriendRequests();
-      loadFriends();
-    } else if (currentView === 'notifications') {
-      loadNotifications();
-    }
-  }, [currentView, loadFriendRequests, loadFriends, loadNotifications]);
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'profiles' 
+        },
+        async (payload: any) => {
+          const updatedProfile = payload.new as Profile;
+          
+          // Update user in nearby list if they're in range
+          if (currentUser.latitude && currentUser.longitude && updatedProfile.latitude && updatedProfile.longitude) {
+            const distance = calculateDistance(
+              currentUser.latitude, 
+              currentUser.longitude, 
+              updatedProfile.latitude, 
+              updatedProfile.longitude
+            );
+            
+            if (distance <= selectedRadius && updatedProfile.user_id !== currentUser.user_id && updatedProfile.is_online) {
+              const mapUser: MapUser = {
+                ...updatedProfile,
+                distance,
+                status: getStatusFromLastActive(updatedProfile.last_active || new Date().toISOString(), updatedProfile.is_online || false),
+                activity: updatedProfile.current_mood || 'Just vibing',
+                location_name: `${distance.toFixed(1)} km away`
+              };
+              
+              setNearbyUsers(prev => {
+                const existingIndex = prev.findIndex(user => user.user_id === updatedProfile.user_id);
+                if (existingIndex >= 0) {
+                  const updated = [...prev];
+                  updated[existingIndex] = mapUser;
+                  return updated.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+                } else {
+                  return [...prev, mapUser].sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+                }
+              });
+            } else if (!updatedProfile.is_online) {
+              // Remove offline users
+              setNearbyUsers(prev => prev.filter(user => user.user_id !== updatedProfile.user_id));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser, selectedRadius]);
 
   if (userLoading) {
     return (
-      <div className="h-screen bg-gray-900 flex items-center justify-center">
+      <div className="h-full bg-gray-900 flex items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-purple-500" />
       </div>
     );
@@ -497,196 +490,141 @@ const SparkVibeMap: React.FC = () => {
 
   if (!currentUser) {
     return (
-      <div className="h-screen bg-gray-900 flex items-center justify-center text-white">
+      <div className="h-full bg-gray-900 flex items-center justify-center text-white">
         <p>Please log in to use SparkVibe Map</p>
       </div>
     );
   }
 
-  const renderContent = () => {
-    switch (currentView) {
-      case 'map':
-        return (
-          <div className="h-full flex flex-col p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-white">Discover Nearby</h1>
-              <select 
-                value={selectedRadius}
-                onChange={(e) => setSelectedRadius(Number(e.target.value))}
-                className="bg-gray-700 text-white px-3 py-2 rounded-lg"
-              >
-                {[1, 2, 5, 10, 20, 50].map(r => (
-                  <option key={r} value={r}>{r} km</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1">
-              {currentUser.latitude && currentUser.longitude ? (
-                <MapComponent 
-                  onUserSelect={setSelectedUser} 
-                  radius={selectedRadius} 
-                  users={nearbyUsers}
-                  currentUser={currentUser}
-                />
+  return (
+    <div className="h-full bg-gray-900 flex">
+      {/* Main Map Area */}
+      <div className="flex-1 flex flex-col p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">Discover Nearby</h1>
+          <div className="flex items-center space-x-4">
+            <select 
+              value={selectedRadius}
+              onChange={(e) => setSelectedRadius(Number(e.target.value))}
+              className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              {[1, 2, 5, 10, 20, 50].map(r => (
+                <option key={r} value={r}>{r} km</option>
+              ))}
+            </select>
+            <div className="text-sm text-gray-400">
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin inline" />
               ) : (
-                <div className="h-full flex items-center justify-center bg-gray-800 rounded-lg">
-                  <p className="text-gray-400">Enable location to see nearby users</p>
-                </div>
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  {nearbyUsers.length} users nearby
+                </span>
               )}
             </div>
           </div>
-        );
-      
-      case 'chat':
-        return (
-          <div className="h-full flex items-center justify-center text-white">
-            <p className="text-gray-400">Chat feature coming soon</p>
-          </div>
-        );
-      
-      case 'friends':
-        return (
-          <div className="h-full overflow-y-auto p-4">
-            <h2 className="text-2xl font-bold text-white mb-6">Friends</h2>
-            
-            {friendRequests.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-white mb-4">Friend Requests</h3>
-                <div className="space-y-3">
-                  {friendRequests.map((req) => (
-                    <div key={req.id} className="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full flex items-center justify-center">
-                          {req.requester.full_name?.charAt(0) || '?'}
-                        </div>
-                        <div>
-                          <p className="text-white font-semibold">{req.requester.full_name || req.requester.username}</p>
-                          <p className="text-gray-400 text-sm">@{req.requester.username}</p>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button 
-                          onClick={() => handleApproveRequest(req.id, req.user_id)}
-                          className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg"
-                        >
-                          <Check className="w-5 h-5" />
-                        </button>
-                        <button 
-                          onClick={() => handleRejectRequest(req.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        </div>
+        
+        <div className="flex-1 min-h-0">
+          {currentUser.latitude && currentUser.longitude ? (
+            <MapComponent 
+              onUserSelect={setSelectedUser} 
+              radius={selectedRadius} 
+              users={nearbyUsers}
+              currentUser={currentUser}
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center bg-gray-800 rounded-lg">
+              <div className="text-center text-white">
+                <MapPin className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-gray-400 mb-4">Location access required</p>
+                <button 
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        async (position) => {
+                          if (currentUser) {
+                            await updateUserLocation(
+                              currentUser.user_id,
+                              position.coords.latitude,
+                              position.coords.longitude
+                            );
+                            window.location.reload();
+                          }
+                        }
+                      );
+                    }
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Enable Location
+                </button>
               </div>
-            )}
+            </div>
+          )}
+        </div>
+      </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">My Friends</h3>
-              <div className="space-y-3">
-                {friends.map((friend) => (
-                  <div key={friend.id} className="bg-gray-800 rounded-lg p-4 flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full flex items-center justify-center">
-                      {friend.friend.full_name?.charAt(0) || '?'}
-                    </div>
-                    <div>
-                      <p className="text-white font-semibold">{friend.friend.full_name || friend.friend.username}</p>
-                      <p className="text-gray-400 text-sm">@{friend.friend.username}</p>
-                    </div>
+      {/* Right Sidebar - Nearby Users List */}
+      <div className="w-80 bg-gray-800 p-4 overflow-y-auto border-l border-gray-700 hidden md:block">
+        <h3 className="text-lg font-semibold text-white mb-4">Nearby Users</h3>
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+          </div>
+        ) : nearbyUsers.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <p>No users nearby</p>
+            <p className="text-sm mt-2">Try increasing the radius</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {nearbyUsers.map((user) => (
+              <div 
+                key={user.id} 
+                className="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-all cursor-pointer"
+                onClick={() => setSelectedUser(user)}
+              >
+                <div className="flex items-start space-x-3">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg relative ${
+                    user.gender === 'female' 
+                      ? 'bg-gradient-to-r from-pink-400 to-pink-600' 
+                      : 'bg-gradient-to-r from-blue-400 to-blue-600'
+                  } shadow-lg`}>
+                    {getActivityEmoji(user.current_mood || '', user.activity, user.gender)}
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-700 ${
+                      user.status === 'online' ? 'bg-green-400' : 
+                      user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400'
+                    }`}></div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      
-      case 'notifications':
-        return (
-          <div className="h-full overflow-y-auto p-4">
-            <h2 className="text-2xl font-bold text-white mb-6">Notifications</h2>
-            <div className="space-y-3">
-              {notifications.map((notif) => (
-                <div key={notif.id} className="bg-gray-800 rounded-lg p-4">
-                  <p className="text-white">{notif.message}</p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    {new Date(notif.created_at).toLocaleString()}
-                  </p>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-white text-sm truncate">{user.full_name || user.username}</p>
+                        <p className="text-xs text-gray-400 truncate">{user.location_name}</p>
+                      </div>
+                      <span className="text-xs text-gray-400 ml-2">{(user.distance ?? 0).toFixed(1)} km</span>
+                    </div>
+                    
+                    <p className="text-xs text-gray-300 italic truncate mt-1">"{user.current_mood || 'Just vibing'}"</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        );
-      
-      case 'settings':
-        return (
-          <div className="h-full overflow-y-auto p-4">
-            <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
-            <div className="space-y-4">
-              <div className="bg-gray-800 rounded-lg p-4">
-                <h3 className="text-white font-semibold mb-2">Profile</h3>
-                <p className="text-gray-400">{currentUser.full_name || currentUser.username}</p>
               </div>
-            </div>
+            ))}
           </div>
-        );
-    }
-  };
-
-  return (
-    <div className="h-screen bg-gray-900 flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        {renderContent()}
+        )}
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="bg-gray-800 border-t border-gray-700 px-4 py-3 flex justify-around items-center">
-        <button 
-          onClick={() => setCurrentView('map')}
-          className={`flex flex-col items-center space-y-1 ${currentView === 'map' ? 'text-purple-400' : 'text-gray-400'}`}
-        >
-          <MapPin className="w-6 h-6" />
-          <span className="text-xs">Vibe Map</span>
-        </button>
-        <button 
-          onClick={() => setCurrentView('chat')}
-          className={`flex flex-col items-center space-y-1 ${currentView === 'chat' ? 'text-purple-400' : 'text-gray-400'}`}
-        >
-          <MessageCircle className="w-6 h-6" />
-          <span className="text-xs">Chat</span>
-        </button>
-        <button 
-          onClick={() => setCurrentView('friends')}
-          className={`flex flex-col items-center space-y-1 ${currentView === 'friends' ? 'text-purple-400' : 'text-gray-400'}`}
-        >
-          <Users className="w-6 h-6" />
-          <span className="text-xs">Friends</span>
-        </button>
-        <button 
-          onClick={() => setCurrentView('notifications')}
-          className={`flex flex-col items-center space-y-1 ${currentView === 'notifications' ? 'text-purple-400' : 'text-gray-400'}`}
-        >
-          <Bell className="w-6 h-6" />
-          <span className="text-xs">Notifications</span>
-        </button>
-        <button 
-          onClick={() => setCurrentView('settings')}
-          className={`flex flex-col items-center space-y-1 ${currentView === 'settings' ? 'text-purple-400' : 'text-gray-400'}`}
-        >
-          <Settings className="w-6 h-6" />
-          <span className="text-xs">Settings</span>
-        </button>
-      </div>
-
+      {/* User Profile Modal */}
       {selectedUser && (
         <UserProfileCard 
           user={selectedUser} 
           onClose={() => setSelectedUser(null)}
           onMessage={(user) => {
             setSelectedUser(null);
-            setCurrentView('chat');
+            // Emit event or use router to navigate to messages
+            console.log('Open chat with:', user);
           }}
           currentUser={currentUser}
         />
@@ -695,4 +633,4 @@ const SparkVibeMap: React.FC = () => {
   );
 };
 
-export default SparkVibeMap;
+export default SecureVibeMap;

@@ -30,6 +30,27 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Heartbeat to keep user online
+  useEffect(() => {
+    if (!user) return;
+
+    const updateOnlineStatus = async () => {
+      await supabase
+        .from('profiles')
+        .update({ 
+          is_online: true, 
+          last_active: new Date().toISOString(),
+          last_ping: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+    };
+
+    updateOnlineStatus();
+    const interval = setInterval(updateOnlineStatus, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user]);
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -71,7 +92,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
           .from('profiles')
           .update({ 
             is_online: true, 
-            last_active: new Date().toISOString() 
+            last_active: new Date().toISOString(),
+            last_ping: new Date().toISOString()
           })
           .eq('user_id', userId);
       } else {
@@ -152,7 +174,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
           .from('profiles')
           .update({ 
             is_online: false,
-            last_active: new Date().toISOString() 
+            last_active: new Date().toISOString()
           })
           .eq('user_id', user.id);
       }
@@ -266,9 +288,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
   return (
     <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
       {/* Top Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/10 px-4 py-3">
+      <div className="flex-shrink-0 bg-black/40 backdrop-blur-xl border-b border-white/10 px-4 py-3 z-40">
         <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
-          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
               <ZapIcon className="w-5 h-5 text-white" />
@@ -276,16 +297,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
             <span className="text-white font-bold text-lg hidden sm:inline">SparkVibe</span>
           </div>
 
-          {/* Center - Page Title (Mobile) */}
           <div className="absolute left-1/2 -translate-x-1/2 sm:hidden">
             <h1 className="text-white font-semibold text-base">
               {mainNavItems.find(item => item.key === activePage)?.label || 'SparkVibe'}
             </h1>
           </div>
 
-          {/* Right Side */}
           <div className="flex items-center gap-3">
-            {/* Profile Avatar */}
             <button 
               onClick={handleProfileClick}
               className="relative group"
@@ -305,7 +323,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
             </button>
 
-            {/* Menu Button */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all"
@@ -316,8 +333,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden pt-16 pb-20 max-w-screen-2xl mx-auto w-full">
+      {/* Main Content - Full height minus header and bottom nav */}
+      <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={activePage}
@@ -333,7 +350,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-t border-white/10">
+      <div className="flex-shrink-0 bg-black/40 backdrop-blur-xl border-t border-white/10 z-40">
         <nav className="flex justify-around items-center px-2 py-3 max-w-screen-2xl mx-auto">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
@@ -343,7 +360,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
               <button
                 key={item.key}
                 onClick={() => handlePageChange(item.key as Page)}
-                className={`relative flex flex-col items-center gap-1 p-2 rounded-lg transition-all min-w-[60px] min-h-[48px] ${
+                className={`relative flex flex-col items-center gap-1 p-2 rounded-lg transition-all min-w-[60px] ${
                   isActive ? 'text-purple-400' : 'text-white/60'
                 }`}
               >
@@ -376,7 +393,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
               onClick={() => setMenuOpen(false)}
             />
             <motion.div
@@ -397,7 +414,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   </button>
                 </div>
 
-                {/* User Info Card */}
                 <div className="bg-white/5 rounded-xl p-4 mb-6">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
@@ -425,7 +441,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   </div>
                 </div>
 
-                {/* Quick Actions */}
                 <div className="space-y-2 mb-6">
                   <button
                     onClick={handleProfileClick}
@@ -435,7 +450,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   </button>
                 </div>
 
-                {/* Logout */}
                 <div className="pt-6 border-t border-white/10">
                   <button
                     onClick={handleLogout}
@@ -446,7 +460,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   </button>
                 </div>
 
-                {/* App Info */}
                 <div className="mt-6 text-center text-white/40 text-xs">
                   SparkVibe v1.0.0
                 </div>
