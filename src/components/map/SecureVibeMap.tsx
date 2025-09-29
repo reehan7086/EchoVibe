@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, MessageCircle, UserPlus, Heart, X, Loader2, Smile, Sparkles } from 'lucide-react';
+import { MapPin, MessageCircle, UserPlus, Heart, X, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Profile, MapUser } from '../../types';
 
-// Mood Selection Modal
+// Mood Selection Modal - FIXED SCROLLING AND BUTTON VISIBILITY
 const MoodSelectionModal: React.FC<{
   onClose: () => void;
   onSave: (mood: string, vibe: string) => void;
@@ -36,9 +36,10 @@ const MoodSelectionModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-purple-500/20">
-        <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl w-full max-w-lg my-8 shadow-2xl border border-purple-500/20">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
@@ -53,26 +54,26 @@ const MoodSelectionModal: React.FC<{
           </button>
         </div>
 
-        <div className="space-y-6">
+        {/* Content - Scrollable */}
+        <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
           {/* Mood Selection */}
           <div>
-            <label className="text-white font-medium mb-3 block flex items-center gap-2">
-              <Smile className="w-4 h-4" />
+            <label className="text-white font-medium mb-3 block">
               Choose Your Mood
             </label>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {moods.map((mood) => (
                 <button
                   key={mood.label}
                   onClick={() => setSelectedMood(mood.label)}
-                  className={`p-3 rounded-xl transition-all transform hover:scale-105 ${
+                  className={`p-3 rounded-xl transition-all ${
                     selectedMood === mood.label
                       ? `bg-gradient-to-r ${mood.color} shadow-lg scale-105`
                       : 'bg-gray-700 hover:bg-gray-600'
                   }`}
                 >
                   <div className="text-2xl mb-1">{mood.emoji}</div>
-                  <div className={`text-xs font-medium ${
+                  <div className={`text-xs font-medium truncate ${
                     selectedMood === mood.label ? 'text-white' : 'text-gray-300'
                   }`}>
                     {mood.label}
@@ -91,7 +92,7 @@ const MoodSelectionModal: React.FC<{
               value={vibeText}
               onChange={(e) => setVibeText(e.target.value)}
               maxLength={60}
-              placeholder="e.g., Sipping coffee and watching the sunset..."
+              placeholder="e.g., Just vibing!"
               className="w-full bg-gray-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-400 resize-none"
               rows={2}
             />
@@ -115,23 +116,23 @@ const MoodSelectionModal: React.FC<{
               </div>
             </div>
           )}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!selectedMood || !vibeText.trim()}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              Save Vibe
-            </button>
-          </div>
+        {/* Footer - Fixed at bottom */}
+        <div className="p-6 border-t border-gray-700 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!selectedMood || !vibeText.trim()}
+            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            Save Vibe
+          </button>
         </div>
       </div>
     </div>
@@ -283,7 +284,7 @@ const MapComponent: React.FC<{
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
+        attribution: '© OpenStreetMap',
         maxZoom: 19,
       }).addTo(mapInstanceRef.current);
 
@@ -295,7 +296,6 @@ const MapComponent: React.FC<{
         weight: 2,
       }).addTo(mapInstanceRef.current);
 
-      // Small animated current user marker with vibe popup
       const moodEmoji = getMoodEmoji(currentUser.current_mood || '');
       const vibeMessage = currentUser.mood_message || '';
       
@@ -306,12 +306,12 @@ const MapComponent: React.FC<{
                    <div class="absolute inset-0 rounded-full bg-white opacity-50 animate-pulse"></div>
                  </div>
                  ${vibeMessage ? `
-                 <div class="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-2 rounded-xl shadow-2xl whitespace-nowrap animate-bounce-slow border-2 border-white/20 backdrop-blur-sm" style="animation: floatVibe 3s ease-in-out infinite;">
-                   <div class="flex items-center gap-2">
-                     <span class="text-lg">${moodEmoji}</span>
-                     <span class="text-xs font-medium">"${vibeMessage}"</span>
+                 <div class="absolute -top-14 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 py-1 rounded-lg shadow-2xl whitespace-nowrap animate-bounce-slow border border-white/20 backdrop-blur-sm max-w-[150px]">
+                   <div class="flex items-center gap-1">
+                     <span class="text-sm">${moodEmoji}</span>
+                     <span class="text-[10px] font-medium truncate">"${vibeMessage}"</span>
                    </div>
-                   <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-pink-600"></div>
+                   <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-pink-600"></div>
                  </div>` : ''}
                </div>`,
         className: 'current-user-marker',
@@ -353,12 +353,12 @@ const MapComponent: React.FC<{
                  </div>
                  <div class="absolute -bottom-1 -right-1 w-4 h-4 ${statusColor} border-2 border-gray-900 rounded-full shadow-lg"></div>
                  ${vibeMessage ? `
-                 <div class="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-gray-900/95 text-white px-3 py-2 rounded-xl shadow-2xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm border border-purple-500/30 max-w-xs" style="animation: floatVibeHover 2s ease-in-out infinite;">
-                   <div class="flex items-center gap-2">
-                     <span class="text-base">${moodEmoji}</span>
-                     <span class="text-xs font-medium">"${vibeMessage.length > 40 ? vibeMessage.substring(0, 40) + '...' : vibeMessage}"</span>
+                 <div class="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-gray-900/95 text-white px-2 py-1 rounded-lg shadow-2xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm border border-purple-500/30 max-w-[150px]">
+                   <div class="flex items-center gap-1">
+                     <span class="text-xs">${moodEmoji}</span>
+                     <span class="text-[10px] font-medium truncate">"${vibeMessage.length > 30 ? vibeMessage.substring(0, 30) + '...' : vibeMessage}"</span>
                    </div>
-                   <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
+                   <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
                  </div>` : ''}
                </div>`,
         className: 'profile-marker',
@@ -421,7 +421,7 @@ const MapComponent: React.FC<{
   );
 };
 
-// User Profile Modal
+// User Profile Modal - FIXED SCROLLING
 const UserProfileCard: React.FC<{
   user: MapUser;
   onClose: () => void;
@@ -473,96 +473,98 @@ const UserProfileCard: React.FC<{
   const moodEmoji = getMoodEmoji(user.current_mood || '');
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-70 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-gray-800 rounded-2xl w-full max-w-sm my-8 relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white z-10">
           <X className="w-6 h-6" />
         </button>
 
-        <div className="text-center mb-6">
-          <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center text-3xl mb-3 ${
-            user.gender === 'female' ? 'bg-gradient-to-r from-pink-400 to-pink-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'
-          }`}>
-            {user.avatar_url ? (
-              <img src={user.avatar_url} alt={user.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
-            ) : (
-              moodEmoji
-            )}
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center text-3xl mb-3 ${
+              user.gender === 'female' ? 'bg-gradient-to-r from-pink-400 to-pink-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'
+            }`}>
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt={user.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
+              ) : (
+                moodEmoji
+              )}
+            </div>
+            <h3 className="text-xl font-bold text-white">{user.full_name || user.username}</h3>
+            <p className="text-gray-400 text-sm">@{user.username}</p>
+            <p className="text-purple-400 text-sm">{user.location_name}</p>
+            
+            <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs mt-2 ${
+              user.status === 'online' ? 'bg-green-600 text-green-100' : 
+              user.status === 'away' ? 'bg-yellow-600 text-yellow-100' : 'bg-gray-600 text-gray-100'
+            }`}>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                user.status === 'online' ? 'bg-green-300' : 
+                user.status === 'away' ? 'bg-yellow-300' : 'bg-gray-300'
+              } animate-pulse`}></div>
+              {user.status === 'online' ? 'Online' : user.status === 'away' ? 'Away' : 'Offline'}
+            </div>
           </div>
-          <h3 className="text-xl font-bold text-white">{user.full_name || user.username}</h3>
-          <p className="text-gray-400">@{user.username}</p>
-          <p className="text-purple-400 text-sm">{user.location_name}</p>
-          
-          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs mt-2 ${
-            user.status === 'online' ? 'bg-green-600 text-green-100' : 
-            user.status === 'away' ? 'bg-yellow-600 text-yellow-100' : 'bg-gray-600 text-gray-100'
-          }`}>
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              user.status === 'online' ? 'bg-green-300' : 
-              user.status === 'away' ? 'bg-yellow-300' : 'bg-gray-300'
-            } animate-pulse`}></div>
-            {user.status === 'online' ? 'Online' : user.status === 'away' ? 'Away' : 'Offline'}
-          </div>
-        </div>
 
-        <div className="space-y-4 mb-6">
-          {user.current_mood && user.mood_message && (
-            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-xl p-4 border border-purple-500/30">
-              <p className="text-gray-400 text-xs uppercase mb-2">Current Vibe</p>
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">{moodEmoji}</span>
-                <div>
-                  <p className="text-white font-medium">{user.current_mood}</p>
-                  <p className="text-gray-300 text-sm italic">"{user.mood_message}"</p>
+          <div className="space-y-4 mb-6">
+            {user.current_mood && user.mood_message && (
+              <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-xl p-3 border border-purple-500/30">
+                <p className="text-gray-400 text-xs uppercase mb-1">Current Vibe</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{moodEmoji}</span>
+                  <div>
+                    <p className="text-white font-medium text-sm">{user.current_mood}</p>
+                    <p className="text-gray-300 text-xs italic">"{user.mood_message}"</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          {user.bio && (
+            )}
+            {user.bio && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase">Bio</p>
+                <p className="text-white text-sm">{user.bio}</p>
+              </div>
+            )}
             <div>
-              <p className="text-gray-400 text-xs uppercase">Bio</p>
-              <p className="text-white text-sm">{user.bio}</p>
+              <p className="text-gray-400 text-xs uppercase">Vibe Score</p>
+              <p className="text-yellow-300 text-sm">{user.vibe_score || 50}/100</p>
             </div>
-          )}
-          <div>
-            <p className="text-gray-400 text-xs uppercase">Vibe Score</p>
-            <p className="text-yellow-300 text-sm">{user.vibe_score || 50}/100</p>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <button 
-            onClick={() => onMessage(user)}
-            className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-colors"
-          >
-            <MessageCircle className="w-4 h-4" />
-            <span>Chat</span>
-          </button>
-          <button 
-            onClick={handleConnect}
-            disabled={loading || connectionStatus !== 'none'}
-            className={`${
-              connectionStatus === 'accepted' ? 'bg-green-600' : 
-              connectionStatus === 'pending' ? 'bg-yellow-600' : 
-              'bg-purple-600 hover:bg-purple-700'
-            } text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 disabled:opacity-50 transition-colors`}
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 
-             connectionStatus === 'accepted' ? <Heart className="w-4 h-4 fill-current" /> : 
-             <UserPlus className="w-4 h-4" />}
-            <span>
-              {connectionStatus === 'accepted' ? 'Friends' : 
-               connectionStatus === 'pending' ? 'Pending' : 
-               'Connect'}
-            </span>
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => onMessage(user)}
+              className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-colors text-sm"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Chat</span>
+            </button>
+            <button 
+              onClick={handleConnect}
+              disabled={loading || connectionStatus !== 'none'}
+              className={`${
+                connectionStatus === 'accepted' ? 'bg-green-600' : 
+                connectionStatus === 'pending' ? 'bg-yellow-600' : 
+                'bg-purple-600 hover:bg-purple-700'
+              } text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 disabled:opacity-50 transition-colors text-sm`}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 
+               connectionStatus === 'accepted' ? <Heart className="w-4 h-4 fill-current" /> : 
+               <UserPlus className="w-4 h-4" />}
+              <span>
+                {connectionStatus === 'accepted' ? 'Friends' : 
+                 connectionStatus === 'pending' ? 'Pending' : 
+                 'Connect'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// Main Component
+// Main Component - FIXED LAYOUT
 const SecureVibeMap: React.FC = () => {
   const { currentUser, loading: userLoading, setCurrentUser } = useCurrentUser();
   const [selectedRadius, setSelectedRadius] = useState(5);
@@ -571,7 +573,6 @@ const SecureVibeMap: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
 
-  // Check if user needs to set mood on mount
   useEffect(() => {
     if (currentUser && !currentUser.current_mood && !currentUser.mood_message) {
       setShowMoodModal(true);
@@ -647,12 +648,14 @@ const SecureVibeMap: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 flex bg-gray-900">
+    <div className="fixed inset-0 flex flex-col bg-gray-900">
       <style>{`
         body, html {
           overflow: hidden;
           margin: 0;
           padding: 0;
+          height: 100%;
+          width: 100%;
         }
         @keyframes ping {
           75%, 100% {
@@ -669,14 +672,6 @@ const SecureVibeMap: React.FC = () => {
           }
           50% {
             transform: translateY(-8px) translateX(-50%);
-          }
-        }
-        @keyframes floatVibeHover {
-          0%, 100% {
-            transform: translateY(0px) translateX(-50%);
-          }
-          50% {
-            transform: translateY(-5px) translateX(-50%);
           }
         }
         .animate-bounce-slow {
@@ -697,7 +692,6 @@ const SecureVibeMap: React.FC = () => {
         }
       `}</style>
 
-      {/* Mood Modal */}
       {showMoodModal && (
         <MoodSelectionModal
           onClose={() => setShowMoodModal(false)}
@@ -707,61 +701,68 @@ const SecureVibeMap: React.FC = () => {
         />
       )}
 
-      <div className="flex-1 flex flex-col p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">Discover Nearby</h1>
-          <div className="flex items-center space-x-4">
-            {/* Edit Vibe Button */}
+      {/* Header - Fixed height */}
+      <div className="flex-none p-3 md:p-4 bg-gray-800/50 border-b border-gray-700">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h1 className="text-lg md:text-2xl font-bold text-white">Discover Nearby</h1>
+          
+          <div className="flex items-center gap-2 md:gap-4">
             <button
               onClick={() => setShowMoodModal(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              className="flex items-center gap-1 md:gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-2 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-all"
             >
-              <Sparkles className="w-4 h-4" />
-              {currentUser.current_mood ? 'Edit Vibe' : 'Set Your Vibe'}
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">{currentUser.current_mood ? 'Edit Vibe' : 'Set Vibe'}</span>
+              <span className="sm:hidden">Vibe</span>
             </button>
             
             <select 
               value={selectedRadius}
               onChange={(e) => setSelectedRadius(Number(e.target.value))}
-              className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="bg-gray-700 text-white px-2 md:px-3 py-2 rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               {[1, 2, 5, 10, 20, 50].map(r => (
                 <option key={r} value={r}>{r} km</option>
               ))}
             </select>
-            <div className="text-sm text-gray-400">
+            
+            <div className="text-xs md:text-sm text-gray-400">
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin inline" />
               ) : (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1 md:gap-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  {nearbyUsers.length} users nearby
+                  <span className="hidden sm:inline">{nearbyUsers.length} nearby</span>
+                  <span className="sm:hidden">{nearbyUsers.length}</span>
                 </span>
               )}
             </div>
           </div>
         </div>
-        
-        {/* Current User Vibe Display */}
+
         {currentUser.current_mood && currentUser.mood_message && (
-          <div className="mb-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-xl p-3 border border-purple-500/30">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{getMoodEmoji(currentUser.current_mood)}</span>
-              <div className="flex-1">
-                <p className="text-white font-medium text-sm">{currentUser.current_mood}</p>
-                <p className="text-gray-300 text-xs italic">"{currentUser.mood_message}"</p>
+          <div className="mt-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg p-2 md:p-3 border border-purple-500/30">
+            <div className="flex items-center gap-2 md:gap-3">
+              <span className="text-xl md:text-2xl">{getMoodEmoji(currentUser.current_mood)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium text-xs md:text-sm">{currentUser.current_mood}</p>
+                <p className="text-gray-300 text-xs italic truncate">"{currentUser.mood_message}"</p>
               </div>
               <button
                 onClick={() => setShowMoodModal(true)}
-                className="text-purple-400 hover:text-purple-300 text-xs"
+                className="text-purple-400 hover:text-purple-300 text-xs flex-shrink-0"
               >
                 Change
               </button>
             </div>
           </div>
         )}
-        
-        <div className="flex-1 min-h-0">
+      </div>
+
+      {/* Main Content - Flexible */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Map Section */}
+        <div className="flex-1 p-3 md:p-4">
           {currentUser.latitude && currentUser.longitude ? (
             <MapComponent 
               onUserSelect={setSelectedUser} 
@@ -771,9 +772,9 @@ const SecureVibeMap: React.FC = () => {
             />
           ) : (
             <div className="h-full flex items-center justify-center bg-gray-800 rounded-lg">
-              <div className="text-center text-white">
-                <MapPin className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-400 mb-4">Location access required</p>
+              <div className="text-center text-white p-4">
+                <MapPin className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-gray-400 mb-4 text-sm md:text-base">Location access required</p>
                 <button 
                   onClick={() => {
                     if (navigator.geolocation) {
@@ -791,7 +792,7 @@ const SecureVibeMap: React.FC = () => {
                       );
                     }
                   }}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
                 >
                   Enable Location
                 </button>
@@ -799,67 +800,73 @@ const SecureVibeMap: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
 
-      <div className="w-80 bg-gray-800 p-4 overflow-y-auto border-l border-gray-700 hidden md:block">
-        <h3 className="text-lg font-semibold text-white mb-4">Nearby Users</h3>
-        {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+        {/* Sidebar - Desktop only */}
+        <div className="hidden lg:block w-80 bg-gray-800 border-l border-gray-700 overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-gray-700">
+            <h3 className="text-lg font-semibold text-white">Nearby Users</h3>
           </div>
-        ) : nearbyUsers.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">
-            <p>No users nearby</p>
-            <p className="text-sm mt-2">Try increasing the radius</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {nearbyUsers.map((user) => {
-              const moodEmoji = getMoodEmoji(user.current_mood || '');
-              return (
-                <div 
-                  key={user.id} 
-                  className="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-all cursor-pointer"
-                  onClick={() => setSelectedUser(user)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg relative overflow-hidden ${
-                      user.gender === 'female' 
-                        ? 'bg-gradient-to-r from-pink-400 to-pink-600' 
-                        : 'bg-gradient-to-r from-blue-400 to-blue-600'
-                    } shadow-lg`}>
-                      {user.avatar_url ? (
-                        <img src={user.avatar_url} alt={user.full_name || 'User'} className="w-full h-full object-cover" />
-                      ) : (
-                        moodEmoji
-                      )}
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-700 ${
-                        user.status === 'online' ? 'bg-green-400' : 
-                        user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400'
-                      }`}></div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-white text-sm truncate">{user.full_name || user.username}</p>
-                          <p className="text-xs text-gray-400 truncate">{user.location_name}</p>
+          
+          <div className="flex-1 overflow-y-auto p-4">
+            {loading ? (
+              <div className="flex items-center justify-center h-32">
+                <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+              </div>
+            ) : nearbyUsers.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p>No users nearby</p>
+                <p className="text-sm mt-2">Try increasing the radius</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {nearbyUsers.map((user) => {
+                  const moodEmoji = getMoodEmoji(user.current_mood || '');
+                  return (
+                    <div 
+                      key={user.id} 
+                      className="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-all cursor-pointer"
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg relative overflow-hidden flex-shrink-0 ${
+                          user.gender === 'female' 
+                            ? 'bg-gradient-to-r from-pink-400 to-pink-600' 
+                            : 'bg-gradient-to-r from-blue-400 to-blue-600'
+                        } shadow-lg`}>
+                          {user.avatar_url ? (
+                            <img src={user.avatar_url} alt={user.full_name || 'User'} className="w-full h-full object-cover" />
+                          ) : (
+                            moodEmoji
+                          )}
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-700 ${
+                            user.status === 'online' ? 'bg-green-400' : 
+                            user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400'
+                          }`}></div>
                         </div>
-                        <span className="text-xs text-gray-400 ml-2">{(user.distance ?? 0).toFixed(1)} km</span>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-white text-sm truncate">{user.full_name || user.username}</p>
+                              <p className="text-xs text-gray-400 truncate">{user.location_name}</p>
+                            </div>
+                            <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{(user.distance ?? 0).toFixed(1)} km</span>
+                          </div>
+                          
+                          {user.mood_message && (
+                            <div className="mt-2 bg-gray-800/50 rounded-lg px-2 py-1">
+                              <p className="text-xs text-gray-300 italic truncate">"{user.mood_message}"</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      
-                      {user.mood_message && (
-                        <div className="mt-2 bg-gray-800/50 rounded-lg px-2 py-1">
-                          <p className="text-xs text-gray-300 italic truncate">"{user.mood_message}"</p>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {selectedUser && (
