@@ -37,8 +37,11 @@ export interface Profile {
     min_reputation_to_view?: number;
   };
   movement_speed?: number;
+  gender?: 'male' | 'female';
   created_at?: string;
   updated_at?: string;
+  // For suggestions: calculated distance from current user (km)
+  distance?: number;
 }
 
 // ------------------

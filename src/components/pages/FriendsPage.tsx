@@ -1,341 +1,594 @@
-// src/components/pages/FriendsPage.tsx
-import React, { useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Users, MessageCircle, UserMinus, Search, Filter, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, UserPlus, UserMinus, MessageCircle, Loader2, UserCheck, UserX, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Profile } from '../../types';
+import type { Profile } from '../../types';
 
-interface Friend extends Profile {
-  connection_status: 'connected' | 'pending' | 'blocked';
-  connected_at: string;
-  distance?: number;
-  status?: 'online' | 'away' | 'offline';
+const useCurrentUser = () => {
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        setCurrentUser(profile);
+      }
+      setLoading(false);
+    };
+    getCurrentUser();
+  }, []);
+
+  return { currentUser, loading };
+};
+
+interface FriendWithProfile {
+  id: string;
+  user_id: string;
+  connected_user_id: string;
+  status: 'pending' | 'connected' | 'blocked';
+  created_at: string;
+  profile?: Profile;
 }
 
+export type { FriendWithProfile };
+
+const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+const getStatusFromLastActive = (lastActive: string): 'online' | 'away' | 'offline' => {
+  const now = new Date();
+  const last = new Date(lastActive);
+  const diffMinutes = (now.getTime() - last.getTime()) / (1000 * 60);
+  
+  if (diffMinutes < 5) return 'online';
+  if (diffMinutes < 30) return 'away';
+  return 'offline';
+};
+
 interface FriendsPageProps {
-  user: User;
-  onStartChat: (friend: Friend) => void;
+  user: import('@supabase/supabase-js').User;
+  onStartChat?: (friend: FriendWithProfile) => void;
 }
 
 const FriendsPage: React.FC<FriendsPageProps> = ({ user, onStartChat }) => {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'online' | 'nearby'>('all');
+  const { currentUser, loading: userLoading } = useCurrentUser();
+  const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'suggestions'>('friends');
+  const [friends, setFriends] = useState<FriendWithProfile[]>([]);
+  const [requests, setRequests] = useState<FriendWithProfile[]>([]);
+  const [suggestions, setSuggestions] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
+  // Load friends
   useEffect(() => {
-    fetchFriends();
-  }, [user.id]);
+    if (!currentUser) return;
 
-  const fetchFriends = async () => {
-    setLoading(true);
-    try {
-      // Get connected friends
-      const { data: connections, error } = await supabase
+    const loadFriends = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('user_connections')
+          .select('*')
+          .or(`user_id.eq.${currentUser.user_id},connected_user_id.eq.${currentUser.user_id}`)
+          .eq('status', 'connected');
+
+        if (error) throw error;
+
+        const friendsWithProfiles = await Promise.all(
+          (data || []).map(async (connection) => {
+            const friendId = connection.user_id === currentUser.user_id 
+              ? connection.connected_user_id 
+              : connection.user_id;
+
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', friendId)
+              .single();
+
+            return {
+              ...connection,
+              profile
+            };
+          })
+        );
+
+        setFriends(friendsWithProfiles);
+      } catch (error) {
+        console.error('Error loading friends:', error);
+      }
+      setLoading(false);
+    };
+
+    loadFriends();
+  }, [currentUser]);
+
+  // Load friend requests
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadRequests = async () => {
+      const { data, error } = await supabase
         .from('user_connections')
-        .select(`
-          *,
-          connected_user:profiles!user_connections_connected_user_id_fkey(
-            id,
-            user_id,
-            full_name,
-            username,
-            bio,
-            avatar_url,
-            latitude,
-            longitude,
-            current_mood,
-            last_active,
-            vibe_score
-          ),
-          requester:profiles!user_connections_user_id_fkey(
-            id,
-            user_id,
-            full_name,
-            username,
-            bio,
-            avatar_url,
-            latitude,
-            longitude,
-            current_mood,
-            last_active,
-            vibe_score
-          )
-        `)
-        .or(`user_id.eq.${user.id},connected_user_id.eq.${user.id}`)
-        .eq('status', 'connected');
+        .select('*')
+        .eq('connected_user_id', currentUser.user_id)
+        .eq('status', 'pending');
 
       if (error) {
-        console.error('Error fetching friends:', error);
+        console.error('Error loading requests:', error);
         return;
       }
 
-      // Get current user's location for distance calculation
-      const { data: currentUserProfile } = await supabase
-        .from('profiles')
-        .select('latitude, longitude')
-        .eq('user_id', user.id)
-        .single();
+      const requestsWithProfiles = await Promise.all(
+        (data || []).map(async (connection) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', connection.user_id)
+            .single();
 
-      const friendsList: Friend[] = connections?.map(connection => {
-        // Determine which profile is the friend (not the current user)
-        const friendProfile = connection.user_id === user.id 
-          ? connection.connected_user 
-          : connection.requester;
+          return {
+            ...connection,
+            profile
+          };
+        })
+      );
 
-        let distance: number | undefined;
-        if (currentUserProfile?.latitude && currentUserProfile?.longitude && 
-            friendProfile?.latitude && friendProfile?.longitude) {
-          distance = calculateDistance(
-            currentUserProfile.latitude,
-            currentUserProfile.longitude,
-            friendProfile.latitude,
-            friendProfile.longitude
-          );
-        }
+      setRequests(requestsWithProfiles);
+    };
 
-        const status = getStatusFromLastActive(friendProfile?.last_active || new Date().toISOString());
+    loadRequests();
+  }, [currentUser]);
 
-        return {
-          ...friendProfile,
-          connection_status: 'connected' as const,
-          connected_at: connection.created_at,
-          distance,
-          status
-        };
-      }) || [];
+  // Load suggestions
+  useEffect(() => {
+    if (!currentUser || !currentUser.latitude || !currentUser.longitude) return;
 
-      setFriends(friendsList);
+    const loadSuggestions = async () => {
+      try {
+        // Get all profiles except current user and existing connections
+        const { data: existingConnections } = await supabase
+          .from('user_connections')
+          .select('user_id, connected_user_id')
+          .or(`user_id.eq.${currentUser.user_id},connected_user_id.eq.${currentUser.user_id}`);
+
+        const connectedIds = new Set(
+          (existingConnections || []).flatMap(c => [c.user_id, c.connected_user_id])
+        );
+        connectedIds.add(currentUser.user_id);
+
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
+          .eq('privacy_level', 'public')
+          .limit(20);
+
+        if (error) throw error;
+
+        const nearbyProfiles = (profiles || [])
+          .filter(p => !connectedIds.has(p.user_id))
+          .map(p => ({
+            ...p,
+            distance: calculateDistance(
+              currentUser.latitude!,
+              currentUser.longitude!,
+              p.latitude!,
+              p.longitude!
+            )
+          }))
+          .filter(p => p.distance <= 50)
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 10);
+
+        setSuggestions(nearbyProfiles);
+      } catch (error) {
+        console.error('Error loading suggestions:', error);
+      }
+    };
+
+    loadSuggestions();
+  }, [currentUser]);
+
+  const handleAcceptRequest = async (connectionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_connections')
+        .update({ status: 'connected' })
+        .eq('id', connectionId);
+
+      if (error) throw error;
+
+      setRequests(prev => prev.filter(r => r.id !== connectionId));
+      
+      // Reload friends
+      const connection = requests.find(r => r.id === connectionId);
+      if (connection?.profile) {
+        setFriends(prev => [...prev, connection as FriendWithProfile]);
+      }
     } catch (error) {
-      console.error('Error fetching friends:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error accepting request:', error);
     }
   };
 
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const getStatusFromLastActive = (lastActive: string): 'online' | 'away' | 'offline' => {
-    const now = new Date();
-    const last = new Date(lastActive);
-    const diffMinutes = (now.getTime() - last.getTime()) / (1000 * 60);
-    
-    if (diffMinutes < 5) return 'online';
-    if (diffMinutes < 30) return 'away';
-    return 'offline';
-  };
-
-  const handleRemoveFriend = async (friendId: string) => {
+  const handleDeclineRequest = async (connectionId: string) => {
     try {
       const { error } = await supabase
         .from('user_connections')
         .delete()
-        .or(`and(user_id.eq.${user.id},connected_user_id.eq.${friendId}),and(user_id.eq.${friendId},connected_user_id.eq.${user.id})`);
+        .eq('id', connectionId);
 
-      if (error) {
-        console.error('Error removing friend:', error);
-        return;
-      }
+      if (error) throw error;
 
-      // Remove from local state
-      setFriends(prev => prev.filter(friend => friend.user_id !== friendId));
+      setRequests(prev => prev.filter(r => r.id !== connectionId));
+    } catch (error) {
+      console.error('Error declining request:', error);
+    }
+  };
+
+  const handleAddFriend = async (userId: string) => {
+    if (!currentUser) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_connections')
+        .insert({
+          user_id: currentUser.user_id,
+          connected_user_id: userId,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      // Send notification
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          related_user_id: currentUser.user_id,
+          type: 'connection_request',
+          message: `${currentUser.full_name || currentUser.username} wants to connect`,
+          read: false
+        });
+
+      setSuggestions(prev => prev.filter(s => s.user_id !== userId));
+    } catch (error) {
+      console.error('Error adding friend:', error);
+    }
+  };
+
+  const handleRemoveFriend = async (connection: FriendWithProfile) => {
+    try {
+      const { error } = await supabase
+        .from('user_connections')
+        .delete()
+        .eq('id', connection.id);
+
+      if (error) throw error;
+
+      setFriends(prev => prev.filter(f => f.id !== connection.id));
     } catch (error) {
       console.error('Error removing friend:', error);
     }
   };
 
-  const filteredFriends = friends.filter(friend => {
-    // Search filter
-    const matchesSearch = !searchTerm || 
-      friend.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      friend.username?.toLowerCase().includes(searchTerm.toLowerCase());
+  const handleMessageFriend = async (friend: FriendWithProfile) => {
+    if (!currentUser || !friend.profile) return;
 
-    // Status filter
-    const matchesFilter = filter === 'all' || 
-      (filter === 'online' && friend.status === 'online') ||
-      (filter === 'nearby' && friend.distance && friend.distance <= 10);
+    // Create or navigate to chat room
+    const { data: existingParticipants } = await supabase
+      .from('chat_participants')
+      .select('chat_room_id')
+      .in('user_id', [currentUser.user_id, friend.profile.user_id]);
 
-    return matchesSearch && matchesFilter;
-  });
+    if (existingParticipants && existingParticipants.length >= 2) {
+      const chatRoomIds = existingParticipants.map(p => p.chat_room_id);
+      const commonRoomId = chatRoomIds.find(id => 
+        chatRoomIds.filter(roomId => roomId === id).length >= 2
+      );
+      
+      if (commonRoomId) {
+        // Navigate to chat (you can emit an event or use router)
+        console.log('Navigate to chat:', commonRoomId);
+        return;
+      }
+    }
 
-  const getActivityEmoji = (mood: string): string => {
-    const moodLower = mood?.toLowerCase() || '';
-    
-    if (moodLower.includes('coffee')) return '☕';
-    if (moodLower.includes('work')) return '💼';
-    if (moodLower.includes('gym')) return '💪';
-    if (moodLower.includes('food')) return '🍽️';
-    if (moodLower.includes('music')) return '🎵';
-    if (moodLower.includes('study')) return '📚';
-    
-    return '😊';
+    // Create new chat room
+    const { data: room, error } = await supabase
+      .from('chat_rooms')
+      .insert({
+        is_group: false,
+        created_by: currentUser.user_id,
+        chat_status: 'approved'
+      })
+      .select()
+      .single();
+
+    if (error || !room) {
+      console.error('Error creating chat room:', error);
+      return;
+    }
+
+    await supabase
+      .from('chat_participants')
+      .insert([
+        { chat_room_id: room.id, user_id: currentUser.user_id },
+        { chat_room_id: room.id, user_id: friend.profile.user_id }
+      ]);
   };
 
-  if (loading) {
+  const filteredFriends = friends.filter(f =>
+    f.profile?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    f.profile?.username?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (userLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white text-center">
-          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-2" />
-          <p>Loading friends...</p>
-        </div>
+      <div className="h-full bg-gray-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="flex flex-col h-full bg-gray-900">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Friends</h1>
-          <p className="text-white/60">
-            {friends.length} {friends.length === 1 ? 'friend' : 'friends'} connected
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Users className="w-6 h-6 text-purple-400" />
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+      <div className="bg-gray-800 p-6 border-b border-gray-700">
+        <h1 className="text-2xl font-bold text-white mb-4">Friends</h1>
+        
+        {/* Search Bar */}
+        <div className="relative mb-4">
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search friends..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-white/60" />
-          {['all', 'online', 'nearby'].map((filterOption) => (
-            <button
-              key={filterOption}
-              onClick={() => setFilter(filterOption as any)}
-              className={`px-3 py-1 rounded-full text-sm transition-all ${
-                filter === filterOption
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white/10 text-white/70 hover:bg-white/20'
-              }`}
-            >
-              {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
-            </button>
-          ))}
+
+        {/* Tab Navigation */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('friends')}
+            className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
+              activeTab === 'friends'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+            }`}
+          >
+            Friends ({friends.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`relative flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
+              activeTab === 'requests'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+            }`}
+          >
+            Requests ({requests.length})
+            {requests.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                {requests.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('suggestions')}
+            className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
+              activeTab === 'suggestions'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+            }`}
+          >
+            Suggestions
+          </button>
         </div>
       </div>
 
-      {/* Friends List */}
-      <div className="space-y-3">
-        {filteredFriends.length > 0 ? (
-          <AnimatePresence>
-            {filteredFriends.map((friend) => (
-              <motion.div
-                key={friend.user_id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="bg-white/10 backdrop-blur-xl rounded-xl border border-white/20 p-4 hover:bg-white/15 transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  {/* Avatar */}
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-xl">
-                      {friend.avatar_url ? (
-                        <img
-                          src={friend.avatar_url}
-                          alt={friend.full_name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        getActivityEmoji(friend.current_mood || '')
-                      )}
-                    </div>
-                    {/* Status indicator */}
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-gray-800 rounded-full ${
-                      friend.status === 'online' ? 'bg-green-400' : 
-                      friend.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400'
-                    }`} />
-                  </div>
-
-                  {/* Friend Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-white font-semibold truncate">
-                        {friend.full_name || friend.username}
-                      </h3>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        friend.status === 'online' ? 'bg-green-600/20 text-green-400' :
-                        friend.status === 'away' ? 'bg-yellow-600/20 text-yellow-400' :
-                        'bg-gray-600/20 text-gray-400'
-                      }`}>
-                        {friend.status}
-                      </span>
-                    </div>
-                    <p className="text-white/60 text-sm truncate">
-                      @{friend.username}
-                    </p>
-                    <div className="flex items-center gap-4 mt-1 text-xs text-white/40">
-                      {friend.current_mood && (
-                        <span>🎭 {friend.current_mood}</span>
-                      )}
-                      {friend.distance && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {friend.distance.toFixed(1)} km away
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onStartChat(friend)}
-                      className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
-                      title="Start chat"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleRemoveFriend(friend.user_id)}
-                      className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-all"
-                      title="Remove friend"
-                    >
-                      <UserMinus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        ) : (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-white/40" />
-            </div>
-            <h3 className="text-xl font-semibold text-white mb-2">
-              {searchTerm || filter !== 'all' ? 'No friends found' : 'No friends yet'}
-            </h3>
-            <p className="text-white/60 max-w-md mx-auto">
-              {searchTerm || filter !== 'all' 
-                ? 'Try adjusting your search or filter criteria.'
-                : 'Start connecting with people on the map to build your friends list!'
-              }
-            </p>
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
           </div>
+        ) : (
+          <>
+            {activeTab === 'friends' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredFriends.length === 0 ? (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16">
+                    <Users className="w-16 h-16 text-gray-600 mb-4" />
+                    <h3 className="text-xl font-bold text-gray-400 mb-2">No friends yet</h3>
+                    <p className="text-gray-500 text-center">
+                      Connect with people nearby to build your network
+                    </p>
+                  </div>
+                ) : (
+                  filteredFriends.map(friend => (
+                    <div
+                      key={friend.id}
+                      className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700 hover:border-purple-500 transition-all"
+                    >
+                      <div className="h-20 bg-gradient-to-br from-purple-600 to-blue-600"></div>
+                      
+                      <div className="p-4 -mt-8">
+                        <div className="flex items-start gap-3">
+                          <div className="relative">
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center border-4 border-gray-800 ${
+                              friend.profile?.gender === 'female'
+                                ? 'bg-gradient-to-r from-pink-500 to-pink-600'
+                                : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                            }`}>
+                              <span className="text-white font-bold text-xl">
+                                {friend.profile?.full_name?.[0] || friend.profile?.username?.[0] || '?'}
+                              </span>
+                            </div>
+                            {friend.profile?.last_active && getStatusFromLastActive(friend.profile.last_active) === 'online' && (
+                              <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800"></div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 mt-2">
+                            <h3 className="font-bold text-white">{friend.profile?.full_name || friend.profile?.username}</h3>
+                            <p className="text-sm text-gray-400">@{friend.profile?.username}</p>
+                          </div>
+                        </div>
+
+                        {friend.profile?.bio && (
+                          <p className="text-sm text-gray-400 mt-3 line-clamp-2">{friend.profile.bio}</p>
+                        )}
+
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() => handleMessageFriend(friend)}
+                            className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Message
+                          </button>
+                          <button
+                            onClick={() => handleRemoveFriend(friend)}
+                            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+                          >
+                            <UserMinus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'requests' && (
+              <div className="space-y-3 max-w-2xl mx-auto">
+                {requests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <UserCheck className="w-16 h-16 text-gray-600 mb-4" />
+                    <h3 className="text-xl font-bold text-gray-400 mb-2">No pending requests</h3>
+                    <p className="text-gray-500">You're all caught up!</p>
+                  </div>
+                ) : (
+                  requests.map(request => (
+                    <div
+                      key={request.id}
+                      className="bg-gray-800 rounded-xl p-4 border border-gray-700"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                          request.profile?.gender === 'female'
+                            ? 'bg-gradient-to-r from-pink-500 to-pink-600'
+                            : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                        }`}>
+                          <span className="text-white font-bold text-lg">
+                            {request.profile?.full_name?.[0] || request.profile?.username?.[0] || '?'}
+                          </span>
+                        </div>
+
+                        <div className="flex-1">
+                          <h3 className="font-bold text-white">{request.profile?.full_name || request.profile?.username}</h3>
+                          <p className="text-sm text-gray-400">@{request.profile?.username}</p>
+                          
+                          {request.profile?.bio && (
+                            <p className="text-sm text-gray-400 mt-2">{request.profile.bio}</p>
+                          )}
+
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => handleAcceptRequest(request.id)}
+                              className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                            >
+                              <UserCheck className="w-4 h-4" />
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleDeclineRequest(request.id)}
+                              className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                            >
+                              <UserX className="w-4 h-4" />
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'suggestions' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+                {suggestions.length === 0 ? (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16">
+                    <UserPlus className="w-16 h-16 text-gray-600 mb-4" />
+                    <h3 className="text-xl font-bold text-gray-400 mb-2">No suggestions</h3>
+                    <p className="text-gray-500">Check back later for friend suggestions</p>
+                  </div>
+                ) : (
+                  suggestions.map(suggestion => (
+                    <div
+                      key={suggestion.user_id}
+                      className="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-purple-500 transition-all"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                          suggestion.gender === 'female'
+                            ? 'bg-gradient-to-r from-pink-500 to-pink-600'
+                            : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                        }`}>
+                          <span className="text-white font-bold text-lg">
+                            {suggestion.full_name?.[0] || suggestion.username?.[0] || '?'}
+                          </span>
+                        </div>
+
+                        <div className="flex-1">
+                          <h3 className="font-bold text-white">{suggestion.full_name || suggestion.username}</h3>
+                          <p className="text-sm text-gray-400">@{suggestion.username}</p>
+                          
+                          {suggestion.distance && (
+                            <p className="text-xs text-purple-400 mt-1">
+                              {suggestion.distance.toFixed(1)} km away
+                            </p>
+                          )}
+
+                          {suggestion.bio && (
+                            <p className="text-sm text-gray-400 mt-2 line-clamp-2">{suggestion.bio}</p>
+                          )}
+
+                          <button
+                            onClick={() => handleAddFriend(suggestion.user_id)}
+                            className="w-full mt-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            Add Friend
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
