@@ -91,7 +91,7 @@ const fetchNearbyUsers = async (userLat: number, userLng: number, radiusKm: numb
         } as MapUser;
       })
       .filter(user => (user.distance ?? 0) <= radiusKm)
-      .filter(user => user.is_online) // Only show online users
+      .filter(user => user.is_online)
       .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
   } catch (error) {
     return [];
@@ -147,11 +147,17 @@ const MapComponent: React.FC<{
         weight: 2,
       }).addTo(mapInstanceRef.current);
 
+      // Current user marker with pulsing animation
       const currentUserIcon = L.divIcon({
-        html: `<div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 border-4 border-white rounded-full shadow-xl flex items-center justify-center"><span class="text-lg">🧑‍💻</span></div>`,
+        html: `<div class="relative flex items-center justify-center">
+                 <div class="absolute w-16 h-16 bg-purple-500 rounded-full animate-ping opacity-30"></div>
+                 <div class="relative w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 border-4 border-white rounded-full shadow-xl flex items-center justify-center z-10">
+                   <span class="text-2xl">⚡</span>
+                 </div>
+               </div>`,
         className: 'current-user-marker',
-        iconSize: [48, 48],
-        iconAnchor: [24, 24],
+        iconSize: [64, 64],
+        iconAnchor: [32, 32],
       });
 
       L.marker([currentUser.latitude, currentUser.longitude], { icon: currentUserIcon })
@@ -169,31 +175,74 @@ const MapComponent: React.FC<{
     markersRef.current.forEach(marker => mapInstanceRef.current.removeLayer(marker));
     markersRef.current = [];
 
+    // Group users by location
+    const locationGroups: { [key: string]: MapUser[] } = {};
     users.forEach((user) => {
       if (!user.latitude || !user.longitude) return;
+      const key = `${user.latitude.toFixed(5)},${user.longitude.toFixed(5)}`;
+      if (!locationGroups[key]) locationGroups[key] = [];
+      locationGroups[key].push(user);
+    });
 
-      const emoji = getActivityEmoji(user.current_mood || '', user.activity, user.gender);
-      const pinColor = user.gender === 'female' ? 'from-pink-400 to-pink-600' : 'from-blue-400 to-blue-600';
-      const statusColor = user.status === 'online' ? 'bg-green-400' : user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400';
+    // Create markers for each location group
+    Object.entries(locationGroups).forEach(([key, groupUsers]) => {
+      const [lat, lng] = key.split(',').map(Number);
       
-      const profileIcon = L.divIcon({
-        html: `<div class="relative"><div class="w-10 h-10 bg-gradient-to-r ${pinColor} rounded-full shadow-lg flex items-center justify-center border-2 border-white cursor-pointer hover:scale-110 transition-transform"><span class="text-lg">${emoji}</span></div><div class="absolute -top-1 -right-1 w-4 h-4 ${statusColor} border-2 border-white rounded-full"></div></div>`,
-        className: 'profile-marker cursor-pointer',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-      });
+      if (groupUsers.length === 1) {
+        // Single user at this location
+        const user = groupUsers[0];
+        const emoji = getActivityEmoji(user.current_mood || '', user.activity, user.gender);
+        const pinColor = user.gender === 'female' ? 'from-pink-400 to-pink-600' : 'from-blue-400 to-blue-600';
+        const statusColor = user.status === 'online' ? 'bg-green-400' : user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400';
+        
+        const profileIcon = L.divIcon({
+          html: `<div class="relative"><div class="w-10 h-10 bg-gradient-to-r ${pinColor} rounded-full shadow-lg flex items-center justify-center border-2 border-white cursor-pointer hover:scale-110 transition-transform"><span class="text-lg">${emoji}</span></div><div class="absolute -top-1 -right-1 w-4 h-4 ${statusColor} border-2 border-white rounded-full"></div></div>`,
+          className: 'profile-marker cursor-pointer',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+        });
 
-      const marker = L.marker([user.latitude, user.longitude], { icon: profileIcon })
-        .addTo(mapInstanceRef.current);
+        const marker = L.marker([lat, lng], { icon: profileIcon })
+          .addTo(mapInstanceRef.current);
 
-      marker.on('click', () => onUserSelect(user));
+        marker.on('click', () => onUserSelect(user));
 
-      marker.bindTooltip(`<div class="text-center"><div class="font-bold text-sm">${user.full_name || user.username}</div><div class="text-xs">${(user.distance ?? 0).toFixed(1)} km away</div></div>`, {
-        direction: 'top',
-        offset: [0, -25],
-      });
+        marker.bindTooltip(`<div class="text-center"><div class="font-bold text-sm">${user.full_name || user.username}</div><div class="text-xs">${(user.distance ?? 0).toFixed(1)} km away</div></div>`, {
+          direction: 'top',
+          offset: [0, -25],
+        });
 
-      markersRef.current.push(marker);
+        markersRef.current.push(marker);
+      } else {
+        // Multiple users at same location - create cluster
+        const clusterIcon = L.divIcon({
+          html: `<div class="relative cursor-pointer hover:scale-110 transition-transform">
+                   <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full shadow-lg flex items-center justify-center border-2 border-white">
+                     <span class="text-white font-bold text-lg">${groupUsers.length}</span>
+                   </div>
+                   <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
+                 </div>`,
+          className: 'cluster-marker cursor-pointer',
+          iconSize: [48, 48],
+          iconAnchor: [24, 24],
+        });
+
+        const marker = L.marker([lat, lng], { icon: clusterIcon })
+          .addTo(mapInstanceRef.current);
+
+        marker.on('click', () => {
+          // Show first user in group
+          onUserSelect(groupUsers[0]);
+        });
+
+        const tooltipContent = groupUsers.map(u => `${u.full_name || u.username}`).join('<br>');
+        marker.bindTooltip(`<div class="text-center"><div class="font-bold text-sm">${groupUsers.length} users here</div><div class="text-xs mt-1">${tooltipContent}</div></div>`, {
+          direction: 'top',
+          offset: [0, -30],
+        });
+
+        markersRef.current.push(marker);
+      }
     });
   }, [users, mapLoaded, onUserSelect]);
 
@@ -234,6 +283,17 @@ const MapComponent: React.FC<{
 
   return (
     <div className="relative w-full h-full bg-gray-700 rounded-lg overflow-hidden">
+      <style>{`
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+        .animate-ping {
+          animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+      `}</style>
       {!mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-700 z-10">
           <Loader2 className="w-8 h-8 animate-spin text-white" />
@@ -244,7 +304,7 @@ const MapComponent: React.FC<{
   );
 };
 
-// User Profile Modal
+// User Profile Modal - FIXED Z-INDEX
 const UserProfileCard: React.FC<{
   user: MapUser;
   onClose: () => void;
@@ -260,7 +320,7 @@ const UserProfileCard: React.FC<{
         .from('user_connections')
         .select('status')
         .or(`and(user_id.eq.${currentUser.user_id},connected_user_id.eq.${user.user_id}),and(user_id.eq.${user.user_id},connected_user_id.eq.${currentUser.user_id})`)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setConnectionStatus(data.status);
@@ -294,9 +354,9 @@ const UserProfileCard: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full relative" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-70 p-4" onClick={onClose}>
+      <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white z-10">
           <X className="w-6 h-6" />
         </button>
 
@@ -371,7 +431,7 @@ const UserProfileCard: React.FC<{
   );
 };
 
-// Main Component - NO BOTTOM NAV (Dashboard handles navigation)
+// Main Component
 const SecureVibeMap: React.FC = () => {
   const { currentUser, loading: userLoading } = useCurrentUser();
   const [selectedRadius, setSelectedRadius] = useState(5);
@@ -393,7 +453,6 @@ const SecureVibeMap: React.FC = () => {
     setLoading(false);
   }, [currentUser, selectedRadius]);
 
-  // Update location periodically
   useEffect(() => {
     if (!currentUser?.user_id) return;
 
@@ -417,12 +476,10 @@ const SecureVibeMap: React.FC = () => {
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  // Load users when radius or location changes
   useEffect(() => {
     loadNearbyUsers();
   }, [loadNearbyUsers]);
 
-  // Real-time updates for online status changes
   useEffect(() => {
     if (!currentUser) return;
 
@@ -438,7 +495,6 @@ const SecureVibeMap: React.FC = () => {
         async (payload: any) => {
           const updatedProfile = payload.new as Profile;
           
-          // Update user in nearby list if they're in range
           if (currentUser.latitude && currentUser.longitude && updatedProfile.latitude && updatedProfile.longitude) {
             const distance = calculateDistance(
               currentUser.latitude, 
@@ -467,7 +523,6 @@ const SecureVibeMap: React.FC = () => {
                 }
               });
             } else if (!updatedProfile.is_online) {
-              // Remove offline users
               setNearbyUsers(prev => prev.filter(user => user.user_id !== updatedProfile.user_id));
             }
           }
@@ -479,6 +534,11 @@ const SecureVibeMap: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [currentUser, selectedRadius]);
+
+  const handleMessageUser = (user: MapUser) => {
+    // Emit custom event for Dashboard to handle
+    window.dispatchEvent(new CustomEvent('openChat', { detail: { user } }));
+  };
 
   if (userLoading) {
     return (
@@ -498,7 +558,6 @@ const SecureVibeMap: React.FC = () => {
 
   return (
     <div className="h-full bg-gray-900 flex">
-      {/* Main Map Area */}
       <div className="flex-1 flex flex-col p-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">Discover Nearby</h1>
@@ -565,7 +624,6 @@ const SecureVibeMap: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Sidebar - Nearby Users List */}
       <div className="w-80 bg-gray-800 p-4 overflow-y-auto border-l border-gray-700 hidden md:block">
         <h3 className="text-lg font-semibold text-white mb-4">Nearby Users</h3>
         {loading ? (
@@ -616,16 +674,11 @@ const SecureVibeMap: React.FC = () => {
         )}
       </div>
 
-      {/* User Profile Modal */}
       {selectedUser && (
         <UserProfileCard 
           user={selectedUser} 
           onClose={() => setSelectedUser(null)}
-          onMessage={(user) => {
-            setSelectedUser(null);
-            // Emit event or use router to navigate to messages
-            console.log('Open chat with:', user);
-          }}
+		  onMessage={handleMessageUser}
           currentUser={currentUser}
         />
       )}

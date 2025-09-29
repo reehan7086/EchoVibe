@@ -592,57 +592,61 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
           </motion.div>
 
           {/* Main Content */}
+{/* Main Content - FIXED SCROLLING */}
+<motion.div
+  initial={{ opacity: 0, x: 20 }}
+  animate={{ opacity: 1, x: 0 }}
+  className="lg:col-span-3 overflow-hidden flex flex-col"
+>
+  <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 flex flex-col h-full">
+    <div className="flex items-center justify-between p-8 border-b border-white/10 flex-shrink-0">
+      <h2 className="text-2xl font-bold text-white">
+        {sections.find(s => s.id === activeSection)?.label}
+      </h2>
+      
+      <div className="flex items-center gap-3">
+        {saved && (
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-3"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-2 text-green-400"
           >
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">
-                  {sections.find(s => s.id === activeSection)?.label}
-                </h2>
-                
-                <div className="flex items-center gap-3">
-                  {saved && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="flex items-center gap-2 text-green-400"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span className="text-sm">Saved</span>
-                    </motion.div>
-                  )}
-                  
-                  <button
-                    onClick={saveSettings}
-                    disabled={saving}
-                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center gap-2"
-                  >
-                    {saving ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </div>
-
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeSection}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {renderSection()}
-                </motion.div>
-              </AnimatePresence>
-            </div>
+            <Check className="w-4 h-4" />
+            <span className="text-sm">Saved</span>
           </motion.div>
+        )}
+        
+        <button
+          onClick={saveSettings}
+          disabled={saving}
+          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center gap-2"
+        >
+          {saving ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </div>
+
+    {/* SCROLLABLE CONTENT */}
+    <div className="flex-1 overflow-y-auto p-8">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeSection}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.2 }}
+        >
+          {renderSection()}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  </div>
+</motion.div>
         </div>
       </div>
 

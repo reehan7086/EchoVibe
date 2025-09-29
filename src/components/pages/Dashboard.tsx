@@ -167,6 +167,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     };
   }, [user]);
 
+  // Add this useEffect in Dashboard.tsx after other useEffects
+useEffect(() => {
+  const handleOpenChat = (event: any) => {
+    const { user } = event.detail;
+    // Navigate to messages page
+    setActivePage('messages');
+    // You can store the selected user in state if needed
+  };
+
+  window.addEventListener('openChat', handleOpenChat);
+  return () => window.removeEventListener('openChat', handleOpenChat);
+}, []);
+
   const handleLogout = async () => {
     try {
       if (user) {

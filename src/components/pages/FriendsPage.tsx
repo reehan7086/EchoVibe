@@ -35,6 +35,10 @@ interface FriendWithProfile {
   profile?: Profile;
 }
 
+interface ProfileWithDistance extends Profile {
+  distance?: number;
+}
+
 export type { FriendWithProfile };
 
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -68,7 +72,7 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ user, onStartChat }) => {
   const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'suggestions'>('friends');
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
   const [requests, setRequests] = useState<FriendWithProfile[]>([]);
-  const [suggestions, setSuggestions] = useState<Profile[]>([]);
+  const [suggestions, setSuggestions] = useState<(Profile & { distance?: number })[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -206,22 +210,50 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ user, onStartChat }) => {
 
   const handleAcceptRequest = async (connectionId: string) => {
     try {
-      const { error } = await supabase
+      // Get the request details first
+      const request = requests.find(r => r.id === connectionId);
+      if (!request) return;
+  
+      const requesterId = request.user_id;
+  
+      // Update the existing request to connected
+      const { error: updateError } = await supabase
         .from('user_connections')
         .update({ status: 'connected' })
         .eq('id', connectionId);
-
-      if (error) throw error;
-
+  
+      if (updateError) throw updateError;
+  
+      // Create reciprocal connection
+      const { error: insertError } = await supabase
+        .from('user_connections')
+        .insert({
+          user_id: currentUser!.user_id,
+          connected_user_id: requesterId,
+          status: 'connected'
+        });
+  
+      if (insertError && insertError.code !== '23505') {
+        throw insertError;
+      }
+  
+      // Send notification
+      await supabase.from('notifications').insert({
+        user_id: requesterId,
+        related_user_id: currentUser!.user_id,
+        type: 'connection_accepted',
+        message: `${currentUser!.full_name || currentUser!.username} accepted your friend request`,
+        read: false
+      });
+  
+      // Update UI
       setRequests(prev => prev.filter(r => r.id !== connectionId));
-      
-      // Reload friends
-      const connection = requests.find(r => r.id === connectionId);
-      if (connection?.profile) {
-        setFriends(prev => [...prev, connection as FriendWithProfile]);
+      if (request.profile) {
+        setFriends(prev => [...prev, request as FriendWithProfile]);
       }
     } catch (error) {
       console.error('Error accepting request:', error);
+      alert('Failed to approve request. Please try again.');
     }
   };
 
