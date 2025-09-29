@@ -1,4 +1,3 @@
-// src/components/pages/MessagesPage.tsx - Fixed for chat_rooms schema
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,7 +35,6 @@ interface Message {
 const AnimatedMoodEmoji: React.FC<{ mood: string }> = ({ mood }) => {
   const getMoodAnimation = (mood: string) => {
     const moodLower = mood?.toLowerCase() || '';
-    
     if (moodLower.includes('happy')) return '😊';
     if (moodLower.includes('music') || moodLower.includes('vibes')) return '🎵';
     if (moodLower.includes('work')) return '💼';
@@ -49,24 +47,19 @@ const AnimatedMoodEmoji: React.FC<{ mood: string }> = ({ mood }) => {
     if (moodLower.includes('game')) return '🎮';
     if (moodLower.includes('read')) return '📚';
     if (moodLower.includes('beach')) return '🏖️';
-    
     return '✨';
   };
 
-  const emoji = getMoodAnimation(mood);
-
   return (
     <div className="relative inline-block text-2xl animate-bounce-gentle">
-      {emoji}
+      {getMoodAnimation(mood)}
       <style>{`
         @keyframes bounce-gentle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           25% { transform: translateY(-5px) rotate(-5deg); }
           75% { transform: translateY(-3px) rotate(5deg); }
         }
-        .animate-bounce-gentle {
-          animation: bounce-gentle 2s ease-in-out infinite;
-        }
+        .animate-bounce-gentle { animation: bounce-gentle 2s ease-in-out infinite; }
       `}</style>
     </div>
   );
@@ -94,12 +87,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
   }, [user?.id]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages]);
 
   const createDefaultProfile = (userId: string, name: string = 'Unknown User'): Profile => ({
     id: userId,
@@ -121,24 +110,19 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
 
     try {
       setLoading(true);
-      
-      // Get chat rooms where user is a participant
       const { data: participantData, error: participantError } = await supabase
         .from('chat_participants')
         .select('chat_room_id')
         .eq('user_id', user.id);
 
       if (participantError) throw participantError;
-      
+
       const roomIds = participantData?.map(p => p.chat_room_id) || [];
-      
       if (roomIds.length === 0) {
         setChatRooms([]);
-        setLoading(false);
         return;
       }
 
-      // Get chat room details
       const { data: roomsData, error: roomsError } = await supabase
         .from('chat_rooms')
         .select('*')
@@ -147,14 +131,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
 
       if (roomsError) throw roomsError;
 
-      // For each room, get the other participant
       const roomsWithUsers = await Promise.all(
-        (roomsData || []).map(async (room) => {
-          if (room.is_group) {
-            return { ...room } as ChatRoom;
-          }
+        (roomsData || []).map(async room => {
+          if (room.is_group) return room as ChatRoom;
 
-          // Get other participant
           const { data: participants } = await supabase
             .from('chat_participants')
             .select('user_id')
@@ -168,34 +148,26 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
               .select('*')
               .eq('user_id', participants[0].user_id)
               .single();
-
-            return {
-              ...room,
-              other_user: profile || createDefaultProfile(participants[0].user_id)
-            } as ChatRoom;
+            return { ...room, other_user: profile || createDefaultProfile(participants[0].user_id) } as ChatRoom;
           }
 
-          return { ...room } as ChatRoom;
+          return room as ChatRoom;
         })
       );
 
-      if (mountedRef.current) {
-        setChatRooms(roomsWithUsers);
-      }
+      if (mountedRef.current) setChatRooms(roomsWithUsers);
     } catch (error) {
       console.error('Error fetching chat rooms:', error);
     } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
+      if (mountedRef.current) setLoading(false);
     }
   };
 
   const handleSelectChat = async (chatId: string) => {
     if (!mountedRef.current) return;
-    
+
     setSelectedChatId(chatId);
-    
+
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -209,56 +181,37 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         `)
         .eq('chat_room_id', chatId)
         .order('created_at', { ascending: true });
-      
+
       if (error) throw error;
-      
+
       if (mountedRef.current) {
-        const messagesWithProfiles = (data || []).map(message => ({
-          ...message,
-          profiles: message.profiles || createDefaultProfile(message.user_id)
-        }));
-        setMessages(messagesWithProfiles);
+        setMessages((data || []).map(m => ({ ...m, profiles: m.profiles || createDefaultProfile(m.user_id) })));
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
-      if (mountedRef.current) {
-        setMessages([]);
-      }
+      if (mountedRef.current) setMessages([]);
     }
   };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId || !mountedRef.current) return;
-    
+
     const messageContent = newMessage.trim();
     setNewMessage('');
-    
+
     try {
       const { error } = await supabase
         .from('messages')
-        .insert([{
-          chat_room_id: selectedChatId,
-          user_id: user.id,
-          content: messageContent,
-          message_type: 'text',
-          is_read: false
-        }]);
-      
+        .insert([{ chat_room_id: selectedChatId, user_id: user.id, content: messageContent, message_type: 'text', is_read: false }]);
+
       if (error) throw error;
-      
-      // Update chat room's last message
+
       await supabase
         .from('chat_rooms')
-        .update({
-          last_message: messageContent,
-          last_message_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .update({ last_message: messageContent, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq('id', selectedChatId);
 
-      // Reload messages
       await handleSelectChat(selectedChatId);
-
     } catch (error) {
       console.error('Error sending message:', error);
       setNewMessage(messageContent);
@@ -271,7 +224,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
       setSearchUsers([]);
       return;
     }
-    
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -279,12 +232,9 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
         .neq('user_id', user.id)
         .or(`username.ilike.%${userSearchQuery}%,full_name.ilike.%${userSearchQuery}%`)
         .limit(10);
-      
+
       if (error) throw error;
-      
-      if (mountedRef.current) {
-        setSearchUsers(data || []);
-      }
+      if (mountedRef.current) setSearchUsers(data || []);
     } catch (error) {
       console.error('Error searching users:', error);
     }
@@ -292,79 +242,51 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ user }) => {
 
   const startNewChat = async (otherUserId: string) => {
     if (!mountedRef.current) return;
-    
+
     try {
-      // Check if chat room already exists between these two users
-      const { data: existingParticipants } = await supabase
-        .from('chat_participants')
-        .select('chat_room_id')
-        .in('user_id', [user.id, otherUserId]);
+      // Query separately to avoid RLS infinite recursion
+      const { data: myRooms } = await supabase.from('chat_participants').select('chat_room_id').eq('user_id', user.id);
+      const { data: otherRooms } = await supabase.from('chat_participants').select('chat_room_id').eq('user_id', otherUserId);
 
-      if (existingParticipants && existingParticipants.length > 0) {
-        // Find rooms where both users are participants
-        const roomCounts = existingParticipants.reduce((acc: any, p: any) => {
-          acc[p.chat_room_id] = (acc[p.chat_room_id] || 0) + 1;
-          return acc;
-        }, {});
-
-        const existingRoomId = Object.keys(roomCounts).find(roomId => roomCounts[roomId] === 2);
-
-        if (existingRoomId) {
-          setSelectedChatId(existingRoomId);
-          setShowNewChatModal(false);
-          setUserSearchQuery('');
-          setSearchUsers([]);
-          await handleSelectChat(existingRoomId);
-          return;
-        }
-      }
-      
-      // Create new chat room
-      const { data: newRoom, error: roomError } = await supabase
-        .from('chat_rooms')
-        .insert([{ 
-          is_group: false,
-          created_by: user.id
-        }])
-        .select()
-        .single();
-      
-      if (roomError) throw roomError;
-      
-      // Add both participants
-      const { error: participantsError } = await supabase
-        .from('chat_participants')
-        .insert([
-          { chat_room_id: newRoom.id, user_id: user.id },
-          { chat_room_id: newRoom.id, user_id: otherUserId }
-        ]);
-
-      if (participantsError) throw participantsError;
-      
-      if (mountedRef.current) {
-        setSelectedChatId(newRoom.id);
+      const existingRoomId = myRooms?.map(r => r.chat_room_id).find(id => otherRooms?.some(r => r.chat_room_id === id));
+      if (existingRoomId) {
+        setSelectedChatId(existingRoomId);
         setShowNewChatModal(false);
         setUserSearchQuery('');
         setSearchUsers([]);
-        await fetchChatRooms();
-        await handleSelectChat(newRoom.id);
+        await handleSelectChat(existingRoomId);
+        return;
       }
+
+      // Create new chat room
+      const { data: newRoom, error: roomError } = await supabase.from('chat_rooms').insert([{ is_group: false, created_by: user.id }]).select().single();
+      if (roomError || !newRoom) throw roomError;
+
+      const { error: participantsError } = await supabase.from('chat_participants').insert([
+        { chat_room_id: newRoom.id, user_id: user.id },
+        { chat_room_id: newRoom.id, user_id: otherUserId }
+      ]);
+      if (participantsError) throw participantsError;
+
+      setSelectedChatId(newRoom.id);
+      setShowNewChatModal(false);
+      setUserSearchQuery('');
+      setSearchUsers([]);
+      await fetchChatRooms();
+      await handleSelectChat(newRoom.id);
     } catch (error) {
       console.error('Error starting new chat:', error);
       alert('Failed to start new chat. Please try again.');
     }
   };
 
-  const selectedChat = chatRooms.find((chat) => chat.id === selectedChatId);
+  const selectedChat = chatRooms.find(chat => chat.id === selectedChatId);
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
-      </div>
-    );
-  }
-
+  if (loading) return (
+    <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+    </div>
+  );
   return (
     <div className="fixed inset-0 flex flex-col bg-gray-900">
       {/* Header - Fixed */}
