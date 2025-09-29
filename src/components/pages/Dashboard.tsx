@@ -1,8 +1,8 @@
-// src/components/pages/Dashboard.tsx - Fixed Navigation and Profile Click
+// src/components/pages/Dashboard.tsx - Optimized with NO wasted space
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Home, MessageCircle, Users, Menu, X, LogOut, Bell, MapPin
+  Home, MessageCircle, Users, Menu, X, LogOut, Bell, MapPin, Settings
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
@@ -70,7 +70,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
 
       if (data) {
         setProfile(data);
-        // Update online status
         await supabase
           .from('profiles')
           .update({ 
@@ -79,7 +78,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
           })
           .eq('user_id', userId);
       } else {
-        // Create default profile if none exists
         const defaultProfile = {
           user_id: userId,
           username: 'user_' + userId.slice(-8),
@@ -93,7 +91,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
           created_at: new Date().toISOString()
         };
         
-        // Try to create the profile
         const { error: insertError } = await supabase
           .from('profiles')
           .insert(defaultProfile);
@@ -134,7 +131,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
 
     fetchNotifications();
 
-    // Subscribe to real-time notifications
     const channel = supabase
       .channel('notifications')
       .on('postgres_changes', { 
@@ -153,11 +149,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     };
   }, [user]);
 
-  // Handle user logout
   const handleLogout = async () => {
     try {
       if (user) {
-        // Update online status before logout
         await supabase
           .from('profiles')
           .update({ 
@@ -173,19 +167,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     }
   };
 
-  // Handle page navigation
   const handlePageChange = (page: Page) => {
     setActivePage(page);
     setMenuOpen(false);
   };
 
-  // Handle profile click - open profile page
   const handleProfileClick = () => {
     setActivePage('profile');
     setMenuOpen(false);
   };
 
-  // Mark notification as read
   const markNotificationAsRead = async (notificationId: string) => {
     try {
       await supabase
@@ -202,7 +193,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     }
   };
 
-  // Mark all notifications as read
   const markAllNotificationsAsRead = async () => {
     try {
       await supabase
@@ -218,7 +208,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     }
   };
 
-  // Render page content based on active page
   const renderPage = () => {
     if (!user) return <LoadingSpinner message="Loading user data..." />;
 
@@ -229,9 +218,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
         return <MessagesPage user={user} />;
       case 'friends':
         return <FriendsPage user={user} onStartChat={(friend) => {
-          // Switch to messages page when starting a chat
           setActivePage('messages');
-          // You can add additional logic here to open specific chat
         }} />;
       case 'profile':
         return <ProfilePage user={user} />;
@@ -272,207 +259,129 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     );
   }
 
+  const navItems: Array<{ 
+    key: string; 
+    icon: any; 
+    label: string; 
+    badge?: number;
+  }> = [
+    { key: 'map', icon: MapPin, label: 'Vibe Map' },
+    { key: 'messages', icon: MessageCircle, label: 'Messages' },
+    { key: 'friends', icon: Users, label: 'Friends' },
+    { key: 'notifications', icon: Bell, label: 'Alerts', badge: unreadCount },
+    { key: 'settings', icon: Settings, label: 'Settings' },
+  ];
+
   return (
-    <div className="flex h-screen w-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 overflow-hidden">
-      {/* Sidebar Menu */}
-      <motion.div 
-        animate={{ width: menuOpen ? 280 : 80 }} 
-        className="bg-black/20 backdrop-blur-xl border-r border-white/10 flex flex-col transition-all duration-300 relative z-10"
-      >
-        {/* Header */}
-        <div className="p-4 flex justify-between items-center border-b border-white/10">
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="flex items-center gap-3"
-              >
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                  <MapPin className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-bold text-lg text-white">SparkVibe</span>
-              </motion.div>
+    <div className="flex h-screen w-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
+      {/* COMPACT SIDEBAR - Only 80px wide, NO wasted space */}
+      <div className={`
+        fixed md:relative z-50 h-full
+        ${menuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        transition-transform duration-300 ease-in-out
+        w-20 bg-black/40 backdrop-blur-xl border-r border-white/10
+        flex flex-col items-center py-4 gap-4
+      `}>
+        {/* Profile Avatar - Clickable */}
+        <button 
+          onClick={handleProfileClick}
+          className="relative group cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 rounded-full"
+        >
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-sm font-bold border-2 border-purple-400 shadow-lg shadow-purple-500/50">
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile?.full_name || 'User'}
+                className="w-full h-full rounded-full object-cover"
+              />
+            ) : (
+              profile?.full_name?.[0]?.toUpperCase() || 
+              user.email?.[0]?.toUpperCase() || 'U'
             )}
-          </AnimatePresence>
-          <button 
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 hover:bg-white/10 rounded-lg transition-all text-white"
-          >
-            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-
-        {/* User Profile Section - Clickable */}
-        <div className="p-4 border-b border-white/10">
-          <button 
-            onClick={handleProfileClick}
-            className="w-full flex items-center gap-3 hover:bg-white/10 rounded-lg p-2 transition-all group"
-          >
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-sm font-bold flex-shrink-0">
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={profile?.full_name || 'User'}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                profile?.full_name?.[0]?.toUpperCase() || 
-                user.email?.[0]?.toUpperCase() || 'U'
-              )}
-            </div>
-            <AnimatePresence>
-              {menuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="flex-1 min-w-0 text-left"
-                >
-                  <h3 className="font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
-                    {profile?.full_name || user.email}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-white/60">Online • Click to view profile</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </button>
-        </div>
-
-        {/* Navigation Menu */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-2">
-            {[
-              { key: 'map', icon: MapPin, label: 'Vibe Map', description: 'Discover nearby vibes' },
-              { key: 'messages', icon: MessageCircle, label: 'Messages', description: 'Chat with connections' },
-              { key: 'friends', icon: Users, label: 'Friends', description: 'Your connections' },
-              { key: 'notifications', icon: Bell, label: 'Notifications', description: 'Your alerts', badge: unreadCount > 0 ? unreadCount : undefined },
-            ].map((item) => {
-              const Icon = item.icon;
-              const isActive = activePage === item.key;
-              
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => handlePageChange(item.key as Page)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all group relative ${
-                    isActive
-                      ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border border-purple-500/30'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${
-                    isActive ? 'text-purple-400' : ''
-                  }`} />
-                  <AnimatePresence>
-                    {menuOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="flex-1 text-left"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{item.label}</span>
-                          {item.badge && (
-                            <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-white/50">{item.description}</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-r-full" />
-                  )}
-                </button>
-              );
-            })}
           </div>
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
+          
+          {/* Tooltip */}
+          <span className="absolute left-full ml-4 px-3 py-2 bg-black/90 text-white text-sm rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            {profile?.full_name || 'Profile'}
+          </span>
+        </button>
 
-          {/* Settings Section */}
-          <div className="mt-8 pt-4 border-t border-white/10">
-            <button
-              onClick={() => handlePageChange('settings')}
-              className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all group relative ${
-                activePage === 'settings'
-                  ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border border-purple-500/30'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Users className={`w-5 h-5 transition-transform group-hover:scale-110 ${
-                activePage === 'settings' ? 'text-purple-400' : ''
-              }`} />
-              <AnimatePresence>
-                {menuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="flex-1 text-left"
-                  >
-                    <span className="font-medium">Settings</span>
-                    <p className="text-xs text-white/50">App preferences</p>
-                  </motion.div>
+        {/* Navigation Icons */}
+        <nav className="flex-1 flex flex-col gap-3 w-full px-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activePage === item.key;
+            
+            return (
+              <button
+                key={item.key}
+                onClick={() => handlePageChange(item.key as Page)}
+                className={`
+                  relative p-3 rounded-xl transition-all group
+                  ${isActive 
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/50' 
+                    : 'text-white/60 hover:text-white hover:bg-white/10'}
+                `}
+              >
+                <Icon size={24} />
+                
+                {/* Badge for notifications */}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
                 )}
-              </AnimatePresence>
-              {activePage === 'settings' && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-r-full" />
-              )}
-            </button>
-          </div>
-        </div>
+                
+                {/* Tooltip */}
+                <span className="absolute left-full ml-4 px-3 py-2 bg-black/90 text-white text-sm rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
 
         {/* Logout Button */}
-        <div className="p-4 border-t border-white/10">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"
-          >
-            <LogOut className="w-5 h-5" />
-            <AnimatePresence>
-              {menuOpen && (
-                <motion.span
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="font-medium"
-                >
-                  Logout
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
-        </div>
-      </motion.div>
+        <button
+          onClick={handleLogout}
+          className="p-3 rounded-xl text-white/60 hover:text-red-400 hover:bg-white/10 transition-all relative group"
+        >
+          <LogOut size={24} />
+          <span className="absolute left-full ml-4 px-3 py-2 bg-black/90 text-white text-sm rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            Logout
+          </span>
+        </button>
+      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden relative">
-        {/* Page Content */}
+      {/* Mobile Menu Button - Top Left */}
+      <button
+        onClick={() => setMenuOpen(!menuOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-black/40 backdrop-blur-xl rounded-xl text-white border border-white/10 shadow-lg"
+      >
+        {menuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Main Content - FULL SCREEN, NO MARGINS */}
+      <div className="flex-1 h-full overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={activePage}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="h-full w-full overflow-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="h-full w-full"
           >
             {renderPage()}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Mobile overlay when menu is open */}
+      {/* Mobile overlay */}
       {menuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-5 md:hidden"
+          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={() => setMenuOpen(false)}
         />
       )}
