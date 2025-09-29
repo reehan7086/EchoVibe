@@ -56,7 +56,7 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({
         // Update connection status to 'connected'
         const { error: connectionError } = await supabase
           .from('user_connections')
-          .update({ status: 'connected' })
+          .update({ status: 'accepted' })
           .or(`and(user_id.eq.${relatedUserId},connected_user_id.eq.${user.id}),and(user_id.eq.${user.id},connected_user_id.eq.${relatedUserId})`);
 
         if (connectionError) {

@@ -115,7 +115,7 @@ export interface UserConnection {
   id: string;
   user_id: string;
   connected_user_id: string;
-  status: 'pending' | 'connected' | 'blocked';
+  status: 'pending' | 'accepted' | 'blocked'; 
   created_at: string;
   updated_at?: string;
 }

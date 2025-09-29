@@ -87,7 +87,7 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ user, onStartChat }) => {
           .from('user_connections')
           .select('*')
           .or(`user_id.eq.${currentUser.user_id},connected_user_id.eq.${currentUser.user_id}`)
-          .eq('status', 'connected');
+          .eq('status', 'accepted');
 
         if (error) throw error;
 
@@ -219,7 +219,7 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ user, onStartChat }) => {
       // Update the existing request to connected
       const { error: updateError } = await supabase
         .from('user_connections')
-        .update({ status: 'connected' })
+        .update({ status: 'accepted' })
         .eq('id', connectionId);
   
       if (updateError) throw updateError;

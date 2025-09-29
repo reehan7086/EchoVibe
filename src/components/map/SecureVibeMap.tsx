@@ -1,7 +1,142 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, MessageCircle, UserPlus, Heart, X, Check, Loader2 } from 'lucide-react';
+import { MapPin, MessageCircle, UserPlus, Heart, X, Loader2, Smile, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Profile, MapUser } from '../../types';
+
+// Mood Selection Modal
+const MoodSelectionModal: React.FC<{
+  onClose: () => void;
+  onSave: (mood: string, vibe: string) => void;
+  currentMood?: string;
+  currentVibe?: string;
+}> = ({ onClose, onSave, currentMood = '', currentVibe = '' }) => {
+  const [selectedMood, setSelectedMood] = useState(currentMood);
+  const [vibeText, setVibeText] = useState(currentVibe);
+
+  const moods = [
+    { emoji: '😊', label: 'Happy', color: 'from-yellow-400 to-orange-400' },
+    { emoji: '😎', label: 'Chill', color: 'from-blue-400 to-cyan-400' },
+    { emoji: '🔥', label: 'Energetic', color: 'from-red-400 to-pink-400' },
+    { emoji: '💼', label: 'Working', color: 'from-gray-400 to-slate-400' },
+    { emoji: '☕', label: 'Coffee Time', color: 'from-amber-600 to-amber-800' },
+    { emoji: '🎵', label: 'Music Vibes', color: 'from-purple-400 to-pink-400' },
+    { emoji: '🏖️', label: 'Relaxing', color: 'from-teal-400 to-cyan-400' },
+    { emoji: '🍽️', label: 'Foodie', color: 'from-orange-400 to-red-400' },
+    { emoji: '💪', label: 'Gym Mode', color: 'from-green-400 to-emerald-400' },
+    { emoji: '🎨', label: 'Creative', color: 'from-indigo-400 to-purple-400' },
+    { emoji: '🎮', label: 'Gaming', color: 'from-violet-400 to-purple-400' },
+    { emoji: '📚', label: 'Reading', color: 'from-emerald-400 to-teal-400' },
+  ];
+
+  const handleSave = () => {
+    if (selectedMood && vibeText.trim()) {
+      onSave(selectedMood, vibeText.trim());
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-purple-500/20">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white">Set Your Vibe</h3>
+              <p className="text-sm text-gray-400">Let others know what you're up to</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          {/* Mood Selection */}
+          <div>
+            <label className="text-white font-medium mb-3 block flex items-center gap-2">
+              <Smile className="w-4 h-4" />
+              Choose Your Mood
+            </label>
+            <div className="grid grid-cols-4 gap-3">
+              {moods.map((mood) => (
+                <button
+                  key={mood.label}
+                  onClick={() => setSelectedMood(mood.label)}
+                  className={`p-3 rounded-xl transition-all transform hover:scale-105 ${
+                    selectedMood === mood.label
+                      ? `bg-gradient-to-r ${mood.color} shadow-lg scale-105`
+                      : 'bg-gray-700 hover:bg-gray-600'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{mood.emoji}</div>
+                  <div className={`text-xs font-medium ${
+                    selectedMood === mood.label ? 'text-white' : 'text-gray-300'
+                  }`}>
+                    {mood.label}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Vibe Text */}
+          <div>
+            <label className="text-white font-medium mb-2 block">
+              What's Your Vibe? <span className="text-gray-400 text-sm">(Keep it short!)</span>
+            </label>
+            <textarea
+              value={vibeText}
+              onChange={(e) => setVibeText(e.target.value)}
+              maxLength={60}
+              placeholder="e.g., Sipping coffee and watching the sunset..."
+              className="w-full bg-gray-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-400 resize-none"
+              rows={2}
+            />
+            <div className="text-right text-xs text-gray-400 mt-1">
+              {vibeText.length}/60 characters
+            </div>
+          </div>
+
+          {/* Preview */}
+          {selectedMood && vibeText && (
+            <div className="bg-gray-700/50 rounded-xl p-4 border border-purple-500/20">
+              <p className="text-xs text-gray-400 mb-2">Preview:</p>
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">
+                  {moods.find(m => m.label === selectedMood)?.emoji}
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-sm font-medium">{selectedMood}</p>
+                  <p className="text-gray-300 text-sm italic">"{vibeText}"</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!selectedMood || !vibeText.trim()}
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Save Vibe
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Current user hook
 const useCurrentUser = () => {
@@ -24,7 +159,7 @@ const useCurrentUser = () => {
     getCurrentUser();
   }, []);
 
-  return { currentUser, loading };
+  return { currentUser, loading, setCurrentUser };
 };
 
 // Utility functions
@@ -39,19 +174,22 @@ const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c;
 };
 
-const getActivityEmoji = (mood: string, activity?: string, gender?: string): string => {
-  const moodLower = mood?.toLowerCase() || '';
-  const activityLower = activity?.toLowerCase() || '';
-  
-  if (moodLower.includes('coffee') || activityLower.includes('coffee')) return '☕';
-  if (moodLower.includes('beach') || activityLower.includes('beach')) return '🏖️';
-  if (moodLower.includes('work') || activityLower.includes('work')) return '💼';
-  if (moodLower.includes('food') || activityLower.includes('eat')) return '🍽️';
-  if (moodLower.includes('gym') || activityLower.includes('fitness')) return '💪';
-  if (moodLower.includes('art') || activityLower.includes('art')) return '🎨';
-  if (moodLower.includes('music') || activityLower.includes('music')) return '🎵';
-  
-  return gender === 'female' ? '👩' : '👨';
+const getMoodEmoji = (mood: string): string => {
+  const moodMap: { [key: string]: string } = {
+    'Happy': '😊',
+    'Chill': '😎',
+    'Energetic': '🔥',
+    'Working': '💼',
+    'Coffee Time': '☕',
+    'Music Vibes': '🎵',
+    'Relaxing': '🏖️',
+    'Foodie': '🍽️',
+    'Gym Mode': '💪',
+    'Creative': '🎨',
+    'Gaming': '🎮',
+    'Reading': '📚',
+  };
+  return moodMap[mood] || '✨';
 };
 
 const getStatusFromLastActive = (lastActive: string, isOnline: boolean): 'online' | 'away' | 'offline' => {
@@ -86,7 +224,7 @@ const fetchNearbyUsers = async (userLat: number, userLng: number, radiusKm: numb
           ...user,
           distance,
           status: getStatusFromLastActive(user.last_active || new Date().toISOString(), user.is_online || false),
-          activity: user.current_mood || 'Just vibing',
+          activity: user.mood_message || 'Just vibing',
           location_name: `${distance.toFixed(1)} km away`
         } as MapUser;
       })
@@ -107,6 +245,16 @@ const updateUserLocation = async (userId: string, lat: number, lng: number): Pro
       last_active: new Date().toISOString(),
       last_ping: new Date().toISOString(),
       is_online: true
+    })
+    .eq('user_id', userId);
+};
+
+const updateUserMood = async (userId: string, mood: string, vibe: string): Promise<void> => {
+  await supabase
+    .from('profiles')
+    .update({
+      current_mood: mood,
+      mood_message: vibe,
     })
     .eq('user_id', userId);
 };
@@ -147,17 +295,28 @@ const MapComponent: React.FC<{
         weight: 2,
       }).addTo(mapInstanceRef.current);
 
-      // Current user marker with pulsing animation
+      // Small animated current user marker with vibe popup
+      const moodEmoji = getMoodEmoji(currentUser.current_mood || '');
+      const vibeMessage = currentUser.mood_message || '';
+      
       const currentUserIcon = L.divIcon({
         html: `<div class="relative flex items-center justify-center">
-                 <div class="absolute w-16 h-16 bg-purple-500 rounded-full animate-ping opacity-30"></div>
-                 <div class="relative w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 border-4 border-white rounded-full shadow-xl flex items-center justify-center z-10">
-                   <span class="text-2xl">⚡</span>
+                 <div class="absolute w-8 h-8 bg-purple-500 rounded-full animate-ping opacity-30"></div>
+                 <div class="relative w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-600 border-2 border-white rounded-full shadow-xl flex items-center justify-center z-10">
+                   <div class="absolute inset-0 rounded-full bg-white opacity-50 animate-pulse"></div>
                  </div>
+                 ${vibeMessage ? `
+                 <div class="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-2 rounded-xl shadow-2xl whitespace-nowrap animate-bounce-slow border-2 border-white/20 backdrop-blur-sm" style="animation: floatVibe 3s ease-in-out infinite;">
+                   <div class="flex items-center gap-2">
+                     <span class="text-lg">${moodEmoji}</span>
+                     <span class="text-xs font-medium">"${vibeMessage}"</span>
+                   </div>
+                   <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-pink-600"></div>
+                 </div>` : ''}
                </div>`,
         className: 'current-user-marker',
-        iconSize: [64, 64],
-        iconAnchor: [32, 32],
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       });
 
       L.marker([currentUser.latitude, currentUser.longitude], { icon: currentUserIcon })
@@ -165,7 +324,7 @@ const MapComponent: React.FC<{
 
       setMapLoaded(true);
     }
-  }, [currentUser.latitude, currentUser.longitude, radius]);
+  }, [currentUser.latitude, currentUser.longitude, currentUser.current_mood, currentUser.mood_message, radius]);
 
   useEffect(() => {
     if (!mapInstanceRef.current || !mapLoaded) return;
@@ -175,74 +334,43 @@ const MapComponent: React.FC<{
     markersRef.current.forEach(marker => mapInstanceRef.current.removeLayer(marker));
     markersRef.current = [];
 
-    // Group users by location
-    const locationGroups: { [key: string]: MapUser[] } = {};
     users.forEach((user) => {
       if (!user.latitude || !user.longitude) return;
-      const key = `${user.latitude.toFixed(5)},${user.longitude.toFixed(5)}`;
-      if (!locationGroups[key]) locationGroups[key] = [];
-      locationGroups[key].push(user);
-    });
-
-    // Create markers for each location group
-    Object.entries(locationGroups).forEach(([key, groupUsers]) => {
-      const [lat, lng] = key.split(',').map(Number);
       
-      if (groupUsers.length === 1) {
-        // Single user at this location
-        const user = groupUsers[0];
-        const emoji = getActivityEmoji(user.current_mood || '', user.activity, user.gender);
-        const pinColor = user.gender === 'female' ? 'from-pink-400 to-pink-600' : 'from-blue-400 to-blue-600';
-        const statusColor = user.status === 'online' ? 'bg-green-400' : user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400';
-        
-        const profileIcon = L.divIcon({
-          html: `<div class="relative"><div class="w-10 h-10 bg-gradient-to-r ${pinColor} rounded-full shadow-lg flex items-center justify-center border-2 border-white cursor-pointer hover:scale-110 transition-transform"><span class="text-lg">${emoji}</span></div><div class="absolute -top-1 -right-1 w-4 h-4 ${statusColor} border-2 border-white rounded-full"></div></div>`,
-          className: 'profile-marker cursor-pointer',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
-        });
-
-        const marker = L.marker([lat, lng], { icon: profileIcon })
-          .addTo(mapInstanceRef.current);
-
-        marker.on('click', () => onUserSelect(user));
-
-        marker.bindTooltip(`<div class="text-center"><div class="font-bold text-sm">${user.full_name || user.username}</div><div class="text-xs">${(user.distance ?? 0).toFixed(1)} km away</div></div>`, {
-          direction: 'top',
-          offset: [0, -25],
-        });
-
-        markersRef.current.push(marker);
-      } else {
-        // Multiple users at same location - create cluster
-        const clusterIcon = L.divIcon({
-          html: `<div class="relative cursor-pointer hover:scale-110 transition-transform">
-                   <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full shadow-lg flex items-center justify-center border-2 border-white">
-                     <span class="text-white font-bold text-lg">${groupUsers.length}</span>
+      const moodEmoji = getMoodEmoji(user.current_mood || '');
+      const vibeMessage = user.mood_message || '';
+      const pinColor = user.gender === 'female' ? 'from-pink-400 to-pink-600' : 'from-blue-400 to-blue-600';
+      const statusColor = user.status === 'online' ? 'bg-green-400' : user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400';
+      
+      const profileIcon = L.divIcon({
+        html: `<div class="relative group">
+                 <div class="absolute inset-0 bg-gradient-to-r ${pinColor} rounded-full blur-sm opacity-50 scale-110"></div>
+                 <div class="relative w-12 h-12 bg-gradient-to-r ${pinColor} rounded-full shadow-2xl flex items-center justify-center border-3 border-white cursor-pointer transform hover:scale-110 transition-all overflow-hidden">
+                   ${user.avatar_url ? 
+                     `<img src="${user.avatar_url}" class="w-full h-full object-cover" />` :
+                     `<span class="text-2xl">${moodEmoji}</span>`
+                   }
+                 </div>
+                 <div class="absolute -bottom-1 -right-1 w-4 h-4 ${statusColor} border-2 border-gray-900 rounded-full shadow-lg"></div>
+                 ${vibeMessage ? `
+                 <div class="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-gray-900/95 text-white px-3 py-2 rounded-xl shadow-2xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm border border-purple-500/30 max-w-xs" style="animation: floatVibeHover 2s ease-in-out infinite;">
+                   <div class="flex items-center gap-2">
+                     <span class="text-base">${moodEmoji}</span>
+                     <span class="text-xs font-medium">"${vibeMessage.length > 40 ? vibeMessage.substring(0, 40) + '...' : vibeMessage}"</span>
                    </div>
-                   <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
-                 </div>`,
-          className: 'cluster-marker cursor-pointer',
-          iconSize: [48, 48],
-          iconAnchor: [24, 24],
-        });
+                   <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
+                 </div>` : ''}
+               </div>`,
+        className: 'profile-marker',
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
+      });
 
-        const marker = L.marker([lat, lng], { icon: clusterIcon })
-          .addTo(mapInstanceRef.current);
+      const marker = L.marker([user.latitude, user.longitude], { icon: profileIcon })
+        .addTo(mapInstanceRef.current);
 
-        marker.on('click', () => {
-          // Show first user in group
-          onUserSelect(groupUsers[0]);
-        });
-
-        const tooltipContent = groupUsers.map(u => `${u.full_name || u.username}`).join('<br>');
-        marker.bindTooltip(`<div class="text-center"><div class="font-bold text-sm">${groupUsers.length} users here</div><div class="text-xs mt-1">${tooltipContent}</div></div>`, {
-          direction: 'top',
-          offset: [0, -30],
-        });
-
-        markersRef.current.push(marker);
-      }
+      marker.on('click', () => onUserSelect(user));
+      markersRef.current.push(marker);
     });
   }, [users, mapLoaded, onUserSelect]);
 
@@ -283,17 +411,6 @@ const MapComponent: React.FC<{
 
   return (
     <div className="relative w-full h-full bg-gray-700 rounded-lg overflow-hidden">
-      <style>{`
-        @keyframes ping {
-          75%, 100% {
-            transform: scale(2);
-            opacity: 0;
-          }
-        }
-        .animate-ping {
-          animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-        }
-      `}</style>
       {!mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-700 z-10">
           <Loader2 className="w-8 h-8 animate-spin text-white" />
@@ -304,14 +421,14 @@ const MapComponent: React.FC<{
   );
 };
 
-// User Profile Modal - FIXED Z-INDEX
+// User Profile Modal
 const UserProfileCard: React.FC<{
   user: MapUser;
   onClose: () => void;
   onMessage: (user: MapUser) => void;
   currentUser: Profile;
 }> = ({ user, onClose, onMessage, currentUser }) => {
-  const [connectionStatus, setConnectionStatus] = useState<'none' | 'pending' | 'connected'>('none');
+  const [connectionStatus, setConnectionStatus] = useState<'none' | 'pending' | 'accepted'>('none');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -353,6 +470,8 @@ const UserProfileCard: React.FC<{
     setLoading(false);
   };
 
+  const moodEmoji = getMoodEmoji(user.current_mood || '');
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-70 p-4" onClick={onClose}>
       <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -364,7 +483,11 @@ const UserProfileCard: React.FC<{
           <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center text-3xl mb-3 ${
             user.gender === 'female' ? 'bg-gradient-to-r from-pink-400 to-pink-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'
           }`}>
-            {getActivityEmoji(user.current_mood || '', user.activity, user.gender)}
+            {user.avatar_url ? (
+              <img src={user.avatar_url} alt={user.full_name || 'User'} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              moodEmoji
+            )}
           </div>
           <h3 className="text-xl font-bold text-white">{user.full_name || user.username}</h3>
           <p className="text-gray-400">@{user.username}</p>
@@ -383,10 +506,18 @@ const UserProfileCard: React.FC<{
         </div>
 
         <div className="space-y-4 mb-6">
-          <div>
-            <p className="text-gray-400 text-xs uppercase">Current Mood</p>
-            <p className="text-white">{user.current_mood || 'Just vibing'}</p>
-          </div>
+          {user.current_mood && user.mood_message && (
+            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-xl p-4 border border-purple-500/30">
+              <p className="text-gray-400 text-xs uppercase mb-2">Current Vibe</p>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{moodEmoji}</span>
+                <div>
+                  <p className="text-white font-medium">{user.current_mood}</p>
+                  <p className="text-gray-300 text-sm italic">"{user.mood_message}"</p>
+                </div>
+              </div>
+            </div>
+          )}
           {user.bio && (
             <div>
               <p className="text-gray-400 text-xs uppercase">Bio</p>
@@ -402,7 +533,7 @@ const UserProfileCard: React.FC<{
         <div className="grid grid-cols-2 gap-3">
           <button 
             onClick={() => onMessage(user)}
-            className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-colors"
           >
             <MessageCircle className="w-4 h-4" />
             <span>Chat</span>
@@ -411,16 +542,16 @@ const UserProfileCard: React.FC<{
             onClick={handleConnect}
             disabled={loading || connectionStatus !== 'none'}
             className={`${
-              connectionStatus === 'connected' ? 'bg-green-600' : 
+              connectionStatus === 'accepted' ? 'bg-green-600' : 
               connectionStatus === 'pending' ? 'bg-yellow-600' : 
               'bg-purple-600 hover:bg-purple-700'
-            } text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 disabled:opacity-50`}
+            } text-white py-3 px-4 rounded-xl flex items-center justify-center space-x-2 disabled:opacity-50 transition-colors`}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 
-             connectionStatus === 'connected' ? <Heart className="w-4 h-4 fill-current" /> : 
+             connectionStatus === 'accepted' ? <Heart className="w-4 h-4 fill-current" /> : 
              <UserPlus className="w-4 h-4" />}
             <span>
-              {connectionStatus === 'connected' ? 'Friends' : 
+              {connectionStatus === 'accepted' ? 'Friends' : 
                connectionStatus === 'pending' ? 'Pending' : 
                'Connect'}
             </span>
@@ -433,11 +564,26 @@ const UserProfileCard: React.FC<{
 
 // Main Component
 const SecureVibeMap: React.FC = () => {
-  const { currentUser, loading: userLoading } = useCurrentUser();
+  const { currentUser, loading: userLoading, setCurrentUser } = useCurrentUser();
   const [selectedRadius, setSelectedRadius] = useState(5);
   const [nearbyUsers, setNearbyUsers] = useState<MapUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<MapUser | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showMoodModal, setShowMoodModal] = useState(false);
+
+  // Check if user needs to set mood on mount
+  useEffect(() => {
+    if (currentUser && !currentUser.current_mood && !currentUser.mood_message) {
+      setShowMoodModal(true);
+    }
+  }, [currentUser]);
+
+  const handleSaveMood = async (mood: string, vibe: string) => {
+    if (!currentUser) return;
+    
+    await updateUserMood(currentUser.user_id, mood, vibe);
+    setCurrentUser({ ...currentUser, current_mood: mood, mood_message: vibe });
+  };
 
   const loadNearbyUsers = useCallback(async () => {
     if (!currentUser?.latitude || !currentUser?.longitude) return;
@@ -480,69 +626,13 @@ const SecureVibeMap: React.FC = () => {
     loadNearbyUsers();
   }, [loadNearbyUsers]);
 
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const channel = supabase
-      .channel('profile-changes')
-      .on(
-        'postgres_changes',
-        { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'profiles' 
-        },
-        async (payload: any) => {
-          const updatedProfile = payload.new as Profile;
-          
-          if (currentUser.latitude && currentUser.longitude && updatedProfile.latitude && updatedProfile.longitude) {
-            const distance = calculateDistance(
-              currentUser.latitude, 
-              currentUser.longitude, 
-              updatedProfile.latitude, 
-              updatedProfile.longitude
-            );
-            
-            if (distance <= selectedRadius && updatedProfile.user_id !== currentUser.user_id && updatedProfile.is_online) {
-              const mapUser: MapUser = {
-                ...updatedProfile,
-                distance,
-                status: getStatusFromLastActive(updatedProfile.last_active || new Date().toISOString(), updatedProfile.is_online || false),
-                activity: updatedProfile.current_mood || 'Just vibing',
-                location_name: `${distance.toFixed(1)} km away`
-              };
-              
-              setNearbyUsers(prev => {
-                const existingIndex = prev.findIndex(user => user.user_id === updatedProfile.user_id);
-                if (existingIndex >= 0) {
-                  const updated = [...prev];
-                  updated[existingIndex] = mapUser;
-                  return updated.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
-                } else {
-                  return [...prev, mapUser].sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
-                }
-              });
-            } else if (!updatedProfile.is_online) {
-              setNearbyUsers(prev => prev.filter(user => user.user_id !== updatedProfile.user_id));
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser, selectedRadius]);
-
   const handleMessageUser = (user: MapUser) => {
-    // Emit custom event for Dashboard to handle
     window.dispatchEvent(new CustomEvent('openChat', { detail: { user } }));
   };
 
   if (userLoading) {
     return (
-      <div className="h-full bg-gray-900 flex items-center justify-center">
+      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-purple-500" />
       </div>
     );
@@ -550,18 +640,86 @@ const SecureVibeMap: React.FC = () => {
 
   if (!currentUser) {
     return (
-      <div className="h-full bg-gray-900 flex items-center justify-center text-white">
+      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">
         <p>Please log in to use SparkVibe Map</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-gray-900 flex">
+    <div className="fixed inset-0 flex bg-gray-900">
+      <style>{`
+        body, html {
+          overflow: hidden;
+          margin: 0;
+          padding: 0;
+        }
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+        .animate-ping {
+          animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes floatVibe {
+          0%, 100% {
+            transform: translateY(0px) translateX(-50%);
+          }
+          50% {
+            transform: translateY(-8px) translateX(-50%);
+          }
+        }
+        @keyframes floatVibeHover {
+          0%, 100% {
+            transform: translateY(0px) translateX(-50%);
+          }
+          50% {
+            transform: translateY(-5px) translateX(-50%);
+          }
+        }
+        .animate-bounce-slow {
+          animation: floatVibe 3s ease-in-out infinite;
+        }
+        .leaflet-container {
+          background: #1e293b;
+        }
+        .leaflet-control-zoom {
+          border: none !important;
+        }
+        .leaflet-control-zoom a {
+          background: rgba(255, 255, 255, 0.9) !important;
+          backdrop-filter: blur(12px);
+          border: none !important;
+          border-radius: 8px !important;
+          margin-bottom: 4px !important;
+        }
+      `}</style>
+
+      {/* Mood Modal */}
+      {showMoodModal && (
+        <MoodSelectionModal
+          onClose={() => setShowMoodModal(false)}
+          onSave={handleSaveMood}
+          currentMood={currentUser.current_mood || ''}
+          currentVibe={currentUser.mood_message || ''}
+        />
+      )}
+
       <div className="flex-1 flex flex-col p-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">Discover Nearby</h1>
           <div className="flex items-center space-x-4">
+            {/* Edit Vibe Button */}
+            <button
+              onClick={() => setShowMoodModal(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
+            >
+              <Sparkles className="w-4 h-4" />
+              {currentUser.current_mood ? 'Edit Vibe' : 'Set Your Vibe'}
+            </button>
+            
             <select 
               value={selectedRadius}
               onChange={(e) => setSelectedRadius(Number(e.target.value))}
@@ -583,6 +741,25 @@ const SecureVibeMap: React.FC = () => {
             </div>
           </div>
         </div>
+        
+        {/* Current User Vibe Display */}
+        {currentUser.current_mood && currentUser.mood_message && (
+          <div className="mb-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-xl p-3 border border-purple-500/30">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{getMoodEmoji(currentUser.current_mood)}</span>
+              <div className="flex-1">
+                <p className="text-white font-medium text-sm">{currentUser.current_mood}</p>
+                <p className="text-gray-300 text-xs italic">"{currentUser.mood_message}"</p>
+              </div>
+              <button
+                onClick={() => setShowMoodModal(true)}
+                className="text-purple-400 hover:text-purple-300 text-xs"
+              >
+                Change
+              </button>
+            </div>
+          </div>
+        )}
         
         <div className="flex-1 min-h-0">
           {currentUser.latitude && currentUser.longitude ? (
@@ -637,39 +814,50 @@ const SecureVibeMap: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {nearbyUsers.map((user) => (
-              <div 
-                key={user.id} 
-                className="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-all cursor-pointer"
-                onClick={() => setSelectedUser(user)}
-              >
-                <div className="flex items-start space-x-3">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg relative ${
-                    user.gender === 'female' 
-                      ? 'bg-gradient-to-r from-pink-400 to-pink-600' 
-                      : 'bg-gradient-to-r from-blue-400 to-blue-600'
-                  } shadow-lg`}>
-                    {getActivityEmoji(user.current_mood || '', user.activity, user.gender)}
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-700 ${
-                      user.status === 'online' ? 'bg-green-400' : 
-                      user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400'
-                    }`}></div>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white text-sm truncate">{user.full_name || user.username}</p>
-                        <p className="text-xs text-gray-400 truncate">{user.location_name}</p>
-                      </div>
-                      <span className="text-xs text-gray-400 ml-2">{(user.distance ?? 0).toFixed(1)} km</span>
+            {nearbyUsers.map((user) => {
+              const moodEmoji = getMoodEmoji(user.current_mood || '');
+              return (
+                <div 
+                  key={user.id} 
+                  className="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-all cursor-pointer"
+                  onClick={() => setSelectedUser(user)}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg relative overflow-hidden ${
+                      user.gender === 'female' 
+                        ? 'bg-gradient-to-r from-pink-400 to-pink-600' 
+                        : 'bg-gradient-to-r from-blue-400 to-blue-600'
+                    } shadow-lg`}>
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.full_name || 'User'} className="w-full h-full object-cover" />
+                      ) : (
+                        moodEmoji
+                      )}
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-700 ${
+                        user.status === 'online' ? 'bg-green-400' : 
+                        user.status === 'away' ? 'bg-yellow-400' : 'bg-gray-400'
+                      }`}></div>
                     </div>
                     
-                    <p className="text-xs text-gray-300 italic truncate mt-1">"{user.current_mood || 'Just vibing'}"</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-white text-sm truncate">{user.full_name || user.username}</p>
+                          <p className="text-xs text-gray-400 truncate">{user.location_name}</p>
+                        </div>
+                        <span className="text-xs text-gray-400 ml-2">{(user.distance ?? 0).toFixed(1)} km</span>
+                      </div>
+                      
+                      {user.mood_message && (
+                        <div className="mt-2 bg-gray-800/50 rounded-lg px-2 py-1">
+                          <p className="text-xs text-gray-300 italic truncate">"{user.mood_message}"</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -678,7 +866,7 @@ const SecureVibeMap: React.FC = () => {
         <UserProfileCard 
           user={selectedUser} 
           onClose={() => setSelectedUser(null)}
-		  onMessage={handleMessageUser}
+          onMessage={handleMessageUser}
           currentUser={currentUser}
         />
       )}
