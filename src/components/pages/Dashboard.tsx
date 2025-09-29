@@ -1,9 +1,8 @@
-// src/components/pages/Dashboard.tsx - ENHANCED VERSION (No Sidebar)
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Home, MessageCircle, Users, Menu, X, LogOut, Bell, MapPin, Settings,
-  Activity, Compass, Zap as ZapIcon, Calendar
+  MessageCircle, Users, Menu, X, LogOut, Bell, MapPin, Settings,
+  Zap as ZapIcon
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
@@ -16,54 +15,11 @@ import NotificationsPage from './NotificationsPage';
 import FriendsPage from './FriendsPage';
 import LoadingSpinner from './LoadingSpinner';
 
-type Page = 'feed' | 'explore' | 'map' | 'messages' | 'friends' | 'profile' | 'notifications' | 'settings';
+type Page = 'map' | 'messages' | 'friends' | 'notifications' | 'settings' | 'profile';
 
 interface DashboardProps {
   user?: User;
 }
-
-// Placeholder components for new features
-const FeedPage: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-    <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-6">
-      <Activity className="w-10 h-10 text-white" />
-    </div>
-    <h2 className="text-2xl font-bold text-white mb-3">Activity Feed</h2>
-    <p className="text-white/70 max-w-md mb-6">
-      See what's happening around you. Check out nearby user activities, vibes, and moments.
-    </p>
-    <div className="bg-white/10 backdrop-blur-xl rounded-xl border border-white/20 p-4 text-left w-full max-w-md">
-      <p className="text-white/80 text-sm mb-2">✨ Coming soon features:</p>
-      <ul className="text-white/60 text-sm space-y-1 list-disc list-inside">
-        <li>Real-time activity updates</li>
-        <li>Nearby user vibes</li>
-        <li>Community moments</li>
-        <li>Trending topics</li>
-      </ul>
-    </div>
-  </div>
-);
-
-const ExplorePage: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-    <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mb-6">
-      <Compass className="w-10 h-10 text-white" />
-    </div>
-    <h2 className="text-2xl font-bold text-white mb-3">Explore</h2>
-    <p className="text-white/70 max-w-md mb-6">
-      Discover new communities, events, and places around you.
-    </p>
-    <div className="bg-white/10 backdrop-blur-xl rounded-xl border border-white/20 p-4 text-left w-full max-w-md">
-      <p className="text-white/80 text-sm mb-2">🎯 Explore features:</p>
-      <ul className="text-white/60 text-sm space-y-1 list-disc list-inside">
-        <li>Local communities</li>
-        <li>Upcoming events</li>
-        <li>Popular hangout spots</li>
-        <li>Interest-based groups</li>
-      </ul>
-    </div>
-  </div>
-);
 
 const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -252,16 +208,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     if (!user) return <LoadingSpinner message="Loading user data..." />;
 
     switch (activePage) {
-      case 'feed':
-        return <FeedPage />;
-      case 'explore':
-        return <ExplorePage />;
       case 'map':
         return <MapComponent />;
       case 'messages':
         return <MessagesPage user={user} />;
       case 'friends':
-        return <FriendsPage user={user} onStartChat={(friend: import('./FriendsPage').FriendWithProfile) => {
+        return <FriendsPage user={user} onStartChat={(friend: any) => {
           setActivePage('messages');
         }} />;
       case 'profile':
@@ -303,33 +255,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
     );
   }
 
-  // Main navigation items for bottom nav (5 items max for mobile)
-  type NavItem = {
-    key: string;
-    icon: React.ForwardRefExoticComponent<any>;
-    label: string;
-    badge?: number;
-  };
-
-  const mainNavItems: NavItem[] = [
-    { key: 'feed', icon: Activity, label: 'Feed' },
-    { key: 'explore', icon: Compass, label: 'Explore' },
-    { key: 'map', icon: MapPin, label: 'Map' },
+  const mainNavItems = [
+    { key: 'map', icon: MapPin, label: 'Vibe Map' },
     { key: 'messages', icon: MessageCircle, label: 'Chat' },
     { key: 'friends', icon: Users, label: 'Friends' },
-  ];
-
-  // Additional menu items (accessible via menu)
-  const menuItems = [
-    ...mainNavItems,
     { key: 'notifications', icon: Bell, label: 'Notifications', badge: unreadCount },
     { key: 'settings', icon: Settings, label: 'Settings' },
   ];
 
   return (
     <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
-      {/* Top Header - Clean and Simple */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/10 px-4 py-3 safe-area-top">
+      {/* Top Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/10 px-4 py-3">
         <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
           {/* Logo */}
           <div className="flex items-center gap-2">
@@ -346,22 +283,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
             </h1>
           </div>
 
-          {/* Right Side - Profile & Menu */}
+          {/* Right Side */}
           <div className="flex items-center gap-3">
-            {/* Notifications Quick Access */}
-            <button
-              onClick={() => handlePageChange('notifications')}
-              className="relative p-2 rounded-lg hover:bg-white/10 transition-all"
-            >
-              <Bell className="w-5 h-5 text-white" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {/* Profile Avatar with Online Status */}
+            {/* Profile Avatar */}
             <button 
               onClick={handleProfileClick}
               className="relative group"
@@ -378,7 +302,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   user.email?.[0]?.toUpperCase() || 'U'
                 )}
               </div>
-              {/* Online Status Indicator */}
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
             </button>
 
@@ -393,7 +316,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <div className="flex-1 overflow-hidden pt-16 pb-20 max-w-screen-2xl mx-auto w-full">
         <AnimatePresence mode="wait">
           <motion.div
@@ -409,9 +332,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
         </AnimatePresence>
       </div>
 
-      {/* Bottom Navigation Bar - 5 Main Actions */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-t border-white/10 pb-safe">
-        <nav className="flex justify-around items-center px-2 py-2 max-w-screen-2xl mx-auto">
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-t border-white/10">
+        <nav className="flex justify-around items-center px-2 py-3 max-w-screen-2xl mx-auto">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activePage === item.key;
@@ -420,11 +343,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
               <button
                 key={item.key}
                 onClick={() => handlePageChange(item.key as Page)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all min-w-[60px] touch-target ${
+                className={`relative flex flex-col items-center gap-1 p-2 rounded-lg transition-all min-w-[60px] min-h-[48px] ${
                   isActive ? 'text-purple-400' : 'text-white/60'
                 }`}
               >
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                <div className="relative">
+                  <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs font-medium">{item.label}</span>
                 {isActive && (
                   <motion.div 
@@ -467,7 +397,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   </button>
                 </div>
 
-                {/* User Info */}
+                {/* User Info Card */}
                 <div className="bg-white/5 rounded-xl p-4 mb-6">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
@@ -495,36 +425,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   </div>
                 </div>
 
-                {/* Menu Navigation */}
-                <nav className="space-y-2">
-                  {menuItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = activePage === item.key;
-                    
-                    return (
-                      <button
-                        key={item.key}
-                        onClick={() => handlePageChange(item.key as Page)}
-                        className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
-                          isActive
-                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                            : 'text-white/70 hover:text-white hover:bg-white/10'
-                        }`}
-                      >
-                        <Icon size={20} />
-                        <span className="font-medium flex-1 text-left">{item.label}</span>
-                        {item.badge !== undefined && item.badge > 0 && (
-                          <span className="px-2 py-1 bg-red-500 text-white text-xs rounded-full font-bold">
-                            {item.badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </nav>
+                {/* Quick Actions */}
+                <div className="space-y-2 mb-6">
+                  <button
+                    onClick={handleProfileClick}
+                    className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:shadow-lg transition-all"
+                  >
+                    View Profile
+                  </button>
+                </div>
 
                 {/* Logout */}
-                <div className="mt-8 pt-8 border-t border-white/10">
+                <div className="pt-6 border-t border-white/10">
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all"
@@ -534,7 +446,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user: propUser }) => {
                   </button>
                 </div>
 
-                {/* App Version */}
+                {/* App Info */}
                 <div className="mt-6 text-center text-white/40 text-xs">
                   SparkVibe v1.0.0
                 </div>
