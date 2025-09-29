@@ -350,3 +350,476 @@ html {
     opacity: 0.4;
   }
 }
+
+/* src/index.css - MOBILE-FIRST CSS ADDITIONS */
+
+/* Add these styles to your existing index.css file */
+
+/* Safe area support for modern mobile browsers */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+}
+
+/* Mobile-first touch targets */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Prevent zoom on input focus */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
+/* Mobile map optimizations */
+.mobile-map-container {
+  height: calc(100vh - 8rem); /* Account for header and bottom nav */
+  width: 100%;
+  position: relative;
+}
+
+@media (min-width: 1024px) {
+  .mobile-map-container {
+    height: 100vh;
+  }
+}
+
+/* Fullscreen map on mobile */
+.map-fullscreen-mobile {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+}
+
+/* Mobile-optimized modals */
+.mobile-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 90vh;
+  border-radius: 1.5rem 1.5rem 0 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 768px) {
+  .mobile-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    bottom: auto;
+    max-width: 32rem;
+    border-radius: 1rem;
+  }
+}
+
+/* Improve touch scrolling */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Mobile-friendly button states */
+button:active:not(:disabled) {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
+}
+
+/* Bottom sheet drag indicator */
+.drag-indicator {
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  margin: 0.75rem auto 1rem;
+}
+
+/* Mobile-optimized cards */
+.mobile-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  padding: 1rem;
+  margin: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .mobile-card {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+}
+
+/* Fix textarea on mobile */
+textarea {
+  resize: none;
+  min-height: 100px;
+  -webkit-appearance: none;
+}
+
+/* Prevent overscroll bounce */
+body {
+  overscroll-behavior-y: none;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior-y: none;
+}
+
+/* Mobile navigation improvements */
+.mobile-nav-item {
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-nav-item::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.mobile-nav-item:active::after {
+  opacity: 1;
+}
+
+/* Responsive text sizes */
+.text-responsive {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+.text-responsive-lg {
+  font-size: clamp(1.125rem, 3vw, 1.5rem);
+}
+
+.text-responsive-xl {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+/* Mobile-friendly forms */
+.mobile-form-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 16px;
+  -webkit-appearance: none;
+}
+
+.mobile-form-field:focus {
+  outline: none;
+  border-color: rgba(168, 85, 247, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Loading states */
+.mobile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+/* Mobile-optimized shadows */
+.mobile-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+              0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 768px) {
+  .mobile-shadow {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* Gesture detection prevention for UI elements */
+.no-gesture {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Mobile-friendly spacing */
+.mobile-spacing {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .mobile-spacing {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .mobile-spacing {
+    padding: 2rem;
+  }
+}
+
+/* Fix for iOS keyboard pushing content */
+@supports (-webkit-touch-callout: none) {
+  .keyboard-aware {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Improve map marker touch targets */
+.leaflet-marker-icon {
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+/* Mobile-optimized tooltips */
+.mobile-tooltip {
+  font-size: 14px;
+  padding: 0.5rem 0.75rem;
+  max-width: 200px;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* Prevent text selection on UI elements */
+.ui-element {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Mobile-friendly avatar sizes */
+.avatar-sm {
+  width: 2rem;
+  height: 2rem;
+}
+
+.avatar-md {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.avatar-lg {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+@media (min-width: 768px) {
+  .avatar-sm {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .avatar-md {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .avatar-lg {
+    width: 4rem;
+    height: 4rem;
+  }
+}
+
+/* Performance optimizations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode adjustments for mobile */
+@media (prefers-color-scheme: dark) {
+  .mobile-card {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  .mobile-form-field {
+    background: rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .mobile-card,
+  .mobile-form-field {
+    border-width: 2px;
+  }
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .mobile-map-container {
+    height: calc(100vh - 4rem);
+  }
+  
+  .mobile-modal {
+    max-height: 80vh;
+  }
+}
+
+/* Fix for notch devices */
+@supports (padding: max(0px)) {
+  .has-notch {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
+
+/* Swipe gesture indicators */
+.swipeable {
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.swipeable:active {
+  cursor: grabbing;
+}
+
+/* Mobile-optimized badges */
+.mobile-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+/* Floating action button for mobile */
+.fab-mobile {
+  position: fixed;
+  bottom: 6rem;
+  right: 1rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 40;
+}
+
+@media (min-width: 1024px) {
+  .fab-mobile {
+    display: none;
+  }
+}
+
+/* Pull-to-refresh indicator */
+.pull-to-refresh {
+  position: absolute;
+  top: -50px;
+  left: 0;
+  right: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.pull-to-refresh.active {
+  transform: translateY(50px);
+}
+
+/* Mobile-friendly horizontal scroll */
+.mobile-scroll-x {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mobile-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-scroll-x > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Status bar height compensation */
+.status-bar-height {
+  height: env(safe-area-inset-top, 0px);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Bottom navigation safe area */
+.bottom-nav-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+/* Mobile-optimized skeleton loading */
+.skeleton-mobile {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
